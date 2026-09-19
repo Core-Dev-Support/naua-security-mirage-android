@@ -8,6 +8,7 @@
     <color name="ink_muted">#8A8D9E</color>
     <color name="ink_faint">#828699</color>
     <color name="amber">#E8A33D</color>
+    <color name="accent">#E8A33D</color>
     <color name="amber_deep">#C9722A</color>
     <color name="amber_light">#F3B65C</color>
     <color name="power_icon_color">#2A1706</color>
