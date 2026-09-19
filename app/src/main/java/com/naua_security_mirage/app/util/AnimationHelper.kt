@@ -242,6 +242,35 @@ object AnimationHelper {
     }
 
     /**
+     * Smooth hardware vsync rotation animation via [Choreographer].
+     * Immune to system animator duration scale (works even if animations are disabled on device).
+     */
+    fun spin(
+        view: View,
+        durationMs: Long = 850,
+        rotations: Float = 1f,
+        onEnd: (() -> Unit)? = null
+    ): AnimationHandle {
+        cancelViewAnimation(view)
+        val startRotation = view.rotation
+        val targetRotation = startRotation + (360f * rotations)
+
+        val handle = animateDirect(
+            durationMs = durationMs,
+            interpolator = EaseInOutCubic,
+            onUpdate = { fraction ->
+                view.rotation = startRotation + (targetRotation - startRotation) * fraction
+            },
+            onEnd = {
+                view.rotation = targetRotation % 360f
+                onEnd?.invoke()
+            }
+        )
+        activeAnimations[view] = handle
+        return handle
+    }
+
+    /**
      * Tactile spring bounce on press and release (scale down -> spring up).
      */
     fun bounceClick(

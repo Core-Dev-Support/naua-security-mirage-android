@@ -16,10 +16,11 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/Core-Dev-Support/naua-security-mirage-android/releases/latest"><b>⬇️ Скачать APK</b></a> •
-  <a href="https://www.rustore.ru/catalog/app/com.naua_security_mirage.app"><b>🛒 RuStore</b></a> •
-  <a href="https://docs.google.com/document/d/1Q0_MpGF5D1GGoFu2HcdTle0kvLb3S7L52x2XIc47eLw/edit?usp=sharing"><b>📋 Лицензионное соглашение (EULA)</b></a> •
-  <a href="https://docs.google.com/document/d/1FrmDpGS3sC_kQYyv1feNO2G2XMQr_ZV4_GAS-Qm4y1I/edit?usp=sharing"><b>🔒 Политика конфиденциальности</b></a>
+  <a href="https://github.com/Core-Dev-Support/naua-security-mirage-android/releases/latest"><b>⬇️ Скачать APK (GitHub Releases)</b></a> •
+  <a href="https://www.rustore.ru/catalog/app/com.naua_security_mirage.app"><b>🛒 RuStore (на модерации)</b></a> •
+  <a href="https://en.uptodown.com/android"><b>🏪 Uptodown (на модерации)</b></a> •
+  <a href="https://docs.google.com/document/d/1Q0_MpGF5D1GGoFu2HcdTle0kvLb3S7L52x2XIc47eLw/edit?usp=sharing"><b>📋 EULA</b></a> •
+  <a href="https://docs.google.com/document/d/1FrmDpGS3sC_kQYyv1feNO2G2XMQr_ZV4_GAS-Qm4y1I/edit?usp=sharing"><b>🔒 Приватность</b></a>
 </p>
 
 ---

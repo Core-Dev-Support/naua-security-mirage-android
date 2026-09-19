@@ -87,6 +87,14 @@ class SettingsRepository(context: Context) {
         get() = prefs.getLong(KEY_GEO_LAST_UPDATE, 0L)
         set(value) = prefs.edit().putLong(KEY_GEO_LAST_UPDATE, value).apply()
 
+    var updateSource: String
+        get() = prefs.getString(KEY_UPDATE_SOURCE, UPDATE_SOURCE_GITHUB) ?: UPDATE_SOURCE_GITHUB
+        set(value) = prefs.edit().putString(KEY_UPDATE_SOURCE, value).apply()
+
+    var lastShownWhatsNewVersion: String?
+        get() = prefs.getString(KEY_LAST_SHOWN_WHATS_NEW_VERSION, null)
+        set(value) = prefs.edit().putString(KEY_LAST_SHOWN_WHATS_NEW_VERSION, value).apply()
+
     fun isAppProxied(packageName: String): Boolean {
         // By default, all apps are proxied (including newly installed ones) unless added to bypassed list
         return !bypassedAppPackages.contains(packageName)
@@ -193,6 +201,13 @@ class SettingsRepository(context: Context) {
 
         const val DEFAULT_AUTO_PING_INTERVAL = 3
         const val DEFAULT_SPEED_INTERVAL = 1
+
+        const val UPDATE_SOURCE_GITHUB = "github"
+        const val UPDATE_SOURCE_RUSTORE = "rustore"
+        const val UPDATE_SOURCE_UPTODOWN = "uptodown"
+
+        private const val KEY_UPDATE_SOURCE = "key_update_source"
+        private const val KEY_LAST_SHOWN_WHATS_NEW_VERSION = "key_last_shown_whats_new_version"
 
         private const val KEY_STATUS_NOTIFICATION = "key_status_notification"
         private const val KEY_QUICK_SETTINGS_TILE = "key_quick_settings_tile"

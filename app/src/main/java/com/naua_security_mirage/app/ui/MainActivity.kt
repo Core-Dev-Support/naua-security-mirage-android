@@ -17,6 +17,8 @@ import com.naua_security_mirage.app.util.AppLogger
 import com.naua_security_mirage.app.util.AppShield
 import com.naua_security_mirage.app.util.AnimationHelper
 import com.naua_security_mirage.app.util.RuStoreUpdateHelper
+import com.naua_security_mirage.app.util.AppUpdateManager
+import android.widget.RadioButton
 import android.text.SpannableStringBuilder
 import android.text.Spanned
 import android.text.style.ForegroundColorSpan
@@ -166,7 +168,9 @@ class MainActivity : AppCompatActivity() {
         observeVpnState()
         checkNotificationPermission()
 
-        RuStoreUpdateHelper.checkForUpdates(this, isManual = false)
+        updateUpdateSourceUI()
+        AppUpdateManager.checkForUpdates(this, settingsRepository, isManual = false)
+        AppUpdateManager.showWhatsNewDialog(this, settingsRepository)
 
         if (intent?.action == ACTION_QUICK_CONNECT) {
             handleConnectButtonClick()
@@ -368,13 +372,21 @@ class MainActivity : AppCompatActivity() {
         }
 
         binding.cardCheckUpdates.setOnClickListener {
-            AnimationHelper.bounceClick(binding.cardCheckUpdates, minScale = 0.97f, durationMs = 180)
-            RuStoreUpdateHelper.checkForUpdates(this, isManual = true)
+            AnimationHelper.bounceClick(binding.cardCheckUpdates, minScale = 0.97f, durationMs = 180) {
+                showUpdateSourceDialog()
+            }
+        }
+
+        binding.btnCheckUpdatesNow.setOnClickListener {
+            AnimationHelper.bounceClick(binding.btnCheckUpdatesNow, minScale = 0.97f, durationMs = 180)
+            AnimationHelper.spin(binding.ivCheckUpdatesSpinner, durationMs = 850, rotations = 1f)
+            AppUpdateManager.checkForUpdates(this, settingsRepository, isManual = true)
         }
 
         binding.tvAppVersion.setOnClickListener {
             AnimationHelper.bounceClick(binding.tvAppVersion, minScale = 0.95f, durationMs = 150)
-            RuStoreUpdateHelper.checkForUpdates(this, isManual = true)
+            AnimationHelper.spin(binding.ivCheckUpdatesSpinner, durationMs = 850, rotations = 1f)
+            AppUpdateManager.checkForUpdates(this, settingsRepository, isManual = true)
         }
     }
 
@@ -2496,6 +2508,158 @@ class MainActivity : AppCompatActivity() {
         AnimationHelper.popIn(root, durationMs = 240)
     }
 
+    private fun updateUpdateSourceUI() {
+        val descText = when (settingsRepository.updateSource) {
+            SettingsRepository.UPDATE_SOURCE_GITHUB -> getString(R.string.setting_updates_source_github)
+            SettingsRepository.UPDATE_SOURCE_RUSTORE -> getString(R.string.setting_updates_source_rustore)
+            SettingsRepository.UPDATE_SOURCE_UPTODOWN -> getString(R.string.setting_updates_source_uptodown)
+            else -> getString(R.string.setting_updates_source_github)
+        }
+        binding.tvUpdateSettingDesc.text = descText
+    }
+
+    private fun showUpdateSourceDialog() {
+        val dialog = Dialog(this)
+        dialog.setContentView(R.layout.dialog_update_source)
+        dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+        dialog.window?.setLayout(
+            (resources.displayMetrics.widthPixels * 0.92f).toInt(),
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        )
+
+        val density = resources.displayMetrics.density
+        val hasWallpaper = !settingsRepository.customBgImagePath.isNullOrEmpty() && File(settingsRepository.customBgImagePath ?: "").exists()
+        val isLightContext = !hasWallpaper && (settingsRepository.themePreset == SettingsRepository.THEME_LIGHT || (settingsRepository.customBgColor != 0 && ColorUtils.calculateLuminance(settingsRepository.customBgColor) > 0.5))
+
+        val root = dialog.findViewById<LinearLayout>(R.id.dialogUpdateSourceRoot)
+        val tvTitle = dialog.findViewById<TextView>(R.id.tvUpdateSourceDialogTitle)
+        val tvSubtitle = dialog.findViewById<TextView>(R.id.tvUpdateSourceDialogSubtitle)
+        val ivClose = dialog.findViewById<ImageView>(R.id.ivUpdateSourceDialogClose)
+        val vDivider = dialog.findViewById<View>(R.id.vUpdateSourceDivider)
+
+        val rowGithub = dialog.findViewById<LinearLayout>(R.id.rowSourceGithub)
+        val tvGithubTitle = dialog.findViewById<TextView>(R.id.tvSourceGithubTitle)
+        val tvGithubDesc = dialog.findViewById<TextView>(R.id.tvSourceGithubDesc)
+        val badgeGithub = dialog.findViewById<TextView>(R.id.badgeSourceGithub)
+        val rbGithub = dialog.findViewById<RadioButton>(R.id.rbSourceGithub)
+        val ivGithub = dialog.findViewById<ImageView>(R.id.ivSourceGithubIcon)
+
+        val rowRuStore = dialog.findViewById<LinearLayout>(R.id.rowSourceRuStore)
+        val tvRuStoreTitle = dialog.findViewById<TextView>(R.id.tvSourceRuStoreTitle)
+        val tvRuStoreDesc = dialog.findViewById<TextView>(R.id.tvSourceRuStoreDesc)
+        val badgeRuStore = dialog.findViewById<TextView>(R.id.badgeSourceRuStore)
+        val rbRuStore = dialog.findViewById<RadioButton>(R.id.rbSourceRuStore)
+        val ivRuStore = dialog.findViewById<ImageView>(R.id.ivSourceRuStoreIcon)
+
+        val rowUptodown = dialog.findViewById<LinearLayout>(R.id.rowSourceUptodown)
+        val tvUptodownTitle = dialog.findViewById<TextView>(R.id.tvSourceUptodownTitle)
+        val tvUptodownDesc = dialog.findViewById<TextView>(R.id.tvSourceUptodownDesc)
+        val badgeUptodown = dialog.findViewById<TextView>(R.id.badgeSourceUptodown)
+        val rbUptodown = dialog.findViewById<RadioButton>(R.id.rbSourceUptodown)
+        val ivUptodown = dialog.findViewById<ImageView>(R.id.ivSourceUptodownIcon)
+
+        val customAction = settingsRepository.customActionBtnColor
+        val customText = settingsRepository.customTextColor
+
+        val cardBgColor = if (isLightContext) Color.WHITE else ContextCompat.getColor(this, R.color.card)
+        val strokeColor = if (isLightContext) Color.parseColor("#E2E8F0") else ContextCompat.getColor(this, R.color.card_stroke)
+        val titleTextColor = if (customText != 0) customText else (if (isLightContext) Color.parseColor("#0F172A") else Color.parseColor("#F8FAFC"))
+        val subtitleTextColor = if (customText != 0) ColorUtils.setAlphaComponent(customText, 190) else (if (isLightContext) Color.parseColor("#475569") else Color.parseColor("#94A3B8"))
+        val accentColor = if (customAction != 0) customAction else (if (isLightContext) Color.parseColor("#B45309") else Color.parseColor("#F59E0B"))
+
+        root.background = GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            cornerRadius = 24f * density
+            setColor(cardBgColor)
+            setStroke((1.2f * density).toInt(), strokeColor)
+        }
+
+        tvTitle.setTextColor(titleTextColor)
+        tvSubtitle.setTextColor(subtitleTextColor)
+        vDivider.setBackgroundColor(strokeColor)
+        ivClose.imageTintList = ColorStateList.valueOf(subtitleTextColor)
+
+        tvGithubTitle.setTextColor(titleTextColor)
+        tvGithubDesc.setTextColor(subtitleTextColor)
+        tvRuStoreTitle.setTextColor(titleTextColor)
+        tvRuStoreDesc.setTextColor(subtitleTextColor)
+        tvUptodownTitle.setTextColor(titleTextColor)
+        tvUptodownDesc.setTextColor(subtitleTextColor)
+
+        ivGithub.imageTintList = ColorStateList.valueOf(accentColor)
+        ivRuStore.imageTintList = ColorStateList.valueOf(subtitleTextColor)
+        ivUptodown.imageTintList = ColorStateList.valueOf(subtitleTextColor)
+
+        val badgeRecommendBg = GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            cornerRadius = 8f * density
+            setColor(ColorUtils.setAlphaComponent(accentColor, 35))
+            setStroke((1f * density).toInt(), ColorUtils.setAlphaComponent(accentColor, 90))
+        }
+        badgeGithub.background = badgeRecommendBg
+        badgeGithub.setTextColor(accentColor)
+
+        val badgeModBg = GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            cornerRadius = 8f * density
+            setColor(ColorUtils.setAlphaComponent(Color.parseColor("#64748B"), 30))
+            setStroke((1f * density).toInt(), ColorUtils.setAlphaComponent(Color.parseColor("#64748B"), 80))
+        }
+        badgeRuStore.background = badgeModBg
+        badgeRuStore.setTextColor(Color.parseColor("#94A3B8"))
+        badgeUptodown.background = badgeModBg
+        badgeUptodown.setTextColor(Color.parseColor("#94A3B8"))
+
+        rbGithub.buttonTintList = ColorStateList.valueOf(accentColor)
+        rbRuStore.buttonTintList = ColorStateList.valueOf(accentColor)
+        rbUptodown.buttonTintList = ColorStateList.valueOf(accentColor)
+
+        rowGithub.background = getCardDrawable(isLightContext, 14f)
+        rowRuStore.background = getCardDrawable(isLightContext, 14f)
+        rowUptodown.background = getCardDrawable(isLightContext, 14f)
+
+        fun updateRadios(source: String) {
+            rbGithub.isChecked = (source == SettingsRepository.UPDATE_SOURCE_GITHUB)
+            rbRuStore.isChecked = (source == SettingsRepository.UPDATE_SOURCE_RUSTORE)
+            rbUptodown.isChecked = (source == SettingsRepository.UPDATE_SOURCE_UPTODOWN)
+        }
+
+        updateRadios(settingsRepository.updateSource)
+
+        val selectSource: (String, String) -> Unit = { newSource, name ->
+            settingsRepository.updateSource = newSource
+            updateRadios(newSource)
+            updateUpdateSourceUI()
+            Toast.makeText(this, "Источник обновлений: $name", Toast.LENGTH_SHORT).show()
+            dialog.dismiss()
+        }
+
+        rowGithub.setOnClickListener {
+            AnimationHelper.bounceClick(rowGithub, minScale = 0.96f, durationMs = 150) {
+                selectSource(SettingsRepository.UPDATE_SOURCE_GITHUB, "GitHub Releases")
+            }
+        }
+
+        rowRuStore.setOnClickListener {
+            AnimationHelper.bounceClick(rowRuStore, minScale = 0.96f, durationMs = 150) {
+                selectSource(SettingsRepository.UPDATE_SOURCE_RUSTORE, "RuStore")
+            }
+        }
+
+        rowUptodown.setOnClickListener {
+            AnimationHelper.bounceClick(rowUptodown, minScale = 0.96f, durationMs = 150) {
+                selectSource(SettingsRepository.UPDATE_SOURCE_UPTODOWN, "Uptodown App Store")
+            }
+        }
+
+        ivClose.setOnClickListener {
+            dialog.dismiss()
+        }
+
+        dialog.show()
+        AnimationHelper.popIn(root, durationMs = 240)
+    }
+
     private fun getPrivacyPolicyHtml(): String {
         return """
             <h3>1. Общие положения</h3>
@@ -2864,6 +3028,10 @@ class MainActivity : AppCompatActivity() {
         binding.ivUpdateIcon.imageTintList = ColorStateList.valueOf(finalActionColor)
         binding.tvUpdateSettingTitle.setTextColor(titleTextColor)
         binding.tvUpdateSettingDesc.setTextColor(subtitleTextColor)
+
+        binding.btnCheckUpdatesNow.background = getCardDrawable(isLightContext, 18f)
+        binding.ivCheckUpdatesSpinner.imageTintList = ColorStateList.valueOf(finalActionColor)
+        binding.tvCheckUpdatesActionText.setTextColor(finalActionColor)
 
         val legalTextColor = if (customText != 0) {
             ColorUtils.setAlphaComponent(customText, 230)

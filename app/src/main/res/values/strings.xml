@@ -70,10 +70,18 @@
     <string name="action_reset_default">Сбросить по умолчанию</string>
     <string name="reset_confirm">Внешний вид сброшен</string>
 
-    <string name="setting_updates">Обновление приложения</string>
-    <string name="setting_updates_desc">Проверить наличие новой версии в RuStore</string>
-
-    <string name="app_version">Mirage 1.0.0</string>
+    <string name="setting_updates">Источник обновления</string>
+    <string name="setting_updates_desc">GitHub Releases (по умолчанию)</string>
+    <string name="setting_updates_source_github">GitHub Releases (по умолчанию)</string>
+    <string name="setting_updates_source_rustore">RuStore (на модерации)</string>
+    <string name="setting_updates_source_uptodown">Uptodown App Store (на модерации)</string>
+    <string name="btn_check_updates_now">Проверить наличие обновления</string>
+    <string name="app_version">Mirage 1.1.0</string>
+    <string name="update_dialog_title">Доступно обновление</string>
+    <string name="update_dialog_download">Скачать APK</string>
+    <string name="update_dialog_later">Позже</string>
+    <string name="whats_new_title">Что нового в версии 1.1.0</string>
+    <string name="whats_new_body">• Выбор источника обновлений: GitHub Releases, RuStore или Uptodown App Store\n• Кнопка мгновенной проверки обновлений со стрелкой-спиннером прямо в настройках\n• Плавное вращение индикатора даже при отключенных системных анимациях Android\n• Улучшена стабильность VLESS-туннеля и отзывчивость интерфейса</string>
 
     <string name="action_disconnect">Отключить</string>
     <string name="action_connect">Подключиться</string>

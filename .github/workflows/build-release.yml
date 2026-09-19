@@ -2,6 +2,16 @@ name: Build Release APK
 
 on:
   workflow_dispatch:
+    inputs:
+      create_release:
+        description: 'Publish as GitHub Release'
+        required: false
+        default: true
+        type: boolean
+      release_tag:
+        description: 'Release Tag'
+        required: false
+        default: 'v1.1.0'
   push:
     tags:
       - 'v*'
@@ -75,10 +85,18 @@ jobs:
           path: app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
 
+      - name: Prepare Release Asset
+        run: |
+          VERSION_TAG="${{ github.event.inputs.release_tag || (startsWith(github.ref, 'refs/tags/v') && github.ref_name) || 'v1.1.0' }}"
+          cp app/build/outputs/apk/release/app-release.apk "app/build/outputs/apk/release/NAUA-Security-Mirage-${VERSION_TAG}.apk"
+
       - name: Publish GitHub Release
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: startsWith(github.ref, 'refs/tags/v') || github.event.inputs.create_release == 'true' || github.event.inputs.create_release == true
         uses: softprops/action-gh-release@v2
         with:
-          files: app/build/outputs/apk/release/app-release.apk
-          name: NAUA Security Mirage ${{ github.ref_name }}
+          tag_name: ${{ github.event.inputs.release_tag || (startsWith(github.ref, 'refs/tags/v') && github.ref_name) || 'v1.1.0' }}
+          name: NAUA Security Mirage ${{ github.event.inputs.release_tag || (startsWith(github.ref, 'refs/tags/v') && github.ref_name) || 'v1.1.0' }}
+          files: |
+            app/build/outputs/apk/release/NAUA-Security-Mirage-*.apk
+            app/build/outputs/apk/release/app-release.apk
           generate_release_notes: true
