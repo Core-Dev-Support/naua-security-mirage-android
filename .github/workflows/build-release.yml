@@ -96,7 +96,5 @@ jobs:
         with:
           tag_name: ${{ github.event.inputs.release_tag || (startsWith(github.ref, 'refs/tags/v') && github.ref_name) || 'v1.1.0' }}
           name: NAUA Security Mirage ${{ github.event.inputs.release_tag || (startsWith(github.ref, 'refs/tags/v') && github.ref_name) || 'v1.1.0' }}
-          files: |
-            app/build/outputs/apk/release/NAUA-Security-Mirage-*.apk
-            app/build/outputs/apk/release/app-release.apk
+          files: app/build/outputs/apk/release/NAUA-Security-Mirage-*.apk
           generate_release_notes: false
