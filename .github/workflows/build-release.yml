@@ -1,0 +1,59 @@
+name: Build Release APK
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    name: Build Signed Release APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          cache: 'gradle'
+
+      - name: Restore Keystore from Secrets
+        env:
+          KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+        run: |
+          echo "$KEYSTORE_BASE64" | base64 --decode > app/mirage-release.jks
+
+      - name: Grant Execute Permission for Gradlew
+        run: chmod +x gradlew
+
+      - name: Build Release APK with R8
+        env:
+          MIRAGE_STORE_PASSWORD: ${{ secrets.MIRAGE_STORE_PASSWORD }}
+          MIRAGE_KEY_PASSWORD: ${{ secrets.MIRAGE_KEY_PASSWORD }}
+          MIRAGE_KEY_ALIAS: ${{ secrets.MIRAGE_KEY_ALIAS }}
+        run: |
+          START_TIME=$(date +%s)
+          echo "========================================================="
+          echo "🚀 Starting Release Build on GitHub Cloud Server..."
+          echo "========================================================="
+          ./gradlew assembleRelease --stacktrace
+          END_TIME=$(date +%s)
+          DURATION=$((END_TIME - START_TIME))
+          MINUTES=$((DURATION / 60))
+          SECONDS=$((DURATION % 60))
+          echo "========================================================="
+          echo "⏱️ BUILD SUCCESSFUL!"
+          echo "⏱️ Total build time on GitHub: ${MINUTES}m ${SECONDS}s (${DURATION} seconds)"
+          echo "========================================================="
+
+      - name: Upload Release APK as Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: NAUA-Security-Mirage-Release-APK
+          path: app/build/outputs/apk/release/app-release.apk
+          if-no-files-found: error
