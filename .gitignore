@@ -1,0 +1,31 @@
+*.jks
+*.keystore
+key.properties
+.gradle/
+build/
+app/build/
+local.properties
+google-services.json
+app/google-services.json
+
+# IDE & OS files
+.idea/
+*.iml
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Android artifacts & native builds
+*.apk
+*.aab
+.cxx/
+.externalNativeBuild/
+captures/
+*.hprof
+
+# Agent & AI instruction files
+AGENTS.md
+GEMINI.md
+.agents/
+
+

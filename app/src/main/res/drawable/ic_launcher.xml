@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="192dp"
+    android:height="192dp"
+    android:viewportWidth="192"
+    android:viewportHeight="192">
+
+    <!-- Background squircle -->
+    <path android:pathData="M32,16 h128 a32,32 0 0 1 32,32 v96 a32,32 0 0 1 -32,32 h-128 a32,32 0 0 1 -32,-32 v-96 a32,32 0 0 1 32,-32 z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:angle="135"
+                android:startColor="#161821"
+                android:endColor="#0A0B10"
+                android:type="linear" />
+        </aapt:attr>
+    </path>
+
+    <!-- Amber Glow Outline -->
+    <path
+        android:pathData="M32,18 h128 a30,30 0 0 1 30,30 v96 a30,30 0 0 1 -30,30 h-128 a30,30 0 0 1 -30,-30 v-96 a30,30 0 0 1 30,-30 z"
+        android:strokeWidth="2"
+        android:strokeColor="#4DE8A33D" />
+
+    <!-- Mirage Amber Shield -->
+    <group
+        android:scaleX="4.5"
+        android:scaleY="4.5"
+        android:translateX="42"
+        android:translateY="42">
+        <path
+            android:fillColor="@color/amber"
+            android:pathData="M12,1L3,5v6c0,5.55 3.84,10.74 9,12c5.16,-1.26 9,-6.45 9,-12V5L12,1zM12,11.99h7c-0.53,4.12 -3.28,7.79 -7,8.94V12H5V6.3l7,-3.11v8.8z"/>
+    </group>
+</vector>
