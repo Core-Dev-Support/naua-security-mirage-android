@@ -6,6 +6,9 @@ on:
     tags:
       - 'v*'
 
+permissions:
+  contents: write
+
 jobs:
   build:
     name: Build Signed Release APK
@@ -71,3 +74,11 @@ jobs:
           name: NAUA-Security-Mirage-Release-APK
           path: app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
+
+      - name: Publish GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: app/build/outputs/apk/release/app-release.apk
+          name: NAUA Security Mirage ${{ github.ref_name }}
+          generate_release_notes: true
