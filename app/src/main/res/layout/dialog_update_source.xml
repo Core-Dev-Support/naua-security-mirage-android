@@ -279,4 +279,38 @@
             android:focusable="false" />
     </LinearLayout>
 
+    <!-- Check Updates Now Button -->
+    <LinearLayout
+        android:id="@+id/btnDialogCheckUpdatesNow"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:background="@drawable/bg_card"
+        android:clickable="true"
+        android:focusable="true"
+        android:gravity="center"
+        android:orientation="horizontal"
+        android:paddingTop="12dp"
+        android:paddingBottom="12dp"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp">
+
+        <ImageView
+            android:id="@+id/ivDialogCheckUpdatesSpinner"
+            android:layout_width="18dp"
+            android:layout_height="18dp"
+            android:layout_marginEnd="8dp"
+            android:src="@drawable/ic_refresh"
+            android:contentDescription="@null" />
+
+        <TextView
+            android:id="@+id/tvDialogCheckUpdatesNow"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/btn_check_updates_now"
+            android:textColor="@color/ink"
+            android:textSize="13sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
 </LinearLayout>

@@ -2,4 +2,7 @@
 <paths xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- Безопасный изолированный каталог для экспорта диагностических журналов -->
     <cache-path name="mirage_logs" path="mirage_logs" />
+    <!-- Безопасный каталог для скачанных обновлений APK -->
+    <cache-path name="mirage_updates" path="updates" />
+    <external-cache-path name="external_cache" path="." />
 </paths>

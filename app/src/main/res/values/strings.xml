@@ -76,12 +76,19 @@
     <string name="setting_updates_source_rustore">RuStore (на модерации)</string>
     <string name="setting_updates_source_uptodown">Uptodown App Store (на модерации)</string>
     <string name="btn_check_updates_now">Проверить наличие обновления</string>
-    <string name="app_version">Mirage 1.1.0</string>
+    <string name="app_version">Mirage 1.2.0</string>
     <string name="update_dialog_title">Доступно обновление</string>
-    <string name="update_dialog_download">Скачать APK</string>
-    <string name="update_dialog_later">Позже</string>
-    <string name="whats_new_title">Что нового в версии 1.1.0</string>
-    <string name="whats_new_body">• Выбор источника обновлений: GitHub Releases, RuStore или Uptodown App Store\n• Кнопка мгновенной проверки обновлений со стрелкой-спиннером прямо в настройках\n• Плавное вращение индикатора даже при отключенных системных анимациях Android\n• Улучшена стабильность VLESS-туннеля и отзывчивость интерфейса</string>
+    <string name="update_dialog_download">Скачать</string>
+    <string name="update_dialog_later">Отмена</string>
+    <string name="update_dialog_install">Установить</string>
+    <string name="update_dialog_download_browser">Скачать через браузер</string>
+    <string name="update_download_progress_format">Загрузка: %1$d%% (%2$s / %3$s)</string>
+    <string name="update_download_preparing">Подготовка к загрузке…</string>
+    <string name="update_download_failed">Не удалось скачать файл. Попробуйте через браузер.</string>
+    <string name="update_install_permission_hint">Разрешите установку из этого источника для завершения обновления</string>
+    <string name="update_uptodown_status">Приложение находится на модерации в Uptodown App Store. Новых версий пока нет.</string>
+    <string name="whats_new_title">Что нового в версии 1.2.0</string>
+    <string name="whats_new_body">• Встроенный загрузчик обновлений: прямая загрузка и установка APK без выхода в браузер\n• Индикатор обновлений в шапке: кнопка с желтым огоньком и бейджем New при наличии свежей версии\n• Прямой доступ к выбору источников и проверке версий прямо из верхней панели\n• Отображение реального списка изменений напрямую из описания релиза источника\n• Корректная обработка статуса модерации каталога Uptodown App Store\n• Обновленный непрозрачный дизайн информационных диалогов</string>
 
     <string name="action_disconnect">Отключить</string>
     <string name="action_connect">Подключиться</string>

@@ -169,6 +169,11 @@ class MainActivity : AppCompatActivity() {
         checkNotificationPermission()
 
         updateUpdateSourceUI()
+        AppUpdateManager.addUpdateListener { hasUpdate, _ ->
+            runOnUiThread {
+                binding.containerUpdateBadge.visibility = if (hasUpdate) View.VISIBLE else View.GONE
+            }
+        }
         AppUpdateManager.checkForUpdates(this, settingsRepository, isManual = false)
         AppUpdateManager.showWhatsNewDialog(this, settingsRepository)
 
@@ -187,6 +192,7 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         AppShield.checkIntegrity(this)
+        AppUpdateManager.checkPendingInstall(this)
         if (::geoRoutingRepository.isInitialized) {
             updateGeoStatusText()
         }
@@ -222,6 +228,19 @@ class MainActivity : AppCompatActivity() {
             getString(R.string.hint_text),
             androidx.core.text.HtmlCompat.FROM_HTML_MODE_LEGACY
         )
+
+        // App Updates button (sources or update dialog)
+        binding.btnHeaderUpdate.setOnClickListener {
+            AnimationHelper.bounceClick(binding.btnHeaderUpdate, minScale = 0.88f, durationMs = 180) {
+                if (AppUpdateManager.hasUpdate()) {
+                    AppUpdateManager.latestUpdate?.let { info ->
+                        AppUpdateManager.showUpdateAvailableDialog(this, info, settingsRepository)
+                    } ?: showUpdateSourceDialog()
+                } else {
+                    showUpdateSourceDialog()
+                }
+            }
+        }
 
         // Refresh servers & ping without connecting
         binding.btnRefresh.setOnClickListener {
@@ -2618,6 +2637,14 @@ class MainActivity : AppCompatActivity() {
         rowRuStore.background = getCardDrawable(isLightContext, 14f)
         rowUptodown.background = getCardDrawable(isLightContext, 14f)
 
+        val btnCheckNow = dialog.findViewById<LinearLayout>(R.id.btnDialogCheckUpdatesNow)
+        val ivSpinner = dialog.findViewById<ImageView>(R.id.ivDialogCheckUpdatesSpinner)
+        val tvCheckNow = dialog.findViewById<TextView>(R.id.tvDialogCheckUpdatesNow)
+
+        btnCheckNow.background = getCardDrawable(isLightContext, 14f)
+        tvCheckNow.setTextColor(titleTextColor)
+        ivSpinner.imageTintList = ColorStateList.valueOf(accentColor)
+
         fun updateRadios(source: String) {
             rbGithub.isChecked = (source == SettingsRepository.UPDATE_SOURCE_GITHUB)
             rbRuStore.isChecked = (source == SettingsRepository.UPDATE_SOURCE_RUSTORE)
@@ -2631,7 +2658,6 @@ class MainActivity : AppCompatActivity() {
             updateRadios(newSource)
             updateUpdateSourceUI()
             Toast.makeText(this, "Источник обновлений: $name", Toast.LENGTH_SHORT).show()
-            dialog.dismiss()
         }
 
         rowGithub.setOnClickListener {
@@ -2650,6 +2676,12 @@ class MainActivity : AppCompatActivity() {
             AnimationHelper.bounceClick(rowUptodown, minScale = 0.96f, durationMs = 150) {
                 selectSource(SettingsRepository.UPDATE_SOURCE_UPTODOWN, "Uptodown App Store")
             }
+        }
+
+        btnCheckNow.setOnClickListener {
+            AnimationHelper.bounceClick(btnCheckNow, minScale = 0.96f, durationMs = 150)
+            AnimationHelper.spin(ivSpinner, durationMs = 850, rotations = 1f)
+            AppUpdateManager.checkForUpdates(this, settingsRepository, isManual = true)
         }
 
         ivClose.setOnClickListener {
@@ -2853,6 +2885,7 @@ class MainActivity : AppCompatActivity() {
         val finalActionColor = if (customAction != 0) customAction else defaultActionColor
         val actionColorList = ColorStateList.valueOf(finalActionColor)
 
+        binding.ivHeaderUpdateIcon.imageTintList = actionColorList
         binding.ivRefreshIcon.imageTintList = actionColorList
         binding.ivSettingsIcon.imageTintList = actionColorList
         binding.ivBackSettingsIcon.imageTintList = actionColorList
@@ -2861,6 +2894,7 @@ class MainActivity : AppCompatActivity() {
         binding.ivClearLogsIcon.imageTintList = actionColorList
         binding.ivBackPerAppIcon.imageTintList = actionColorList
 
+        binding.btnHeaderUpdate.background = getButtonChipDrawable(isLightContext, 12f)
         binding.btnRefresh.background = getButtonChipDrawable(isLightContext, 12f)
         binding.btnSettings.background = getButtonChipDrawable(isLightContext, 12f)
         binding.btnBackFromSettings.background = getButtonChipDrawable(isLightContext, 12f)

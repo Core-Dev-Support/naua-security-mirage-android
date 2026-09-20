@@ -3,6 +3,7 @@
     android:id="@+id/dialogUpdateAvailableRoot"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
+    android:background="@drawable/bg_card"
     android:orientation="vertical"
     android:padding="22dp">
 
@@ -31,7 +32,7 @@
                 android:id="@+id/tvUpdateAvailableTitle"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Доступно обновление"
+                android:text="@string/update_dialog_title"
                 android:textColor="@color/ink"
                 android:textSize="18sp"
                 android:textStyle="bold" />
@@ -41,7 +42,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="3dp"
-                android:text="Версия 1.1.0"
+                android:text="Версия 1.2.0"
                 android:textColor="@color/ink_soft"
                 android:textSize="12sp" />
         </LinearLayout>
@@ -68,8 +69,8 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
-        android:layout_marginBottom="18dp"
-        android:maxHeight="220dp">
+        android:layout_marginBottom="14dp"
+        android:maxHeight="200dp">
 
         <TextView
             android:id="@+id/tvUpdateChangelog"
@@ -79,6 +80,37 @@
             android:textColor="@color/ink_soft"
             android:textSize="13sp" />
     </ScrollView>
+
+    <!-- Download Progress Container (Shown while downloading) -->
+    <LinearLayout
+        android:id="@+id/layoutUpdateProgress"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="14dp"
+        android:orientation="vertical"
+        android:visibility="gone">
+
+        <ProgressBar
+            android:id="@+id/pbUpdateDownload"
+            style="?android:attr/progressBarStyleHorizontal"
+            android:layout_width="match_parent"
+            android:layout_height="8dp"
+            android:indeterminate="false"
+            android:max="100"
+            android:progress="0"
+            android:progressBackgroundTint="@color/card_stroke"
+            android:progressTint="@color/accent" />
+
+        <TextView
+            android:id="@+id/tvUpdateDownloadProgress"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:gravity="center"
+            android:text="@string/update_download_preparing"
+            android:textColor="@color/ink_soft"
+            android:textSize="12sp" />
+    </LinearLayout>
 
     <!-- Action Buttons -->
     <LinearLayout
@@ -98,7 +130,7 @@
             android:paddingEnd="16dp"
             android:paddingTop="10dp"
             android:paddingBottom="10dp"
-            android:text="Позже"
+            android:text="@string/update_dialog_later"
             android:textColor="@color/ink_soft"
             android:textSize="14sp"
             android:textStyle="bold" />
@@ -115,10 +147,25 @@
             android:paddingEnd="20dp"
             android:paddingTop="10dp"
             android:paddingBottom="10dp"
-            android:text="Скачать APK"
+            android:text="@string/update_dialog_download"
             android:textColor="@color/accent"
             android:textSize="14sp"
             android:textStyle="bold" />
     </LinearLayout>
+
+    <!-- Fallback Browser Download Link -->
+    <TextView
+        android:id="@+id/btnUpdateBrowser"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center_horizontal"
+        android:layout_marginTop="10dp"
+        android:background="?attr/selectableItemBackground"
+        android:clickable="true"
+        android:focusable="true"
+        android:padding="6dp"
+        android:text="@string/update_dialog_download_browser"
+        android:textColor="@color/ink_soft"
+        android:textSize="12sp" />
 
 </LinearLayout>
