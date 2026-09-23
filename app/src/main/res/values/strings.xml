@@ -1,0 +1,157 @@
+<resources>
+    <string name="app_name">NAUA Security Mirage</string>
+    <string name="brand_name">Mirage</string>
+    <string name="brand_sub">NAUA Security</string>
+
+    <string name="status_disconnected">Отключено</string>
+    <string name="status_connected">Подключено</string>
+    <string name="status_connecting">Подключение...</string>
+    <string name="status_disconnecting">Отключение...</string>
+
+    <string name="status_sub_disconnected">Нажми, чтобы включить защиту</string>
+    <string name="status_sub_selecting">Поиск наилучшего сервера...</string>
+    <string name="status_sub_connected_format">Время сессии %1$s • %2$d ms</string>
+
+    <string name="support_project">Поддержать проект</string>
+
+    <string name="hint_text"><![CDATA[Mirage сам выбирает сервер.<br/><br/><b>Выбор локации не нужен.</b><br/>Просто нажми кнопку подключения.]]></string>
+    <string name="refresh_servers">Обновить</string>
+    <string name="refreshing_servers">Обновление данных...</string>
+
+    <string name="settings_title">Настройки</string>
+    <string name="section_notifications">Уведомления и шторка</string>
+    <string name="setting_status_change">Смена статуса защиты</string>
+    <string name="setting_status_change_desc">Сообщать о подключении и отключении.</string>
+    <string name="setting_quick_tile">Плитка в шторке (Быстрые настройки)</string>
+    <string name="setting_quick_tile_desc">Управление защитой в один клик из шторки Android.</string>
+    <string name="quick_tile_label">Mirage VPN</string>
+    <string name="tile_subtitle_connected">Подключено</string>
+    <string name="tile_subtitle_disconnected">Отключено</string>
+    <string name="tile_subtitle_connecting">Подключение…</string>
+    <string name="tile_subtitle_disconnecting">Отключение…</string>
+
+    <string name="section_privacy">Безопасность и приватность</string>
+    <string name="setting_kill_switch">Защита от утечек (Kill Switch)</string>
+    <string name="setting_kill_switch_desc">Блокировать интернет при смене или обрыве сети.</string>
+    <string name="action_system_vpn">Системный Kill Switch Android</string>
+    <string name="system_vpn_desc">Для аппаратной блокировки на уровне ОС включите «Блокировать соединения без VPN» в настройках Android.</string>
+    <string name="setting_auto_start">Автозапуск при старте</string>
+    <string name="setting_auto_start_desc">Автоматически включать VPN-защиту при включении устройства.</string>
+    <string name="setting_telemetry">Анонимная отправка данных</string>
+    <string name="setting_telemetry_desc">Только скорость и сбои. Сайты и трафик остаются у тебя.</string>
+
+    <string name="section_appearance">Оформление</string>
+    <string name="setting_appearance">Изменить внешний вид</string>
+    <string name="setting_appearance_desc">Темы, цвета кнопок, текста и своё фото.</string>
+    <string name="appearance_title">Внешний вид</string>
+    <string name="section_themes">Готовые темы</string>
+    <string name="theme_dark">Тёмная</string>
+    <string name="theme_light">Светлая</string>
+    <string name="section_bg">Задний фон</string>
+    <string name="action_pick_photo">Выбрать фото из галереи</string>
+    <string name="action_change_photo">Изменить фото</string>
+    <string name="action_remove_photo">Удалить фото</string>
+    <string name="section_connect_btn_style">Стиль кнопки подключения</string>
+    <string name="connect_style_standard">Стандарт</string>
+    <string name="connect_style_standard_desc">Классический шар</string>
+    <string name="connect_style_cyber_earth">3D Cyber Earth</string>
+    <string name="connect_style_cyber_earth_desc">Неоновый глобус</string>
+    <string name="connect_style_quantum_core">3D Quantum Core</string>
+    <string name="connect_style_quantum_core_desc">Квантовый реактор</string>
+    <string name="connect_style_holo_shield">3D Holo-Shield</string>
+    <string name="connect_style_holo_shield_desc">Голографический щит</string>
+    <string name="connect_style_realistic_earth">3D Realistic Earth</string>
+    <string name="connect_style_realistic_earth_desc">Планета Земля</string>
+    <string name="connect_btn_3d_colors_note">3D-стили используют собственную фирменную неоновую палитру. Смена цвета доступна для стиля «Стандарт».</string>
+    <string name="section_connect_btn">Цвет кнопки подключения</string>
+    <string name="section_action_btns">Верхние кнопки</string>
+    <string name="section_text_color">Цвет текста</string>
+    <string name="section_switches">Кнопки переключения</string>
+    <string name="action_reset_default">Сбросить по умолчанию</string>
+    <string name="reset_confirm">Внешний вид сброшен</string>
+
+    <string name="setting_updates">Источник обновления</string>
+    <string name="setting_updates_desc">GitHub Releases (по умолчанию)</string>
+    <string name="setting_updates_source_github">GitHub Releases (по умолчанию)</string>
+    <string name="setting_updates_source_rustore">RuStore (на модерации)</string>
+    <string name="setting_updates_source_uptodown">Uptodown App Store (на модерации)</string>
+    <string name="btn_check_updates_now">Проверить наличие обновления</string>
+    <string name="app_version">Mirage 1.2.0</string>
+    <string name="update_dialog_title">Доступно обновление</string>
+    <string name="update_dialog_download">Скачать</string>
+    <string name="update_dialog_later">Отмена</string>
+    <string name="update_dialog_install">Установить</string>
+    <string name="update_dialog_download_browser">Скачать через браузер</string>
+    <string name="update_download_progress_format">Загрузка: %1$d%% (%2$s / %3$s)</string>
+    <string name="update_download_preparing">Подготовка к загрузке…</string>
+    <string name="update_download_failed">Не удалось скачать файл. Попробуйте через браузер.</string>
+    <string name="update_install_permission_hint">Разрешите установку из этого источника для завершения обновления</string>
+    <string name="update_uptodown_status">Приложение находится на модерации в Uptodown App Store. Новых версий пока нет.</string>
+    <string name="update_github_rate_limit">Временный лимит запросов GitHub (60 в час). Попробуйте через несколько минут или скачайте через браузер.</string>
+    <string name="whats_new_title">Что нового в 1.3.0</string>
+    <string name="whats_new_body">- Добавлен вход в аккаунт через Google и по почте\n- Переключатель серверов (Бесплатный / Франция) теперь доступен на главном экране\n- Выделенный сервер во Франции с защитой от блокировок\n- Добавлена карточка профиля и статус подписки в настройки\n- Оформление и быстрая проверка подписки за 30 ₽ / мес через ЮMoney</string>
+
+    <string name="action_disconnect">Отключить</string>
+    <string name="action_connect">Подключиться</string>
+
+    <string name="notification_channel_name">Статус Mirage VPN</string>
+    <string name="notification_channel_desc">Отображает статус подключения и задержку (пинг)</string>
+    <string name="notification_connected_title">Состояние: Подключено</string>
+    <string name="notification_disconnected_title">Состояние: Отключено</string>
+    <string name="notification_connected_text">Пинг: %1$d ms • %2$s</string>
+    <string name="notification_connected_speed_text">↓ %1$s  ↑ %2$s • %3$d ms • %4$s</string>
+    <string name="notification_disconnected_text">Защита выключена. Нажмите для подключения.</string>
+
+    <string name="cloudtips_url">https://pay.cloudtips.ru/p/82445608</string>
+
+    <string name="section_diagnostics">Диагностика</string>
+    <string name="setting_speed">Скорость в реальном времени</string>
+    <string name="setting_speed_desc">Интервал замера: %1$s.</string>
+    <string name="setting_auto_ping">Автопинг</string>
+    <string name="setting_auto_ping_desc">Интервал замера: %1$s.</string>
+    <string name="setting_logs">Журнал событий (Логи)</string>
+    <string name="setting_logs_desc">Сбор логов: %1$s • Нажмите для просмотра.</string>
+    <string name="logs_title">Журнал логов</string>
+    <string name="section_log_level">Уровень сбора логов</string>
+    <string name="action_download">Скачать</string>
+    <string name="action_share">Поделиться</string>
+    <string name="action_clear_logs">Очистить логи</string>
+    <string name="action_back">Назад</string>
+
+    <string name="section_per_app_proxy">Раздельное туннелирование</string>
+    <string name="setting_direct_ru">Сайты .ru напрямую</string>
+    <string name="setting_direct_ru_desc">Сайты зоны .ru работают напрямую на максимальной скорости, остальные — через защищенный туннель.</string>
+    <string name="geo_status_ready">Гео-базы: Актуальны (%1$s)</string>
+    <string name="geo_status_updating">Обновление гео-баз…</string>
+    <string name="geo_status_not_downloaded">Гео-базы: Нажмите для скачивания</string>
+    <string name="geo_update_success">Гео-базы успешно обновлены</string>
+    <string name="geo_update_failed">Не удалось загрузить гео-базы</string>
+    <string name="setting_per_app_proxy">Исключения для приложений</string>
+    <string name="setting_per_app_proxy_desc">Выбор приложений, работающих напрямую без использования туннеля.</string>
+    <string name="per_app_proxy_title">Раздельное туннелирование</string>
+    <string name="vpn_active_reconnect_notice">VPN активен: настройки вступят в силу при переподключении</string>
+    <string name="action_cancel">Отмена</string>
+    <string name="action_apply">Применить</string>
+    <string name="action_save">Сохранить</string>
+
+    <string name="setting_custom_websites_proxy">Исключения для сайтов</string>
+    <string name="setting_custom_websites_proxy_desc">Сайты и домены, работающие напрямую без использования туннеля.</string>
+    <string name="custom_websites_title">Исключения для сайтов</string>
+    <string name="custom_websites_subtitle">Трафик выбранных сайтов направляется напрямую в сеть</string>
+    <string name="custom_websites_add_hint">example.com или domain.org</string>
+    <string name="action_add">Добавить</string>
+    <string name="custom_websites_search_hint">Поиск по сайтам…</string>
+    <string name="custom_websites_empty">Список исключений пуст.\nДобавьте первый сайт выше.</string>
+    <string name="custom_website_added">Сайт добавлен в исключения</string>
+    <string name="custom_website_removed">Сайт удален из исключений</string>
+    <string name="custom_website_invalid">Введите корректный домен (например, site.com)</string>
+    <string name="custom_website_exists">Этот сайт уже есть в списке</string>
+    <string name="custom_websites_clear_all">Очистить все</string>
+    <string name="custom_websites_cleared">Все сайты удалены из исключений</string>
+
+    <string name="section_updates">Обновление</string>
+    <string name="legal_terms_of_service">Лицензионное соглашение</string>
+    <string name="legal_privacy_policy">Политика конфиденциальности</string>
+    <string name="legal_developer_name">Core Dev Support</string>
+    <string name="legal_developer_email">coredevsupport@gmail.com</string>
+</resources>

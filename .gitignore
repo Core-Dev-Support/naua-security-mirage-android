@@ -1,0 +1,51 @@
+# Secrets, Keys & Credentials
+*.jks
+*.keystore
+key.properties
+google-services.json
+app/google-services.json
+local.properties
+
+# Gradle & Build Artifacts
+.gradle/
+build/
+app/build/
+desktop/build/
+build/installer/
+desktop_dist/
+
+# Local Runtime & Diagnostic Logs
+device_id.txt
+settings.json
+config.json
+mirage_logs.txt
+*.log
+
+# IDE & OS files
+.idea/
+*.iml
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Android artifacts & native builds
+*.apk
+*.aab
+.cxx/
+.externalNativeBuild/
+captures/
+*.hprof
+
+# PC Installers & Executables (preserve bundled Core xray.exe)
+*.msi
+*.exe
+!desktop/Core/xray.exe
+
+# Agent & AI instruction files
+AGENTS.md
+GEMINI.md
+.agents/
+
+# Local diagnostics (never publish)
+diag/
+*.dat.bak
