@@ -246,7 +246,9 @@ object ThreeXUiService {
                 return@withContext null
             }
 
-            val uuid = clientUuid ?: UUID.randomUUID().toString()
+            // A supplied UUID may belong to an expired or disabled 3X-UI
+            // client. Never submit it to addClient as a renewal.
+            val uuid = UUID.randomUUID().toString()
             val subId = uuid.replace("-", "").take(16)
 
             // 30 days expiry in milliseconds from now
@@ -287,18 +289,26 @@ object ThreeXUiService {
             val response = client.newCall(addRequest).execute()
             val resBody = response.body?.string().orEmpty()
             if (!response.isSuccessful) return@withContext null
-            try {
-                val result = gson.fromJson(resBody, JsonObject::class.java)
-                if (result?.get("success")?.asBoolean != true) return@withContext null
-            } catch (e: Exception) {
-                AppLogger.w(TAG, "3X-UI addClient returned invalid JSON: ${e.message}")
+            if (resBody.isNotBlank()) {
+                try {
+                    val result = gson.fromJson(resBody, JsonObject::class.java)
+                    if (result?.get("success")?.asBoolean != true) return@withContext null
+                } catch (e: Exception) {
+                    AppLogger.w(TAG, "3X-UI addClient returned invalid JSON: ${e.message}")
+                    return@withContext null
+                }
+            }
+
+            // Do not cache an unverified key. This also handles 3X-UI builds
+            // that return an empty HTTP-200 body for addClient.
+            val verified = checkSubscription(userEmail, uuid)
+            val verifiedKey = verified?.vlessKey
+            if (verified?.clientUuid != uuid || verifiedKey.isNullOrBlank()) {
+                AppLogger.w(TAG, "3X-UI addClient response could not be verified for ${userEmail}")
                 return@withContext null
             }
-            AppLogger.info(TAG, "3X-UI addClient succeeded for ${userEmail}")
-
-            // Build VLESS URL
-            val vlessUrl = buildVlessUrl(uuid = uuid, flow = "xtls-rprx-vision")
-            vlessUrl
+            AppLogger.info(TAG, "3X-UI addClient verified for ${userEmail}")
+            verifiedKey
         } catch (e: Exception) {
             AppLogger.error(TAG, "Error in getOrCreateClient: ${e.message}")
             return@withContext null

@@ -17,6 +17,29 @@ export function isRubleCurrency(value: string): boolean {
   return ["643", "rub", "rur"].includes(value.trim().toLowerCase());
 }
 
+export function isAllowedNotificationType(value: string): boolean {
+  return value.trim().toLowerCase() === "payout";
+}
+
+export function parseAmountToKopecks(value: string): number | null {
+  const normalized = value.trim().replace(",", ".");
+  if (!/^\d+(?:\.\d{1,2})?$/.test(normalized)) return null;
+  const [whole, fraction = ""] = normalized.split(".");
+  const kopecks = Number(whole) * 100 + Number(fraction.padEnd(2, "0"));
+  return Number.isSafeInteger(kopecks) ? kopecks : null;
+}
+
+export function isExpectedAmount(
+  value: string,
+  expected: string,
+  toleranceKopecks = 0,
+): boolean {
+  const actualKopecks = parseAmountToKopecks(value);
+  const expectedKopecks = parseAmountToKopecks(expected);
+  if (actualKopecks === null || expectedKopecks === null) return false;
+  return Math.abs(actualKopecks - expectedKopecks) <= Math.max(0, toleranceKopecks);
+}
+
 export function makeVlessUrl(
   uuid: string,
   flow: string,

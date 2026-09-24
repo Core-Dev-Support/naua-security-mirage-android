@@ -15,6 +15,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -62,6 +64,7 @@ class SupabaseManager private constructor() {
 
     private val gson = Gson()
     private val scope = CoroutineScope(Dispatchers.IO)
+    private val refreshMutex = Mutex()
     private val httpClient = OkHttpClient.Builder()
         .connectTimeout(15, TimeUnit.SECONDS)
         .readTimeout(20, TimeUnit.SECONDS)
@@ -447,6 +450,7 @@ class SupabaseManager private constructor() {
         val user = _currentUser.value ?: return@withContext false
         try {
             val vlessKey = ThreeXUiService.getOrCreateClient(user.email, user.id)
+                ?: return@withContext false
             val expiryMs = System.currentTimeMillis() + (30L * 24L * 60L * 60L * 1000L)
             val paidUntil = SubscriptionPolicy.formatUtcIso(Date(expiryMs))
 
@@ -475,23 +479,12 @@ class SupabaseManager private constructor() {
                 ?.putString(KEY_SUB_CLIENT_UUID, clientUuid)
                 ?.apply()
 
-            try {
-                val json = gson.toJson(sub)
-                val body = json.toRequestBody("application/json; charset=utf-8".toMediaType())
-                val authHeader = if (!accessToken.isNullOrEmpty()) "Bearer $accessToken" else "Bearer ${SupabaseConfig.getAnonKey()}"
-                val request = Request.Builder()
-                    .url("${SupabaseConfig.SUPABASE_URL}/rest/v1/subscriptions")
-                    .header("apikey", SupabaseConfig.getAnonKey())
-                    .header("Authorization", authHeader)
-                    .header("Prefer", "resolution=merge-duplicates")
-                    .post(body)
-                    .build()
-                httpClient.newCall(request).execute()
-            } catch (e: Exception) {
-                AppLogger.w(TAG, "Optional Supabase sync skipped: ${e.message}")
-            }
+            // Subscription writes are service-role/webhook-only. The local
+            // cache is safe to keep, but a client-side POST would now be
+            // rejected by RLS and must not be treated as durable provisioning.
+            AppLogger.w(TAG, "Client-side subscription sync is disabled; webhook provisioning is required")
 
-            AppLogger.info(TAG, "Premium subscription activated for ${user.email}, clientUuid=$clientUuid")
+            AppLogger.info(TAG, "Premium subscription activated locally for ${user.email}, clientUuid=$clientUuid")
             true
         } catch (e: Exception) {
             AppLogger.error(TAG, "Failed to activate premium subscription: ${e.message}")
@@ -516,7 +509,32 @@ class SupabaseManager private constructor() {
         return if (first.first == 401 && refreshAccessToken()) execute() else first
     }
 
-    suspend fun refreshSubscription() = withContext(Dispatchers.IO) {
+    private fun fetchOptionalFlow(userId: String): String? {
+        return try {
+            val authHeader = if (!accessToken.isNullOrEmpty()) "Bearer $accessToken" else "Bearer ${SupabaseConfig.getAnonKey()}"
+            val request = Request.Builder()
+                .url("${SupabaseConfig.SUPABASE_URL}/rest/v1/subscriptions?user_id=eq.${userId}&select=flow&limit=1")
+                .header("apikey", SupabaseConfig.getAnonKey())
+                .header("Authorization", authHeader)
+                .get()
+                .build()
+            val response = httpClient.newCall(request).execute()
+            if (!response.isSuccessful) return null
+            val rows = gson.fromJson(response.body?.string().orEmpty(), JsonArray::class.java)
+            val first = if (rows != null && rows.size() > 0) rows.get(0) else null
+            first?.asJsonObject?.get("flow")?.asString
+        } catch (_: Exception) {
+            // Older production tables do not have flow yet; the main query is
+            // deliberately compatible with those installations.
+            null
+        }
+    }
+
+    suspend fun refreshSubscription() = refreshMutex.withLock {
+        refreshSubscriptionUnsafe()
+    }
+
+    private suspend fun refreshSubscriptionUnsafe() = withContext(Dispatchers.IO) {
         val user = _currentUser.value ?: run {
             _subscription.value = null
             return@withContext
@@ -566,8 +584,13 @@ class SupabaseManager private constructor() {
                     supabaseQuerySucceeded = array != null
                     if (array != null && array.size() > 0) {
                         val sub = gson.fromJson(array.get(0), SubscriptionDto::class.java)
-                        val clientUuid = sub.clientUuid ?: extractUuidFromVless(sub.vlessKey) ?: user.id
-                        val fullSub = sub.copy(clientUuid = clientUuid)
+                        val hydratedSub = if (sub.flow == null) {
+                            sub.copy(flow = fetchOptionalFlow(user.id))
+                        } else {
+                            sub
+                        }
+                        val clientUuid = hydratedSub.clientUuid ?: extractUuidFromVless(hydratedSub.vlessKey) ?: user.id
+                        val fullSub = hydratedSub.copy(clientUuid = clientUuid)
                         if (fullSub.isActive && hasDateNotExpired(fullSub.paidUntil)) {
                             // Sub exists in Supabase. If 3X-UI reached but client missing, restore it!
                             if (threeXUiReached && subFrom3XUi == null) {
@@ -681,8 +704,7 @@ class SupabaseManager private constructor() {
         )
         if (generatedKey != null) {
             val clientUuid = extractUuidFromVless(generatedKey) ?: user.id
-            try {
-                val updated = (sub ?: SubscriptionDto(
+            val updated = (sub ?: SubscriptionDto(
                     userId = user.id,
                     email = user.email,
                     isActive = true,
@@ -702,21 +724,9 @@ class SupabaseManager private constructor() {
                     ?.putString(KEY_SUB_CLIENT_UUID, clientUuid)
                     ?.apply()
 
-                val json = gson.toJson(updated)
-                val body = json.toRequestBody("application/json; charset=utf-8".toMediaType())
-                val authHeader = if (!accessToken.isNullOrEmpty()) "Bearer $accessToken" else "Bearer ${SupabaseConfig.getAnonKey()}"
-                val request = Request.Builder()
-                    .url("${SupabaseConfig.SUPABASE_URL}/rest/v1/subscriptions")
-                    .header("apikey", SupabaseConfig.getAnonKey())
-                    .header("Authorization", authHeader)
-                    .header("Prefer", "resolution=merge-duplicates")
-                    .post(body)
-                    .build()
-
-                httpClient.newCall(request).execute()
-            } catch (e: Exception) {
-                AppLogger.error(TAG, "Error saving France key to Supabase: ${e.message}")
-            }
+                // The database is service-role/webhook-only. Keep the verified
+                // key locally and let the entitlement remain retryable.
+                AppLogger.w(TAG, "France key kept in local cache; Supabase writes are webhook-only")
         }
         generatedKey
     }

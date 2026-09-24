@@ -148,19 +148,16 @@ class SupabaseManager {
                 _subscription.value = res
                 AppLogger.info(TAG, "Subscription loaded: active=${res.isActive}, until=${res.paidUntil}")
             } else {
-                // If record doesn't exist yet, insert default free entry
+                // Subscription rows are provisioned by the service-role
+                // webhook. Do not attempt a client-side insert under RLS.
                 val defaultSub = SubscriptionDto(
                     userId = user.id,
                     email = user.email.orEmpty(),
                     isActive = false,
                     plan = "free"
                 )
-                try {
-                    client.from("subscriptions").insert(defaultSub)
-                    _subscription.value = defaultSub
-                } catch (_: Exception) {
-                    _subscription.value = defaultSub
-                }
+                _subscription.value = defaultSub
+                AppLogger.info(TAG, "No subscription row; using free state until webhook provisioning")
             }
         } catch (e: Exception) {
             AppLogger.error(TAG, "Failed to refresh subscription: ${e.message}")
@@ -188,10 +185,12 @@ class SupabaseManager {
                     plan = "premium"
                 )).copy(vlessKey = generatedKey, isActive = true)
 
-                client.from("subscriptions").upsert(updated)
+                // RLS intentionally reserves writes for the payment webhook.
+                // Keep the verified key in the desktop session/cache only.
+                AppLogger.info(TAG, "France key kept locally; Supabase writes are webhook-only")
                 _subscription.value = updated
             } catch (e: Exception) {
-                AppLogger.error(TAG, "Error saving generated key to Supabase: ${e.message}")
+                AppLogger.error(TAG, "Error preparing generated France key: ${e.message}")
             }
         }
         return generatedKey

@@ -22,7 +22,11 @@ Deploy `supabase/functions/yoomoney-webhook/` after setting these Edge Function 
 - `THREE_X_UI_PASSWORD` (the legacy `THREE_X_UI_PASS` is also accepted)
 - `THREE_X_UI_INBOUND_ID` (use `2` unless the live panel is deliberately different)
 - `YOOMONEY_SECRET`
+- `YOOMONEY_EXPECTED_AMOUNT_RUB` (default `30`; set this to the exact amount sent by YooMoney if the legacy notification uses a discounted value)
+- `YOOMONEY_AMOUNT_TOLERANCE_KOPECKS` (default `0`; keep this at zero unless the processor contract explicitly allows a discount)
 - `FRANCE_HOST`, `FRANCE_PORT`, `FRANCE_PBK`, `FRANCE_SNI`, `FRANCE_SID`, `FRANCE_SPX`, `FRANCE_FINGERPRINT`
+
+The webhook accepts only `notification_type=payout`, requires RUB, and compares the amount in integer kopecks. Android/desktop clients no longer write `subscriptions`; the service-role webhook is the only writer.
 
 ## CI checks
 

@@ -1,4 +1,11 @@
-import { isRubleCurrency, makeVlessUrl, nextPaidUntil, parseDate } from "./contract.ts";
+import {
+  isAllowedNotificationType,
+  isExpectedAmount,
+  isRubleCurrency,
+  makeVlessUrl,
+  nextPaidUntil,
+  parseDate,
+} from "./contract.ts";
 
 function assert(condition: unknown, message = "assertion failed"): asserts condition {
   if (!condition) throw new Error(message);
@@ -26,10 +33,23 @@ Deno.test("subscription renewal starts from now when previous is expired", () =>
   assertEquals(parseDate("not-a-date"), 0);
 });
 
-Deno.test("currency validation accepts YooMoney RUB representations", () => {
+Deno.test("currency and notification validation reject non-payments", () => {
   assert(isRubleCurrency("643"));
   assert(isRubleCurrency("RUB"));
   assert(!isRubleCurrency("USD"));
+  assert(!isRubleCurrency(""));
+  assert(isAllowedNotificationType("payout"));
+  assert(!isAllowedNotificationType("refund"));
+  assert(!isAllowedNotificationType("chargeback"));
+});
+
+Deno.test("amount validation uses kopecks and rejects underpayment", () => {
+  assert(isExpectedAmount("30", "30.00"));
+  assert(isExpectedAmount("30.00", "30"));
+  assert(!isExpectedAmount("1", "30"));
+  assert(!isExpectedAmount("29.90", "30"));
+  assert(isExpectedAmount("29.90", "30", 10));
+  assert(!isExpectedAmount("not-an-amount", "30"));
 });
 
 Deno.test("VLESS URL keeps Reality and flow parameters", () => {

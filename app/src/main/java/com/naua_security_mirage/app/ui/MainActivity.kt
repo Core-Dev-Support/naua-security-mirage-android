@@ -213,27 +213,33 @@ class MainActivity : AppCompatActivity() {
 
     private var pendingAuthSuccessCallback: (() -> Unit)? = null
     private var isWaitingForPayment = false
+    private var paymentPollingJob: Job? = null
 
     private fun handlePaymentReturn() {
         val user = com.naua_security_mirage.app.data.supabase.SupabaseManager.instance.currentUser.value
         if (user == null) {
             return
         }
-        lifecycleScope.launch {
-            repeat(5) { attempt ->
-                com.naua_security_mirage.app.data.supabase.SupabaseManager.instance.refreshSubscription()
-                if (com.naua_security_mirage.app.data.supabase.SupabaseManager.instance.hasActiveSubscription()) {
-                    isWaitingForPayment = false
-                    settingsRepository.selectedServerPlan = SettingsRepository.PLAN_PREMIUM_FRANCE
-                    updateServerPlanSelectorUI()
-                    updateAccountCardUI()
-                    Toast.makeText(this@MainActivity, "Подписка активна! Выбран сервер во Франции 🇫🇷", Toast.LENGTH_LONG).show()
-                    return@launch
+        if (paymentPollingJob?.isActive == true) return
+        paymentPollingJob = lifecycleScope.launch {
+            try {
+                repeat(5) { attempt ->
+                    com.naua_security_mirage.app.data.supabase.SupabaseManager.instance.refreshSubscription()
+                    if (com.naua_security_mirage.app.data.supabase.SupabaseManager.instance.hasActiveSubscription()) {
+                        isWaitingForPayment = false
+                        settingsRepository.selectedServerPlan = SettingsRepository.PLAN_PREMIUM_FRANCE
+                        updateServerPlanSelectorUI()
+                        updateAccountCardUI()
+                        Toast.makeText(this@MainActivity, "Подписка активна! Выбран сервер во Франции 🇫🇷", Toast.LENGTH_LONG).show()
+                        return@launch
+                    }
+                    if (attempt < 4) delay(3000)
                 }
-                if (attempt < 4) delay(3000)
+                isWaitingForPayment = false
+                Toast.makeText(this@MainActivity, "Оплата ещё обрабатывается. Проверьте статус позже.", Toast.LENGTH_LONG).show()
+            } finally {
+                paymentPollingJob = null
             }
-            isWaitingForPayment = false
-            Toast.makeText(this@MainActivity, "Оплата ещё обрабатывается. Проверьте статус позже.", Toast.LENGTH_LONG).show()
         }
     }
 

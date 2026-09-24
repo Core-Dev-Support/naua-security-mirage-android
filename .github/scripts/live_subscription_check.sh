@@ -29,7 +29,7 @@ trap 'rm -rf "$workdir"' EXIT
 supabase_request() {
   local output="$1"
   shift
-  curl -sS -o "$output" -w '%{http_code}' \
+  curl -sS --connect-timeout 10 --max-time 30 -o "$output" -w '%{http_code}' \
     -H "apikey: ${SUPABASE_SERVICE_ROLE_KEY}" \
     -H "Authorization: Bearer ${SUPABASE_SERVICE_ROLE_KEY}" \
     "$@"
@@ -67,11 +67,17 @@ jq -r '.[] |
   "user_suffix=\((.user_id // "")[-8:]) client_suffix=\(((.client_uuid // "")[-8:]))"' \
   "$workdir/subscriptions.json"
 
-active_in_supabase="$(jq -r '.[0].is_active == true and (.[0].paid_until != null)' "$workdir/subscriptions.json")"
-[[ "$active_in_supabase" == "true" ]] || fail "the selected Supabase row is not active or has no paid_until"
+paid_until="$(jq -r '.[0].paid_until // ""' "$workdir/subscriptions.json")"
+[[ -n "$paid_until" ]] || fail "the selected Supabase row has no paid_until"
+paid_until_epoch="$(date -d "$paid_until" +%s 2>/dev/null || true)"
+now_epoch="$(date +%s)"
+[[ "$paid_until_epoch" =~ ^[0-9]+$ && "$paid_until_epoch" -gt "$now_epoch" ]] \
+  || fail "the selected Supabase subscription is expired or has an invalid paid_until"
+active_in_supabase="$(jq -r '.[0].is_active == true' "$workdir/subscriptions.json")"
+[[ "$active_in_supabase" == "true" ]] || fail "the selected Supabase row is not active"
 
 # Authenticate to 3X-UI and inspect the configured inbound without mutating it.
-login_code="$(curl -sS -o "$workdir/login.json" -c "$workdir/cookies.txt" -w '%{http_code}' \
+login_code="$(curl -sS --connect-timeout 10 --max-time 30 -o "$workdir/login.json" -c "$workdir/cookies.txt" -w '%{http_code}' \
   -X POST "${THREE_X_UI_BASE_URL%/}/login" \
   -H 'Content-Type: application/x-www-form-urlencoded' \
   --data-urlencode "username=${THREE_X_UI_USERNAME}" \
@@ -79,7 +85,7 @@ login_code="$(curl -sS -o "$workdir/login.json" -c "$workdir/cookies.txt" -w '%{
 [[ "$login_code" == 2* ]] || fail "3X-UI login returned HTTP ${login_code}"
 jq -e '.success == true' "$workdir/login.json" >/dev/null || fail "3X-UI login did not return success=true"
 
-inbound_code="$(curl -sS -o "$workdir/inbound.json" -b "$workdir/cookies.txt" -w '%{http_code}' \
+inbound_code="$(curl -sS --connect-timeout 10 --max-time 30 -o "$workdir/inbound.json" -b "$workdir/cookies.txt" -w '%{http_code}' \
   "${THREE_X_UI_BASE_URL%/}/panel/api/inbounds/get/${THREE_X_UI_INBOUND_ID}")"
 [[ "$inbound_code" == 2* ]] || fail "3X-UI inbound ${THREE_X_UI_INBOUND_ID} returned HTTP ${inbound_code}"
 jq -e '.success == true and (.obj.settings | type == "string")' "$workdir/inbound.json" >/dev/null \
@@ -102,8 +108,11 @@ fi
 
 match_count="$(jq 'length' "$workdir/matches.json")"
 [[ "$match_count" =~ ^[0-9]+$ && "$match_count" -gt 0 ]] || fail "no matching 3X-UI client found"
-active_count="$(jq '[.[] | select((.enable // true) == true)] | length' "$workdir/matches.json")"
-[[ "$active_count" -gt 0 ]] || fail "matching 3X-UI client exists but is disabled"
-printf '3X-UI: inbound=%s matches=%s active=%s\n' "$THREE_X_UI_INBOUND_ID" "$match_count" "$active_count"
+now_ms="$(( $(date +%s) * 1000 ))"
+active_count="$(jq --argjson now "$now_ms" \
+  '[.[] | select((.enable // true) == true and ((.expiryTime // 0) == 0 or ((.expiryTime | tonumber) > $now)))] | length' \
+  "$workdir/matches.json")"
+[[ "$active_count" -gt 0 ]] || fail "matching 3X-UI client is disabled or expired"
+printf '3X-UI: inbound=%s matches=%s active_unexpired=%s\n' "$THREE_X_UI_INBOUND_ID" "$match_count" "$active_count"
 
 printf 'LIVE_CHECK_OK\n'

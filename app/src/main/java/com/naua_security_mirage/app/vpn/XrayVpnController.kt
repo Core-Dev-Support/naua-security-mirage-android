@@ -576,12 +576,7 @@ class XrayVpnController(private val vpnService: VpnService) {
             Log.d(TAG, "Decoded convertShareLinksToXrayJson response: $decodedStr")
             if (decodedStr.isNotEmpty()) {
                 val jsonRoot = JsonParser.parseString(decodedStr).asJsonObject
-                val xrayConfigObj = if (jsonRoot.has("obj")) {
-                    val innerStr = jsonRoot.get("obj").asString
-                    JsonParser.parseString(innerStr).asJsonObject
-                } else {
-                    jsonRoot
-                }
+                val xrayConfigObj = XrayEnvelope.unwrap(jsonRoot)
                 if (xrayConfigObj.has("outbounds")) {
                     val obs = xrayConfigObj.getAsJsonArray("outbounds")
                     if (obs.size() > 0) {

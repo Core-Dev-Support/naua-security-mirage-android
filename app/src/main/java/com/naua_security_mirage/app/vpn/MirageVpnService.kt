@@ -28,6 +28,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 
 data class SpeedInfo(
     val downBps: Long = 0L,
@@ -266,7 +267,15 @@ class MirageVpnService : VpnService() {
                 // 5. Start Xray core with TUN fd and make sure real traffic flows through it.
                 // A node may accept the VLESS handshake and then drop every byte, so a started
                 // core alone is never treated as a working connection.
-                val (workingServer, _) = openWorkingTunnel(bestServer, isFrancePlan, pfd)
+                val tunnelAttempt = withTimeoutOrNull(60_000L) {
+                    openWorkingTunnel(bestServer, isFrancePlan, pfd)
+                }
+                if (tunnelAttempt == null) {
+                    AppLogger.e(TAG, "Превышен лимит времени проверки VPN-узлов — VPN отключается.")
+                    stopVpn()
+                    return@launch
+                }
+                val (workingServer, _) = tunnelAttempt
                 if (workingServer == null) {
                     AppLogger.e(TAG, "Ни один узел не подтвердил передачу трафика — VPN отключается.")
                     stopVpn()
@@ -490,10 +499,10 @@ class MirageVpnService : VpnService() {
         }
     }
 
-    private fun stopVpn() {
+    private fun stopVpn(cancelConnectionJob: Boolean = true, stopService: Boolean = true) {
         _vpnState.value = VpnState.DISCONNECTING
         unregisterNetworkMonitoring()
-        connectionJob?.cancel()
+        if (cancelConnectionJob) connectionJob?.cancel()
         pingJob?.cancel()
         timerJob?.cancel()
         speedJob?.cancel()
@@ -526,7 +535,7 @@ class MirageVpnService : VpnService() {
         _tunnelHealthy.value = false
         AppLogger.i(TAG, "VPN disconnected. Tunnel closed and session ended.")
 
-        stopSelf()
+        if (stopService) stopSelf()
     }
 
     override fun onDestroy() {
@@ -677,7 +686,10 @@ class MirageVpnService : VpnService() {
 
                 val pfd = vpnInterface
                 if (pfd != null) {
-                    val (active, _) = openWorkingTunnel(newServer, isFrancePlan, pfd)
+                    val tunnelAttempt = withTimeoutOrNull(60_000L) {
+                        openWorkingTunnel(newServer, isFrancePlan, pfd)
+                    }
+                    val active = tunnelAttempt?.first
                     if (active != null) {
                         _tunnelHealthy.value = true
                         _activeServer.value = active
@@ -701,18 +713,18 @@ class MirageVpnService : VpnService() {
                         AppLogger.i(TAG, "VPN успешно переподключен на узел: ${active.tag}")
                     } else {
                         AppLogger.e(TAG, "Ни один узел не пропускает трафик при переподключении, полный перезапуск...")
-                        stopVpn()
+                        stopVpn(cancelConnectionJob = false, stopService = false)
                         delay(300)
                         startVpn()
                     }
                 } else {
-                    stopVpn()
+                    stopVpn(cancelConnectionJob = false, stopService = false)
                     delay(300)
                     startVpn()
                 }
             } catch (e: Throwable) {
                 AppLogger.e(TAG, "Ошибка при переподключении: ${e.message}", e)
-                stopVpn()
+                stopVpn(cancelConnectionJob = false, stopService = false)
                 delay(300)
                 startVpn()
             }

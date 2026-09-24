@@ -1,7 +1,13 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.8";
 import { crypto } from "https://deno.land/std@0.168.0/crypto/mod.ts";
-import { isRubleCurrency, makeVlessUrl, nextPaidUntil } from "./contract.ts";
+import {
+  isAllowedNotificationType,
+  isExpectedAmount,
+  isRubleCurrency,
+  makeVlessUrl,
+  nextPaidUntil,
+} from "./contract.ts";
 
 type SubscriptionRow = {
   user_id: string;
@@ -17,10 +23,10 @@ type SubscriptionRow = {
 
 type ThreeXClient = {
   id: string;
-  email: string;
-  flow: string;
-  enable: boolean;
-  expiryTime: number;
+  email?: string;
+  flow?: string;
+  enable?: boolean;
+  expiryTime?: number;
 };
 
 const THREE_X_UI_BASE_URL = Deno.env.get("THREE_X_UI_BASE_URL") || "";
@@ -37,16 +43,23 @@ const FRANCE_SNI = Deno.env.get("FRANCE_SNI") || "";
 const FRANCE_SID = Deno.env.get("FRANCE_SID") || "";
 const FRANCE_SPX = Deno.env.get("FRANCE_SPX") || "/";
 const FRANCE_FINGERPRINT = Deno.env.get("FRANCE_FINGERPRINT") || "chrome";
+const YOOMONEY_EXPECTED_AMOUNT_RUB = Deno.env.get("YOOMONEY_EXPECTED_AMOUNT_RUB") || "30";
+const YOOMONEY_AMOUNT_TOLERANCE_KOPECKS = Number(
+  Deno.env.get("YOOMONEY_AMOUNT_TOLERANCE_KOPECKS") || "0",
+);
 
 function text(formData: FormData, key: string): string {
   return formData.get(key)?.toString().trim() || "";
 }
 
-function assert3xSuccess(response: Response, body: string, operation: string): void {
+function assert3xSuccess(response: Response, body: string, operation: string, allowEmpty = false): void {
   if (!response.ok) {
     throw new Error(`${operation} failed with HTTP ${response.status}`);
   }
-  if (!body) return;
+  if (!body) {
+    if (allowEmpty) return;
+    throw new Error(`${operation} returned an empty response`);
+  }
   try {
     const parsed = JSON.parse(body);
     if (!parsed || parsed.success !== true) {
@@ -108,14 +121,28 @@ async function getInboundClient(cookie: string, userId: string, email: string, c
   const body = await response.text();
   assert3xSuccess(response, body, "3X-UI inbound lookup");
   const root = JSON.parse(body);
-  const settings = JSON.parse(root.obj?.settings || "{}");
+  const rawSettings = root.obj?.settings;
+  const settings = typeof rawSettings === "string"
+    ? JSON.parse(rawSettings)
+    : (rawSettings || {});
   const clients: ThreeXClient[] = Array.isArray(settings.clients) ? settings.clients : [];
-  return clients.find((client) => {
-    const matches = (clientUuid && client.id.toLowerCase() === clientUuid.toLowerCase()) ||
-      client.email?.toLowerCase() === email.toLowerCase() ||
-      client.email?.toLowerCase() === `user_${userId.substring(0, 8).toLowerCase()}@mirage.app`;
-    return matches && client.enable !== false;
-  }) || null;
+  const now = Date.now();
+  const matching = clients.filter((client) => {
+    const id = (client.id || "").toLowerCase();
+    const clientEmail = (client.email || "").toLowerCase();
+    const matches = (clientUuid && id === clientUuid.toLowerCase()) ||
+      (clientEmail && clientEmail === email.toLowerCase()) ||
+      clientEmail === `user_${userId.substring(0, 8).toLowerCase()}@mirage.app`;
+    const expiry = Number(client.expiryTime || 0);
+    return matches && client.enable !== false && (expiry === 0 || expiry > now);
+  });
+  matching.sort((left, right) => {
+    const leftExact = Boolean(clientUuid && (left.id || "").toLowerCase() === clientUuid.toLowerCase());
+    const rightExact = Boolean(clientUuid && (right.id || "").toLowerCase() === clientUuid.toLowerCase());
+    if (leftExact !== rightExact) return leftExact ? -1 : 1;
+    return Number(right.expiryTime || 0) - Number(left.expiryTime || 0);
+  });
+  return matching[0] || null;
 }
 
 async function loginTo3xUi(): Promise<string> {
@@ -148,15 +175,16 @@ async function ensure3xClient(
     email,
     existing?.client_uuid || null,
   );
-  if (existingClient && (existingClient.expiryTime === 0 || existingClient.expiryTime > expiryMs)) {
-    return { uuid: existingClient.id, flow: existingClient.flow || "xtls-rprx-vision" };
+  const existingExpiry = Number(existingClient?.expiryTime || 0);
+  if (existingClient && (existingExpiry === 0 || existingExpiry > expiryMs)) {
+    return { uuid: existingClient.id, flow: existingClient.flow ?? "xtls-rprx-vision" };
   }
 
-  // If the old client is expired, never submit the same UUID to addClient:
-  // 3X-UI treats that as a duplicate. Keep the old row for audit and issue a
-  // new client for the renewal.
-  const uuid = existingClient ? crypto.randomUUID() : (existing?.client_uuid || crypto.randomUUID());
-  const flow = existingClient?.flow || existing?.flow || "xtls-rprx-vision";
+  // If the old client is expired or disabled, never submit its UUID to
+  // addClient: 3X-UI treats that as a duplicate. Keep the old row for audit
+  // and issue a fresh client for the renewal.
+  const uuid = crypto.randomUUID();
+  const flow = existingClient?.flow ?? existing?.flow ?? "xtls-rprx-vision";
   const client = {
     id: uuid,
     email,
@@ -175,8 +203,15 @@ async function ensure3xClient(
     body: JSON.stringify({ id: THREE_X_UI_INBOUND_ID, settings }),
   });
   const body = await response.text();
-  assert3xSuccess(response, body, "3X-UI addClient");
-  return { uuid, flow };
+  // Some 3X-UI versions return an empty 2xx response for addClient. Accept
+  // that only after reading the inbound back and confirming this exact UUID.
+  assert3xSuccess(response, body, "3X-UI addClient", true);
+  const verified = await getInboundClient(cookie, userId, email, uuid);
+  const verifiedExpiry = Number(verified?.expiryTime || 0);
+  if (!verified || verified.id.toLowerCase() !== uuid.toLowerCase() || (verifiedExpiry !== 0 && verifiedExpiry < expiryMs)) {
+    throw new Error("3X-UI addClient was not verified in the inbound");
+  }
+  return { uuid: verified.id, flow: verified.flow ?? flow };
 }
 
 serve(async (req) => {
@@ -199,9 +234,14 @@ serve(async (req) => {
     const signature = text(formData, "sha1_hash");
 
     if (!operationId || !label) return new Response("operation_id and label are required", { status: 400 });
+    if (!isAllowedNotificationType(notificationType)) {
+      return new Response("Unsupported notification type", { status: 400 });
+    }
     if (codepro.toLowerCase() !== "true") return new Response("Payment is not completed", { status: 400 });
-    if (!amount || Number(amount) <= 0) return new Response("Invalid amount", { status: 400 });
-    if (currency && !isRubleCurrency(currency)) {
+    if (!isExpectedAmount(amount, YOOMONEY_EXPECTED_AMOUNT_RUB, YOOMONEY_AMOUNT_TOLERANCE_KOPECKS)) {
+      return new Response("Invalid amount", { status: 400 });
+    }
+    if (!isRubleCurrency(currency)) {
       return new Response("Unsupported currency", { status: 400 });
     }
 
