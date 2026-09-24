@@ -1,0 +1,42 @@
+name: Live subscription check
+
+on:
+  workflow_dispatch:
+    inputs:
+      email:
+        description: 'Supabase account email to inspect (optional if user_id is supplied)'
+        required: false
+        type: string
+      user_id:
+        description: 'Supabase auth user UUID to inspect (optional if email is supplied)'
+        required: false
+        type: string
+      client_uuid:
+        description: '3X-UI client UUID to match (optional)'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  live-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run read-only Supabase and 3X-UI contract check
+        env:
+          CHECK_EMAIL: ${{ inputs.email }}
+          CHECK_USER_ID: ${{ inputs.user_id }}
+          CHECK_CLIENT_UUID: ${{ inputs.client_uuid }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          THREE_X_UI_BASE_URL: ${{ secrets.THREE_X_UI_BASE_URL }}
+          THREE_X_UI_USERNAME: ${{ secrets.THREE_X_UI_USERNAME }}
+          THREE_X_UI_PASSWORD: ${{ secrets.THREE_X_UI_PASSWORD }}
+          THREE_X_UI_INBOUND_ID: ${{ secrets.THREE_X_UI_INBOUND_ID }}
+        run: |
+          chmod +x .github/scripts/live_subscription_check.sh
+          .github/scripts/live_subscription_check.sh

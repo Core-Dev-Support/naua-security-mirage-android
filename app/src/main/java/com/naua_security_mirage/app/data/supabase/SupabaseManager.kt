@@ -20,7 +20,6 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
-import java.text.SimpleDateFormat
 import java.util.*
 import java.util.concurrent.TimeUnit
 
@@ -47,6 +46,7 @@ class SupabaseManager private constructor() {
         private const val TAG = "SupabaseManager"
         private const val PREFS_NAME = "mirage_supabase_auth"
         private const val KEY_ACCESS_TOKEN = "access_token"
+        private const val KEY_REFRESH_TOKEN = "refresh_token"
         private const val KEY_USER_ID = "user_id"
         private const val KEY_USER_EMAIL = "user_email"
         private const val KEY_SUB_USER_ID = "sub_user_id"
@@ -69,6 +69,7 @@ class SupabaseManager private constructor() {
 
     private var prefs: SharedPreferences? = null
     private var accessToken: String? = null
+    private var refreshToken: String? = null
 
     private val _currentUser = MutableStateFlow<SupabaseUser?>(null)
     val currentUser: StateFlow<SupabaseUser?> = _currentUser.asStateFlow()
@@ -109,7 +110,7 @@ class SupabaseManager private constructor() {
         return try {
             val json = prefs?.getString(emailCacheKey(email), null) ?: return null
             val dto = gson.fromJson(json, SubscriptionDto::class.java)
-            if (dto != null && dto.isActive && hasDateNotExpired(dto.paidUntil)) {
+            if (dto != null && SubscriptionPolicy.isActive(dto.isActive, dto.paidUntil)) {
                 AppLogger.info(TAG, "Email cache loaded for $email: plan=${dto.plan}, uuid=${dto.clientUuid}")
                 dto
             } else {
@@ -130,11 +131,13 @@ class SupabaseManager private constructor() {
         if (prefs == null) {
             prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             val savedToken = prefs?.getString(KEY_ACCESS_TOKEN, null)
+            val savedRefreshToken = prefs?.getString(KEY_REFRESH_TOKEN, null)
             val savedId = prefs?.getString(KEY_USER_ID, null)
             val savedEmail = prefs?.getString(KEY_USER_EMAIL, null)
 
             if (!savedToken.isNullOrEmpty() && !savedId.isNullOrEmpty() && !savedEmail.isNullOrEmpty()) {
                 accessToken = savedToken
+                refreshToken = savedRefreshToken
                 _currentUser.value = SupabaseUser(savedId, savedEmail)
 
                 // Load subscription from per-email cache — instant, no network needed
@@ -147,7 +150,7 @@ class SupabaseManager private constructor() {
                     val savedSubActive = prefs?.getBoolean(KEY_SUB_IS_ACTIVE, false) ?: false
                     val savedSubEmail = prefs?.getString(KEY_SUB_EMAIL, null)
                     val isSameUser = savedSubEmail != null && savedSubEmail.equals(savedEmail, ignoreCase = true)
-                    if (savedSubActive && isSameUser && hasDateNotExpired(prefs?.getString(KEY_SUB_PAID_UNTIL, null))) {
+                    if (savedSubActive && isSameUser && SubscriptionPolicy.isActive(true, prefs?.getString(KEY_SUB_PAID_UNTIL, null))) {
                         val sub = SubscriptionDto(
                             userId = savedId,
                             email = savedEmail,
@@ -208,11 +211,13 @@ class SupabaseManager private constructor() {
 
             val resObj = gson.fromJson(responseString, JsonObject::class.java)
             val token = resObj.get("access_token")?.asString
+            val newRefreshToken = resObj.get("refresh_token")?.asString
             val userObj = resObj.getAsJsonObject("user")
             val userId = userObj?.get("id")?.asString.orEmpty()
             val userEmail = userObj?.get("email")?.asString.orEmpty()
 
             accessToken = token
+            refreshToken = newRefreshToken
             val user = SupabaseUser(userId, userEmail)
             _currentUser.value = user
 
@@ -221,6 +226,7 @@ class SupabaseManager private constructor() {
 
             prefs?.edit()
                 ?.putString(KEY_ACCESS_TOKEN, token)
+                ?.putString(KEY_REFRESH_TOKEN, newRefreshToken)
                 ?.putString(KEY_USER_ID, userId)
                 ?.putString(KEY_USER_EMAIL, userEmail)
                 ?.apply()
@@ -268,12 +274,14 @@ class SupabaseManager private constructor() {
 
             val resObj = gson.fromJson(responseString, JsonObject::class.java)
             val token = resObj.get("access_token")?.asString
+            val newRefreshToken = resObj.get("refresh_token")?.asString
             val userObj = resObj.getAsJsonObject("user")
             val userId = userObj?.get("id")?.asString.orEmpty()
             val userEmail = userObj?.get("email")?.asString.orEmpty()
 
             if (!token.isNullOrEmpty()) {
                 accessToken = token
+                refreshToken = newRefreshToken
                 val user = SupabaseUser(userId, userEmail)
                 _currentUser.value = user
                 // Load from email cache (new signup won't have one, but handles re-registration)
@@ -281,6 +289,7 @@ class SupabaseManager private constructor() {
 
                 prefs?.edit()
                     ?.putString(KEY_ACCESS_TOKEN, token)
+                    ?.putString(KEY_REFRESH_TOKEN, newRefreshToken)
                     ?.putString(KEY_USER_ID, userId)
                     ?.putString(KEY_USER_EMAIL, userEmail)
                     ?.apply()
@@ -325,6 +334,7 @@ class SupabaseManager private constructor() {
             }
 
             val token = params["access_token"]
+            val oauthRefreshToken = params["refresh_token"]
 
             if (token.isNullOrEmpty()) {
                 val error = params["error_description"] ?: params["error"] ?: "Токен авторизации не получен"
@@ -346,13 +356,13 @@ class SupabaseManager private constructor() {
             }
 
             accessToken = token
+            refreshToken = oauthRefreshToken
             _currentUser.value = user
-
-            // Load subscription from per-email cache instantly
             _subscription.value = loadEmailCache(user.email)
 
             prefs?.edit()
                 ?.putString(KEY_ACCESS_TOKEN, token)
+                ?.putString(KEY_REFRESH_TOKEN, oauthRefreshToken)
                 ?.putString(KEY_USER_ID, user.id)
                 ?.putString(KEY_USER_EMAIL, user.email)
                 ?.apply()
@@ -387,12 +397,43 @@ class SupabaseManager private constructor() {
         }
     }
 
+    private fun refreshAccessToken(): Boolean {
+        val token = refreshToken ?: return false
+        return try {
+            val body = JsonObject().apply { addProperty("refresh_token", token) }
+                .toString()
+                .toRequestBody("application/json; charset=utf-8".toMediaType())
+            val request = Request.Builder()
+                .url("${SupabaseConfig.SUPABASE_URL}/auth/v1/token?grant_type=refresh_token")
+                .header("apikey", SupabaseConfig.getAnonKey())
+                .header("Authorization", "Bearer ${SupabaseConfig.getAnonKey()}")
+                .post(body)
+                .build()
+            val response = httpClient.newCall(request).execute()
+            if (!response.isSuccessful) return false
+            val json = gson.fromJson(response.body?.string().orEmpty(), JsonObject::class.java)
+            val newAccess = json.get("access_token")?.asString ?: return false
+            accessToken = newAccess
+            json.get("refresh_token")?.asString?.let { newRefresh ->
+                refreshToken = newRefresh
+                prefs?.edit()?.putString(KEY_REFRESH_TOKEN, newRefresh)?.apply()
+            }
+            prefs?.edit()?.putString(KEY_ACCESS_TOKEN, newAccess)?.apply()
+            true
+        } catch (e: Exception) {
+            AppLogger.w(TAG, "Access token refresh failed: ${e.message}")
+            false
+        }
+    }
+
     fun signOut() {
         accessToken = null
+        refreshToken = null
         _currentUser.value = null
         _subscription.value = null
         prefs?.edit()
             ?.remove(KEY_ACCESS_TOKEN)
+            ?.remove(KEY_REFRESH_TOKEN)
             ?.remove(KEY_USER_ID)
             ?.remove(KEY_USER_EMAIL)
             ?.apply()
@@ -407,8 +448,7 @@ class SupabaseManager private constructor() {
         try {
             val vlessKey = ThreeXUiService.getOrCreateClient(user.email, user.id)
             val expiryMs = System.currentTimeMillis() + (30L * 24L * 60L * 60L * 1000L)
-            val sdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US)
-            val paidUntil = sdf.format(Date(expiryMs))
+            val paidUntil = SubscriptionPolicy.formatUtcIso(Date(expiryMs))
 
             val clientUuid = extractUuidFromVless(vlessKey) ?: user.id
 
@@ -459,6 +499,23 @@ class SupabaseManager private constructor() {
         }
     }
 
+    private fun fetchSubscriptionResponse(userId: String): Pair<Int, String> {
+        fun execute(): Pair<Int, String> {
+            val authHeader = if (!accessToken.isNullOrEmpty()) "Bearer $accessToken" else "Bearer ${SupabaseConfig.getAnonKey()}"
+            val request = Request.Builder()
+                .url("${SupabaseConfig.SUPABASE_URL}/rest/v1/subscriptions?user_id=eq.${userId}&select=user_id,email,is_active,plan,paid_until,vless_key,client_uuid,updated_at")
+                .header("apikey", SupabaseConfig.getAnonKey())
+                .header("Authorization", authHeader)
+                .get()
+                .build()
+            val response = httpClient.newCall(request).execute()
+            return response.code to response.body?.string().orEmpty()
+        }
+
+        val first = execute()
+        return if (first.first == 401 && refreshAccessToken()) execute() else first
+    }
+
     suspend fun refreshSubscription() = withContext(Dispatchers.IO) {
         val user = _currentUser.value ?: run {
             _subscription.value = null
@@ -469,11 +526,15 @@ class SupabaseManager private constructor() {
             // 1. Check 3X-UI (primary source of truth)
             var threeXUiReached = false
             var subFrom3XUi: SubscriptionDto? = null
+            val cachedSub = _subscription.value ?: loadEmailCache(user.email)
+            val knownClientUuid = cachedSub?.clientUuid
+                ?: extractUuidFromVless(cachedSub?.vlessKey)
+                ?: user.id
             try {
-                subFrom3XUi = ThreeXUiService.checkSubscription(user.email, user.id)
-                threeXUiReached = true  // If no exception thrown, server responded
+                subFrom3XUi = ThreeXUiService.checkSubscription(user.email, knownClientUuid)
+                threeXUiReached = true  // Only a fully parsed 3X-UI response is authoritative
             } catch (e: Exception) {
-                AppLogger.w(TAG, "3X-UI unreachable during refresh: ${e.message}")
+                AppLogger.w(TAG, "3X-UI unavailable during refresh: ${e.message}")
             }
 
             if (subFrom3XUi != null) {
@@ -495,21 +556,14 @@ class SupabaseManager private constructor() {
                 return@withContext
             }
 
-            // 2. Try Supabase as source of truth if 3X-UI fails or returns null
+            // 2. Try Supabase as the entitlement source of truth if 3X-UI fails or returns null
+            var supabaseQuerySucceeded = false
             try {
-                val authHeader = if (!accessToken.isNullOrEmpty()) "Bearer $accessToken" else "Bearer ${SupabaseConfig.getAnonKey()}"
-                val request = Request.Builder()
-                    .url("${SupabaseConfig.SUPABASE_URL}/rest/v1/subscriptions?user_id=eq.${user.id}&select=*")
-                    .header("apikey", SupabaseConfig.getAnonKey())
-                    .header("Authorization", authHeader)
-                    .get()
-                    .build()
+                val (statusCode, responseString) = fetchSubscriptionResponse(user.id)
 
-                val response = httpClient.newCall(request).execute()
-                val responseString = response.body?.string().orEmpty()
-
-                if (response.isSuccessful) {
+                if (statusCode in 200..299) {
                     val array = gson.fromJson(responseString, JsonArray::class.java)
+                    supabaseQuerySucceeded = true
                     if (array != null && array.size() > 0) {
                         val sub = gson.fromJson(array.get(0), SubscriptionDto::class.java)
                         val clientUuid = sub.clientUuid ?: extractUuidFromVless(sub.vlessKey) ?: user.id
@@ -519,22 +573,20 @@ class SupabaseManager private constructor() {
                             if (threeXUiReached && subFrom3XUi == null) {
                                 AppLogger.info(TAG, "Restoring missing 3X-UI client from Supabase data...")
                                 val restoredKey = ThreeXUiService.getOrCreateClient(user.email, clientUuid)
-                                if (restoredKey != null) {
-                                    val finalSub = fullSub.copy(vlessKey = restoredKey)
-                                    _subscription.value = finalSub
-                                    saveEmailCache(user.email, finalSub)
-                                    prefs?.edit()
-                                        ?.putString(KEY_SUB_USER_ID, user.id)
-                                        ?.putString(KEY_SUB_EMAIL, user.email)
-                                        ?.putBoolean(KEY_SUB_IS_ACTIVE, true)
-                                        ?.putString(KEY_SUB_PLAN, finalSub.plan)
-                                        ?.putString(KEY_SUB_PAID_UNTIL, finalSub.paidUntil)
-                                        ?.putString(KEY_SUB_VLESS_KEY, finalSub.vlessKey)
-                                        ?.putString(KEY_SUB_CLIENT_UUID, clientUuid)
-                                        ?.apply()
-                                    AppLogger.info(TAG, "Subscription restored and loaded from Supabase: clientUuid=$clientUuid")
-                                    return@withContext
-                                }
+                                val finalSub = restoredKey?.let { fullSub.copy(vlessKey = it) } ?: fullSub
+                                _subscription.value = finalSub
+                                saveEmailCache(user.email, finalSub)
+                                prefs?.edit()
+                                    ?.putString(KEY_SUB_USER_ID, user.id)
+                                    ?.putString(KEY_SUB_EMAIL, user.email)
+                                    ?.putBoolean(KEY_SUB_IS_ACTIVE, true)
+                                    ?.putString(KEY_SUB_PLAN, finalSub.plan)
+                                    ?.putString(KEY_SUB_PAID_UNTIL, finalSub.paidUntil)
+                                    ?.putString(KEY_SUB_VLESS_KEY, finalSub.vlessKey)
+                                    ?.putString(KEY_SUB_CLIENT_UUID, clientUuid)
+                                    ?.apply()
+                                AppLogger.info(TAG, "Subscription restored from Supabase: clientUuid=$clientUuid, keyRestored=${restoredKey != null}")
+                                return@withContext
                             } else {
                                 _subscription.value = fullSub
                                 saveEmailCache(user.email, fullSub)
@@ -552,14 +604,21 @@ class SupabaseManager private constructor() {
                             }
                         }
                     }
+                } else {
+                    AppLogger.w(TAG, "Supabase query returned HTTP $statusCode; preserving cached subscription")
                 }
             } catch (e: Exception) {
                 AppLogger.w(TAG, "Supabase subscription query failed: ${e.message}")
             }
 
-            if (threeXUiReached) {
-                // 3X-UI responded OK and Supabase has no active sub — genuinely no subscription
-                AppLogger.info(TAG, "3X-UI and Supabase confirmed: no active subscription for ${user.email}")
+            if (SubscriptionPolicy.shouldClearCache(
+                    hasActiveCache = _subscription.value?.isActive == true,
+                    supabaseAuthoritative = supabaseQuerySucceeded,
+                    threeXUiAuthoritative = threeXUiReached
+                )
+            ) {
+                // Only an authoritative Supabase response may clear a paid cache.
+                AppLogger.info(TAG, "Supabase confirmed no active subscription for ${user.email}")
                 clearEmailCache(user.email)
                 clearSubscriptionPrefs()
                 _subscription.value = SubscriptionDto(
@@ -598,14 +657,7 @@ class SupabaseManager private constructor() {
     }
 
     private fun hasDateNotExpired(dateStr: String?): Boolean {
-        if (dateStr.isNullOrEmpty()) return false
-        return try {
-            val sdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US)
-            val date = sdf.parse(dateStr.take(19)) ?: return false
-            date.after(Date())
-        } catch (_: Exception) {
-            false
-        }
+        return SubscriptionPolicy.isActive(true, dateStr)
     }
 
     suspend fun ensureFranceVlessKey(): String? = withContext(Dispatchers.IO) {
@@ -623,7 +675,10 @@ class SupabaseManager private constructor() {
             return@withContext sub?.vlessKey
         }
 
-        val generatedKey = ThreeXUiService.getOrCreateClient(user.email, user.id)
+        val generatedKey = ThreeXUiService.getOrCreateClient(
+            user.email,
+            sub?.clientUuid ?: extractUuidFromVless(sub?.vlessKey) ?: user.id
+        )
         if (generatedKey != null) {
             val clientUuid = extractUuidFromVless(generatedKey) ?: user.id
             try {
@@ -719,13 +774,6 @@ class SupabaseManager private constructor() {
         if (!sub.email.trim().equals(user.email.trim(), ignoreCase = true) && sub.userId != user.id) {
             return false
         }
-        val paidUntilStr = sub.paidUntil ?: return true
-        return try {
-            val sdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US)
-            val date = sdf.parse(paidUntilStr.take(19)) ?: return true
-            date.after(Date())
-        } catch (_: Exception) {
-            true
-        }
+        return SubscriptionPolicy.isActive(sub.isActive, sub.paidUntil)
     }
 }

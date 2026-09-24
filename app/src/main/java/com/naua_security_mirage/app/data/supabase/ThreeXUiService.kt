@@ -10,7 +10,6 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.security.SecureRandom
 import java.security.cert.X509Certificate
-import java.text.SimpleDateFormat
 import java.util.*
 import java.util.concurrent.TimeUnit
 import javax.net.ssl.SSLContext
@@ -77,9 +76,19 @@ object ThreeXUiService {
 
             val response = client.newCall(request).execute()
             val body = response.body?.string().orEmpty()
-            val success = body.contains("\"success\":true")
-            AppLogger.info(TAG, "3X-UI login response success: $success")
-            success
+            if (!response.isSuccessful) {
+                throw IllegalStateException("3X-UI login HTTP ${response.code}")
+            }
+            val root = try {
+                gson.fromJson(body, JsonObject::class.java)
+            } catch (e: Exception) {
+                throw IllegalStateException("3X-UI login returned invalid JSON", e)
+            }
+            if (root?.get("success")?.asBoolean != true) {
+                throw IllegalStateException("3X-UI login was rejected")
+            }
+            AppLogger.info(TAG, "3X-UI login response success: true")
+            true
         } catch (e: Exception) {
             AppLogger.error(TAG, "3X-UI login failed: ${e.message}")
             false
@@ -107,27 +116,35 @@ object ThreeXUiService {
         // execute() throws IOException on network failure — let it propagate
         val response = client.newCall(request).execute()
         val body = response.body?.string().orEmpty()
-        if (!response.isSuccessful || body.isEmpty()) return@withContext null
+        if (!response.isSuccessful || body.isEmpty()) {
+            throw IllegalStateException("3X-UI subscription HTTP ${response.code}")
+        }
 
         val rootObj = try {
             gson.fromJson(body, JsonObject::class.java)
         } catch (e: Exception) {
             AppLogger.error(TAG, "3X-UI response parse error: ${e.message}")
-            return@withContext null
+            throw IllegalStateException("3X-UI returned invalid JSON", e)
         }
-        if (rootObj.get("success")?.asBoolean != true) return@withContext null
+        if (rootObj?.get("success")?.asBoolean != true) {
+            throw IllegalStateException("3X-UI returned success=false")
+        }
 
-        val inboundObj = rootObj.getAsJsonObject("obj") ?: return@withContext null
+        val inboundObj = rootObj.getAsJsonObject("obj")
+            ?: throw IllegalStateException("3X-UI response has no inbound object")
         val settingsRaw = inboundObj.get("settings")?.asString.orEmpty()
-        if (settingsRaw.isEmpty()) return@withContext null
+        if (settingsRaw.isEmpty()) {
+            throw IllegalStateException("3X-UI inbound has no settings")
+        }
 
         val settingsObj = try {
             gson.fromJson(settingsRaw, JsonObject::class.java)
         } catch (e: Exception) {
             AppLogger.error(TAG, "3X-UI settings parse error: ${e.message}")
-            return@withContext null
+            throw IllegalStateException("3X-UI settings are invalid JSON", e)
         }
-        val clientsArr = settingsObj.getAsJsonArray("clients") ?: return@withContext null
+        val clientsArr = settingsObj.getAsJsonArray("clients")
+            ?: throw IllegalStateException("3X-UI inbound has no clients array")
 
         // Dynamically extract live Reality streamSettings from 3X-UI inbound
         val streamSettingsRaw = inboundObj.get("streamSettings")?.asString.orEmpty()
@@ -163,7 +180,6 @@ object ThreeXUiService {
         }
 
         val now = System.currentTimeMillis()
-        val sdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US)
 
         for (elem in clientsArr) {
             try {
@@ -178,7 +194,11 @@ object ThreeXUiService {
                         (!clientUuid.isNullOrEmpty() && id.equals(clientUuid, ignoreCase = true))
 
                 if (isMatch && enabled && (expiryTime == 0L || expiryTime > now)) {
-                    val paidUntil = if (expiryTime > 0L) sdf.format(Date(expiryTime)) else "2099-01-01T00:00:00"
+                    val paidUntil = if (expiryTime > 0L) {
+                        SubscriptionPolicy.formatUtcIso(Date(expiryTime))
+                    } else {
+                        "2099-01-01T00:00:00.000Z"
+                    }
                     val vlessUrl = buildVlessUrl(
                         uuid = id,
                         flow = flow,
@@ -266,7 +286,15 @@ object ThreeXUiService {
 
             val response = client.newCall(addRequest).execute()
             val resBody = response.body?.string().orEmpty()
-            AppLogger.info(TAG, "3X-UI addClient response: $resBody")
+            if (!response.isSuccessful) return@withContext null
+            try {
+                val result = gson.fromJson(resBody, JsonObject::class.java)
+                if (result?.get("success")?.asBoolean == false) return@withContext null
+            } catch (e: Exception) {
+                AppLogger.w(TAG, "3X-UI addClient returned invalid JSON: ${e.message}")
+                return@withContext null
+            }
+            AppLogger.info(TAG, "3X-UI addClient succeeded for ${userEmail}")
 
             // Build VLESS URL
             val vlessUrl = buildVlessUrl(uuid = uuid, flow = "xtls-rprx-vision")

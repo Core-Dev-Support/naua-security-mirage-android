@@ -1,0 +1,42 @@
+export function parseDate(value: string | null): number {
+  if (!value) return 0;
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+export function nextPaidUntil(
+  previous: string | null,
+  days = 30,
+  now = Date.now(),
+): string {
+  const start = Math.max(now, parseDate(previous));
+  return new Date(start + days * 24 * 60 * 60 * 1000).toISOString();
+}
+
+export function isRubleCurrency(value: string): boolean {
+  return ["643", "rub", "rur"].includes(value.trim().toLowerCase());
+}
+
+export function makeVlessUrl(
+  uuid: string,
+  flow: string,
+  host: string,
+  port: string,
+  publicKey: string,
+  fingerprint: string,
+  serverName: string,
+  shortId: string,
+  spiderX: string,
+): string {
+  const query = new URLSearchParams({
+    type: "tcp",
+    security: "reality",
+    pbk: publicKey,
+    fp: fingerprint,
+    sni: serverName,
+    sid: shortId,
+    spx: spiderX,
+    flow,
+  });
+  return `vless://${uuid}@${host}:${port}?${query.toString()}#NAUA%20Mirage%20France%20(Premium)`;
+}

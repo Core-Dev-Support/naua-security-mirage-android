@@ -220,15 +220,20 @@ class MainActivity : AppCompatActivity() {
             return
         }
         lifecycleScope.launch {
-            com.naua_security_mirage.app.data.supabase.SupabaseManager.instance.refreshSubscription()
-            val success = com.naua_security_mirage.app.data.supabase.SupabaseManager.instance.hasActiveSubscription()
-            if (success) {
-                isWaitingForPayment = false
-                settingsRepository.selectedServerPlan = SettingsRepository.PLAN_PREMIUM_FRANCE
-                updateServerPlanSelectorUI()
-                updateAccountCardUI()
-                Toast.makeText(this@MainActivity, "Подписка активна! Выбран сервер во Франции 🇫🇷", Toast.LENGTH_LONG).show()
+            repeat(5) { attempt ->
+                com.naua_security_mirage.app.data.supabase.SupabaseManager.instance.refreshSubscription()
+                if (com.naua_security_mirage.app.data.supabase.SupabaseManager.instance.hasActiveSubscription()) {
+                    isWaitingForPayment = false
+                    settingsRepository.selectedServerPlan = SettingsRepository.PLAN_PREMIUM_FRANCE
+                    updateServerPlanSelectorUI()
+                    updateAccountCardUI()
+                    Toast.makeText(this@MainActivity, "Подписка активна! Выбран сервер во Франции 🇫🇷", Toast.LENGTH_LONG).show()
+                    return@launch
+                }
+                if (attempt < 4) delay(3000)
             }
+            isWaitingForPayment = false
+            Toast.makeText(this@MainActivity, "Оплата ещё обрабатывается. Проверьте статус позже.", Toast.LENGTH_LONG).show()
         }
     }
 

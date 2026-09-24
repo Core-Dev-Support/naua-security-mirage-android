@@ -36,8 +36,10 @@ data class VlessServer(
         if (mode.isNotEmpty() && mode != "none") {
             queryParams.add("mode=$mode")
         }
-        if (path.isNotEmpty()) {
+        if (network == "tcp" && security == "reality" && path.isNotEmpty()) {
             queryParams.add("spx=" + URLEncoder.encode(path, "UTF-8"))
+        } else if (network != "tcp" && path.isNotEmpty()) {
+            queryParams.add("path=" + URLEncoder.encode(path, "UTF-8"))
         }
         if (shortId.isNotEmpty()) {
             queryParams.add("sid=$shortId")
@@ -102,9 +104,9 @@ data class VlessServer(
                     publicKey = pbk,
                     fingerprint = fp,
                     serverName = sni,
-                    host = sni,
+                    host = params["host"] ?: sni,
                     mode = mode,
-                    path = spx,
+                    path = if (network.equals("tcp", ignoreCase = true)) spx else (params["path"] ?: spx),
                     shortId = sid,
                     flow = flow
                 )

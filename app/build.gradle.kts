@@ -141,4 +141,6 @@ dependencies {
     // HTTP & JSON Serialization for VLESS registration & ping
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("com.google.code.gson:gson:2.10.1")
+
+    testImplementation("junit:junit:4.13.2")
 }

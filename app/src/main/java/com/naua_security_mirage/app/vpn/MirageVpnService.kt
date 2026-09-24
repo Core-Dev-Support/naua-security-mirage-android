@@ -266,23 +266,14 @@ class MirageVpnService : VpnService() {
                 // 5. Start Xray core with TUN fd and make sure real traffic flows through it.
                 // A node may accept the VLESS handshake and then drop every byte, so a started
                 // core alone is never treated as a working connection.
-                val (workingServer, coreStarted) = openWorkingTunnel(bestServer, isFrancePlan, pfd)
+                val (workingServer, _) = openWorkingTunnel(bestServer, isFrancePlan, pfd)
                 if (workingServer == null) {
-                    if (!coreStarted) {
-                        AppLogger.e(TAG, "Xray core не запустился ни на одном узле — отключаем VPN.")
-                        stopVpn()
-                        return@launch
-                    }
-                    AppLogger.e(
-                        TAG,
-                        "Ни один узел не подтвердил передачу трафика. Туннель оставлен на ${bestServer.tag}, соединение помечено как неисправное."
-                    )
-                    xrayController?.startXray(bestServer, pfd.fd)
-                    _tunnelHealthy.value = false
-                } else {
-                    _tunnelHealthy.value = true
+                    AppLogger.e(TAG, "Ни один узел не подтвердил передачу трафика — VPN отключается.")
+                    stopVpn()
+                    return@launch
                 }
-                val activeServer = workingServer ?: bestServer
+                _tunnelHealthy.value = true
+                val activeServer = workingServer
 
                 // 6. Update state to CONNECTED
                 _activeServer.value = activeServer
@@ -324,20 +315,22 @@ class MirageVpnService : VpnService() {
     ): Pair<VlessServer?, Boolean> {
         val candidates = mutableListOf(preferred)
 
-        if (isPaidPlan) {
-            try {
-                val freeServers = vlessKeyRepository.getVlessServers()
-                val measured = pingRepository.measureAllPings(freeServers)
-                candidates += measured.sortedBy { if (it.pingMs in 1..9998) it.pingMs else Long.MAX_VALUE }
-                AppLogger.i(TAG, "Платная подписка: подготовлено резервных бесплатных узлов: ${freeServers.size}")
-            } catch (e: Throwable) {
-                AppLogger.w(TAG, "Не удалось загрузить резервные бесплатные узлы: ${e.message}")
+        try {
+            val freeServers = vlessKeyRepository.getVlessServers()
+            val measured = pingRepository.measureAllPings(freeServers)
+            for (server in measured.sortedBy { if (it.pingMs in 1..9998) it.pingMs else Long.MAX_VALUE }) {
+                if (candidates.none { it.address == server.address && it.port == server.port && it.uuid == server.uuid }) {
+                    candidates += server
+                }
             }
+            AppLogger.i(TAG, "Подготовлено кандидатов для failover: ${candidates.size}")
+        } catch (e: Throwable) {
+            AppLogger.w(TAG, "Не удалось загрузить резервные бесплатные узлы: ${e.message}")
         }
 
         var coreStarted = false
         for ((index, candidate) in candidates.withIndex()) {
-            val hostKey = "${candidate.address}:${candidate.port}"
+            val hostKey = "${candidate.address}:${candidate.port}:${candidate.uuid}:${candidate.network}"
             val knownFlowLess = settingsRepository.flowStrippedHosts
 
             // If this node is already known to be incompatible with XTLS Vision, skip the
@@ -623,14 +616,17 @@ class MirageVpnService : VpnService() {
                 val server = _activeServer.value ?: vlessKeyRepository.getVlessServers().firstOrNull()
                 if (server != null && pfd != null) {
                     val (started, errorMsg) = xrayController?.startXray(server, pfd.fd) ?: Pair(false, "Unknown")
-                    if (started) {
+                    val trafficOk = started && xrayController?.verifyDataPlane(6000) == true
+                    if (trafficOk) {
+                        _tunnelHealthy.value = true
                         _vpnState.value = VpnState.CONNECTED
                         startSessionTimer(_sessionSeconds.value)
                         startSpeedMonitoring()
                         startPeriodicPing(server)
                         AppLogger.i(TAG, "Туннель успешно переподключен на новой сети!")
                     } else {
-                        AppLogger.e(TAG, "Ошибка переподключения туннеля на новой сети: $errorMsg")
+                        AppLogger.e(TAG, "Ошибка переподключения туннеля или трафика на новой сети: $errorMsg")
+                        stopVpn()
                     }
                 }
             } catch (e: Throwable) {

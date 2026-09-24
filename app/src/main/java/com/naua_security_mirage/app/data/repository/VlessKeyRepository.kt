@@ -7,6 +7,7 @@ import android.util.Log
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
 import com.naua_security_mirage.app.data.model.VlessServer
+import com.naua_security_mirage.app.data.supabase.SupabaseConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.ConnectionSpec
@@ -152,34 +153,56 @@ class VlessKeyRepository(
 
             val user = users[0].asJsonObject
             val uuid = user.get("id")?.asString ?: continue
+            val flow = user.get("flow")?.asString.orEmpty()
 
             val streamSettings = obj.getAsJsonObject("streamSettings") ?: continue
             val network = streamSettings.get("network")?.asString ?: "tcp"
             val security = streamSettings.get("security")?.asString ?: "none"
 
             var publicKey = ""
-            var fingerprint = ""
+            var fingerprint = "chrome"
             var serverName = ""
+            var shortId = ""
+            var spiderX = "/"
 
-            if (security == "reality") {
+            if (security.equals("reality", ignoreCase = true)) {
                 val realitySettings = streamSettings.getAsJsonObject("realitySettings")
                 if (realitySettings != null) {
-                    publicKey = realitySettings.get("publicKey")?.asString ?: ""
-                    fingerprint = realitySettings.get("fingerprint")?.asString ?: ""
-                    serverName = realitySettings.get("serverName")?.asString ?: ""
+                    publicKey = realitySettings.get("publicKey")?.asString.orEmpty()
+                    fingerprint = realitySettings.get("fingerprint")?.asString ?: "chrome"
+                    serverName = realitySettings.get("serverName")?.asString
+                        ?: realitySettings.getAsJsonArray("serverNames")?.firstOrNull()?.asString
+                        ?: ""
+                    shortId = realitySettings.get("shortId")?.asString
+                        ?: realitySettings.getAsJsonArray("shortIds")?.firstOrNull()?.asString
+                        ?: ""
+                    spiderX = realitySettings.get("spiderX")?.asString ?: "/"
                 }
             }
 
             var path = ""
             var host = ""
             var mode = ""
-            if (network == "xhttp") {
+            if (network.equals("xhttp", ignoreCase = true)) {
                 val xhttpSettings = streamSettings.getAsJsonObject("xhttpSettings")
                 if (xhttpSettings != null) {
                     path = xhttpSettings.get("path")?.asString ?: ""
-                    host = xhttpSettings.get("host")?.asString ?: ""
-                    mode = xhttpSettings.get("mode")?.asString ?: ""
+                    val hostElement = xhttpSettings.get("host")
+                    host = when {
+                        hostElement == null -> ""
+                        hostElement.isJsonArray -> hostElement.asJsonArray.firstOrNull()?.asString.orEmpty()
+                        else -> hostElement.asString
+                    }
+                    mode = xhttpSettings.get("mode")?.asString ?: "packet-up"
                 }
+            } else if (network.equals("tcp", ignoreCase = true) && security.equals("reality", ignoreCase = true)) {
+                path = spiderX
+            }
+
+            if (address.isBlank() || uuid.isBlank() ||
+                (security.equals("reality", ignoreCase = true) &&
+                    (publicKey.isBlank() || serverName.isBlank() || shortId.isBlank()))) {
+                continue
             }
 
             servers.add(
@@ -196,7 +219,9 @@ class VlessKeyRepository(
                     serverName = serverName,
                     host = host,
                     mode = mode,
-                    path = path
+                    path = path,
+                    shortId = shortId,
+                    flow = flow
                 )
             )
         }
@@ -217,7 +242,8 @@ class VlessKeyRepository(
                 serverName = defaultSni,
                 host = defaultSni,
                 mode = "packet-up",
-                path = "/widgetComponent.js"
+                path = "/widgetComponent.js",
+                shortId = SupabaseConfig.FRANCE_SID
             ),
             VlessServer(
                 id = "fallback_2",
@@ -232,7 +258,8 @@ class VlessKeyRepository(
                 serverName = defaultSni,
                 host = defaultSni,
                 mode = "packet-up",
-                path = "/widgetComponent.js"
+                path = "/widgetComponent.js",
+                shortId = SupabaseConfig.FRANCE_SID
             ),
             VlessServer(
                 id = "fallback_3",
@@ -247,7 +274,8 @@ class VlessKeyRepository(
                 serverName = defaultSni,
                 host = defaultSni,
                 mode = "packet-up",
-                path = "/widgetComponent.js"
+                path = "/widgetComponent.js",
+                shortId = SupabaseConfig.FRANCE_SID
             )
         )
     }

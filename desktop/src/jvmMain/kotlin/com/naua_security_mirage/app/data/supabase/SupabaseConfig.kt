@@ -23,7 +23,7 @@ object SupabaseConfig {
     val THREE_X_UI_BASE_URL: String get() = System.getenv("THREE_X_UI_BASE_URL") ?: ""
     val THREE_X_UI_USERNAME: String get() = System.getenv("THREE_X_UI_USERNAME") ?: ""
     val THREE_X_UI_PASSWORD: String get() = System.getenv("THREE_X_UI_PASSWORD") ?: ""
-    val THREE_X_UI_INBOUND_ID: Int get() = System.getenv("THREE_X_UI_INBOUND_ID")?.toIntOrNull() ?: 1
+    val THREE_X_UI_INBOUND_ID: Int get() = System.getenv("THREE_X_UI_INBOUND_ID")?.toIntOrNull() ?: 2
 
     // Reality VLESS Parameters for France Server
     val FRANCE_HOST: String get() = System.getenv("FRANCE_HOST") ?: ""

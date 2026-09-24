@@ -113,8 +113,16 @@ class XrayVpnController(private val vpnService: VpnService) {
                 if (decodedResult.contains("\"error\"")) decodedResult else null
             }
 
-            val runningState = try { LibXray.getXrayState() } catch (_: Throwable) { false }
-            val isSuccess = runningState || (error.isNullOrEmpty() && (decodedResult.contains("\"success\":true") || decodedResult == "{}" || decodedResult.isEmpty()))
+            var runningState = try { LibXray.getXrayState() } catch (_: Throwable) { false }
+            if (!runningState && !explicitResultContainsSuccess(decodedResult)) {
+                repeat(5) {
+                    if (runningState) return@repeat
+                    Thread.sleep(100)
+                    runningState = try { LibXray.getXrayState() } catch (_: Throwable) { false }
+                }
+            }
+            val explicitSuccess = explicitResultContainsSuccess(decodedResult)
+            val isSuccess = runningState || (error.isNullOrEmpty() && explicitSuccess)
 
             if (!error.isNullOrEmpty()) {
                 AppLogger.e(TAG, "Xray core start error: $error")
@@ -131,6 +139,10 @@ class XrayVpnController(private val vpnService: VpnService) {
             Log.e(TAG, "Failed to start Xray: ${e.message}", e)
             return Pair(false, e.message)
         }
+    }
+
+    private fun explicitResultContainsSuccess(value: String): Boolean {
+        return Regex("\\\"success\\\"\\s*:\\s*true", RegexOption.IGNORE_CASE).containsMatchIn(value)
     }
 
     fun stopXray() {
@@ -621,11 +633,23 @@ class XrayVpnController(private val vpnService: VpnService) {
             when (network) {
                 "xhttp" -> {
                     val xhttp = stream?.getAsJsonObject("xhttpSettings")
-                    xhttp != null && !xhttp.get("path")?.asString.isNullOrEmpty()
+                    val hostValue = xhttp?.get("host")
+                    val host = if (hostValue == null) null else {
+                        if (hostValue.isJsonArray) hostValue.asJsonArray.firstOrNull()?.asString else hostValue.asString
+                    }
+                    xhttp != null &&
+                        !xhttp.get("path")?.asString.isNullOrEmpty() &&
+                        !host.isNullOrEmpty() &&
+                        !xhttp.get("mode")?.asString.isNullOrEmpty()
                 }
                 "tcp" -> {
                     if (server.security.ifEmpty { "reality" } != "reality") true
-                    else !stream?.getAsJsonObject("realitySettings")?.get("publicKey")?.asString.isNullOrEmpty()
+                    else {
+                        val reality = stream?.getAsJsonObject("realitySettings")
+                        !reality?.get("publicKey")?.asString.isNullOrEmpty() &&
+                            !reality?.get("serverName")?.asString.isNullOrEmpty() &&
+                            !reality?.get("shortId")?.asString.isNullOrEmpty()
+                    }
                 }
                 else -> true
             }

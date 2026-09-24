@@ -85,6 +85,21 @@ jobs:
           sed -i '/org.gradle.jvmargs/d' gradle.properties || true
           echo "org.gradle.jvmargs=-Xmx4g -XX:+UseParallelGC" >> gradle.properties
 
+      - name: Check YooMoney edge function
+        uses: denoland/setup-deno@v1
+        with:
+          deno-version: '1.44.4'
+
+      - name: Type-check YooMoney edge function
+        run: deno check supabase/functions/yoomoney-webhook/index.ts
+
+      - name: Test YooMoney edge-function contracts
+        run: deno test supabase/functions/yoomoney-webhook/contract_test.ts
+
+      - name: Run Android Unit Tests
+        run: |
+          ./gradlew testDebugUnitTest --stacktrace
+
       - name: Build Release APK with R8
         env:
           MIRAGE_STORE_PASSWORD: ${{ secrets.MIRAGE_STORE_PASSWORD }}
