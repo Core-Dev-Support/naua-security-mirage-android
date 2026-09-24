@@ -22,6 +22,7 @@ import com.naua_security_mirage.app.util.AppLogger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -173,8 +174,13 @@ class MirageVpnService : VpnService() {
         _vpnState.value = VpnState.CONNECTING
         AppLogger.i(TAG, "Initiating VPN connection...")
 
-        connectionJob?.cancel()
+        val previousConnectionJob = connectionJob
         connectionJob = serviceScope.launch {
+            // A previous attempt may still own the Xray core or the ParcelFileDescriptor.
+            // Join it before starting another attempt; otherwise an old job can close the
+            // newly-created TUN and make every node look dead.
+            previousConnectionJob?.cancelAndJoin()
+            if (_vpnState.value != VpnState.CONNECTING) return@launch
             try {
                 val isFrancePlan = settingsRepository.selectedServerPlan == SettingsRepository.PLAN_PREMIUM_FRANCE &&
                         com.naua_security_mirage.app.data.supabase.SupabaseManager.instance.hasActiveSubscription()
@@ -258,7 +264,7 @@ class MirageVpnService : VpnService() {
                 if (pfd == null) {
                     AppLogger.e(TAG, "Failed to establish VPN interface (pfd == null)")
                     Log.e(TAG, "Failed to establish VPN interface")
-                    stopVpn()
+                    stopVpn(cancelConnectionJob = false)
                     return@launch
                 }
                 vpnInterface = pfd
@@ -272,13 +278,13 @@ class MirageVpnService : VpnService() {
                 }
                 if (tunnelAttempt == null) {
                     AppLogger.e(TAG, "Превышен лимит времени проверки VPN-узлов — VPN отключается.")
-                    stopVpn()
+                    stopVpn(cancelConnectionJob = false)
                     return@launch
                 }
                 val (workingServer, _) = tunnelAttempt
                 if (workingServer == null) {
                     AppLogger.e(TAG, "Ни один узел не подтвердил передачу трафика — VPN отключается.")
-                    stopVpn()
+                    stopVpn(cancelConnectionJob = false)
                     return@launch
                 }
                 _tunnelHealthy.value = true
@@ -303,9 +309,11 @@ class MirageVpnService : VpnService() {
                 // 10. Launch real-time speed monitoring
                 startSpeedMonitoring()
 
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
             } catch (e: Throwable) {
                 Log.e(TAG, "Error starting VPN: ${e.message}", e)
-                stopVpn()
+                stopVpn(cancelConnectionJob = false)
             }
         }
     }
@@ -393,8 +401,8 @@ class MirageVpnService : VpnService() {
     private suspend fun waitForTraffic(): Boolean {
         val controller = xrayController ?: return false
         if (controller.verifyDataPlane(6000)) return true
-        delay(700)
-        return controller.verifyDataPlane(6000)
+        delay(500)
+        return controller.verifyDataPlane(4000)
     }
 
     private fun startSessionTimer(initialSeconds: Long = _sessionSeconds.value) {
@@ -558,6 +566,7 @@ class MirageVpnService : VpnService() {
             val cm = connectivityManager ?: return
             val request = NetworkRequest.Builder()
                 .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                .addCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN)
                 .build()
 
             networkCallback = object : ConnectivityManager.NetworkCallback() {
@@ -652,8 +661,10 @@ class MirageVpnService : VpnService() {
         AppLogger.i(TAG, "Запрос на переподключение VPN к выбранному серверу...")
         _vpnState.value = VpnState.CONNECTING
 
-        connectionJob?.cancel()
+        val previousConnectionJob = connectionJob
         connectionJob = serviceScope.launch {
+            previousConnectionJob?.cancelAndJoin()
+            if (_vpnState.value != VpnState.CONNECTING) return@launch
             try {
                 // 1. Stop current Xray core cleanly
                 xrayController?.stopXray()
@@ -722,6 +733,8 @@ class MirageVpnService : VpnService() {
                     delay(300)
                     startVpn()
                 }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
             } catch (e: Throwable) {
                 AppLogger.e(TAG, "Ошибка при переподключении: ${e.message}", e)
                 stopVpn(cancelConnectionJob = false, stopService = false)

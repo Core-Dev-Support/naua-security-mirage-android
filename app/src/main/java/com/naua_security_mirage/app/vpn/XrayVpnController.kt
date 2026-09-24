@@ -17,7 +17,10 @@ import libXray.LibXray
 import java.io.File
 import java.net.Inet4Address
 import java.net.InetAddress
+import java.net.Socket
 import java.nio.charset.StandardCharsets
+import javax.net.ssl.SSLSocket
+import javax.net.ssl.SSLSocketFactory
 
 class XrayVpnController(private val vpnService: VpnService) {
 
@@ -165,22 +168,34 @@ class XrayVpnController(private val vpnService: VpnService) {
     }
 
     /**
-     * Real data-plane health check: opens a SOCKS5 session through the local Xray inbound and
-     * waits for an actual HTTP answer from a public endpoint.
+     * Real data-plane health check: opens SOCKS5 sessions through the local Xray inbound and
+     * verifies both a raw HTTP response and a real HTTPS/SNI path to YouTube.
      *
      * A successful VLESS handshake proves nothing on its own — a node can accept the tunnel and
      * then silently drop every byte (dead egress, wrong transport params, rejected client).
      * This probe is what separates "connected" from "actually working".
      */
     fun verifyDataPlane(timeoutMs: Int = 6000): Boolean {
+        var tcpHttpPassed = false
         for ((host, port) in PROBE_TARGETS) {
             if (probeOnce(host, port, timeoutMs)) {
-                AppLogger.i(TAG, "Проверка трафика пройдена через $host:$port")
-                return true
+                AppLogger.i(TAG, "Базовый TCP/HTTP-проба пройдена через $host:$port")
+                tcpHttpPassed = true
+                break
             }
         }
-        AppLogger.w(TAG, "Проверка трафика не пройдена: туннель поднят, но данные не проходят")
-        return false
+        if (!tcpHttpPassed) {
+            AppLogger.w(TAG, "Проверка трафика не пройдена: туннель поднят, но TCP-данные не проходят")
+            return false
+        }
+
+        val httpsPassed = probeHttpsDomain(YOUTUBE_PROBE_HOST, YOUTUBE_PROBE_PORT, timeoutMs)
+        if (httpsPassed) {
+            AppLogger.i(TAG, "Проверка HTTPS/SNI YouTube пройдена")
+        } else {
+            AppLogger.w(TAG, "Базовый TCP работает, но HTTPS/SNI YouTube не прошёл")
+        }
+        return httpsPassed
     }
 
     private fun probeOnce(host: String, port: Int, timeoutMs: Int): Boolean {
@@ -243,6 +258,99 @@ class XrayVpnController(private val vpnService: VpnService) {
                 socket?.close()
             } catch (_: Throwable) {}
         }
+    }
+
+    /**
+     * Checks a real domain path through the local SOCKS inbound, including DNS inside Xray,
+     * TLS negotiation and the HTTPS Host/SNI. The IP-only probe above cannot detect a broken
+     * DNS path or a proxy that only forwards raw TCP.
+     */
+    private fun probeHttpsDomain(host: String, port: Int, timeoutMs: Int): Boolean {
+        var socket: Socket? = null
+        var tlsSocket: SSLSocket? = null
+        return try {
+            socket = Socket()
+            socket.connect(java.net.InetSocketAddress("127.0.0.1", SOCKS_PORT), timeoutMs)
+            socket.soTimeout = timeoutMs
+            val output = socket.getOutputStream()
+            val input = socket.getInputStream()
+
+            output.write(byteArrayOf(0x05, 0x01, 0x00))
+            output.flush()
+            val greeting = ByteArray(2)
+            readFully(input, greeting, 2)
+            if (greeting[0] != 0x05.toByte() || greeting[1] != 0x00.toByte()) return false
+
+            val hostBytes = host.toByteArray(StandardCharsets.US_ASCII)
+            if (hostBytes.isEmpty() || hostBytes.size > 255) return false
+
+            val request = ByteArray(7 + hostBytes.size)
+            request[0] = 0x05
+            request[1] = 0x01
+            request[2] = 0x00
+            request[3] = 0x03 // SOCKS5 domain address
+            request[4] = hostBytes.size.toByte()
+            hostBytes.copyInto(request, 5)
+            val portOffset = 5 + hostBytes.size
+            request[portOffset] = ((port shr 8) and 0xFF).toByte()
+            request[portOffset + 1] = (port and 0xFF).toByte()
+            output.write(request)
+            output.flush()
+            if (!readSocks5Reply(input)) return false
+
+            val ssl = SSLSocketFactory.getDefault().createSocket(socket, host, port, true) as SSLSocket
+            tlsSocket = ssl
+            ssl.soTimeout = timeoutMs
+            try {
+                val sslParameters = ssl.sslParameters
+                sslParameters.endpointIdentificationAlgorithm = "HTTPS"
+                ssl.sslParameters = sslParameters
+            } catch (_: Throwable) {
+                // Older Android providers may not expose endpoint identification; the SNI
+                // hostname is still supplied to createSocket(), so the path check remains useful.
+            }
+            ssl.startHandshake()
+
+            val tlsOutput = ssl.getOutputStream()
+            val tlsInput = ssl.getInputStream()
+            tlsOutput.write(
+                ("HEAD / HTTP/1.1\r\nHost: $host\r\nConnection: close\r\n" +
+                    "User-Agent: NAUA-Security-Mirage\r\n\r\n").toByteArray(StandardCharsets.US_ASCII)
+            )
+            tlsOutput.flush()
+
+            val buffer = ByteArray(32)
+            val read = tlsInput.read(buffer)
+            read > 0 && String(buffer, 0, read, StandardCharsets.US_ASCII).startsWith("HTTP/")
+        } catch (t: Throwable) {
+            Log.d(TAG, "HTTPS probe to $host:$port failed: ${t.message}")
+            false
+        } finally {
+            try {
+                tlsSocket?.close()
+            } catch (_: Throwable) {}
+            try {
+                socket?.close()
+            } catch (_: Throwable) {}
+        }
+    }
+
+    private fun readSocks5Reply(input: java.io.InputStream): Boolean {
+        val header = ByteArray(4)
+        readFully(input, header, 4)
+        if (header[0] != 0x05.toByte() || header[1] != 0x00.toByte()) return false
+        val addressLength = when (header[3].toInt() and 0xFF) {
+            0x01 -> 4
+            0x04 -> 16
+            0x03 -> {
+                val length = ByteArray(1)
+                readFully(input, length, 1)
+                length[0].toInt() and 0xFF
+            }
+            else -> return false
+        }
+        readFully(input, ByteArray(addressLength + 2), addressLength + 2)
+        return true
     }
 
     private fun readFully(input: java.io.InputStream, buffer: ByteArray, length: Int) {
@@ -375,6 +483,8 @@ class XrayVpnController(private val vpnService: VpnService) {
 
     private fun buildManualConfig(server: VlessServer): String {
         val xrayServer = resolveProxyEndpoint(server)
+        val shouldBlockVisionQuic = xrayServer.flow.contains("xtls-rprx-vision", ignoreCase = true) &&
+            !xrayServer.flow.contains("udp443", ignoreCase = true)
         val root = JsonObject()
         val settingsRepo = SettingsRepository(vpnService)
 
@@ -735,6 +845,23 @@ class XrayVpnController(private val vpnService: VpnService) {
         }
         outbounds.add(directOutbound)
 
+        // XTLS Vision without an explicit UDP/443 variant cannot carry QUIC reliably.
+        // Keep a blackhole outbound only for that profile; flowless nodes may use QUIC.
+        if (shouldBlockVisionQuic) {
+            val blockOutbound = JsonObject().apply {
+                addProperty("tag", "block")
+                addProperty("protocol", "blackhole")
+                val settings = JsonObject().apply {
+                    val response = JsonObject().apply {
+                        addProperty("type", "none")
+                    }
+                    add("response", response)
+                }
+                add("settings", settings)
+            }
+            outbounds.add(blockOutbound)
+        }
+
         val dnsOutbound = JsonObject().apply {
             addProperty("tag", "dns-out")
             addProperty("protocol", "dns")
@@ -820,9 +947,21 @@ class XrayVpnController(private val vpnService: VpnService) {
                 AppLogger.i(TAG, "Раздельное туннелирование сайтов: добавлено пользовательских доменов в исключения: ${customBypassedDomains.size}")
             }
 
+            // Vision nodes use TCP for HTTPS; do not send QUIC into a Vision flow that has no
+            // negotiated UDP/443 variant. Flowless nodes fall through to the global proxy rule.
+            if (shouldBlockVisionQuic) {
+                val blockQuicRule = JsonObject().apply {
+                    addProperty("type", "field")
+                    addProperty("port", "443")
+                    addProperty("network", "udp")
+                    addProperty("outboundTag", "block")
+                }
+                rules.add(blockQuicRule)
+            }
+
             // YouTube's Android client keeps QUIC sessions alive instead of reliably falling
             // back to TCP when UDP/443 is silently blackholed. Keep its service domains on the
-            // proxy explicitly; the final global rule will carry QUIC through VLESS as well.
+            // proxy explicitly; Vision profiles are still blocked above and use TCP.
             val youtubeProxyRule = JsonObject().apply {
                 addProperty("type", "field")
                 addProperty("outboundTag", "proxy")
@@ -951,12 +1090,12 @@ class XrayVpnController(private val vpnService: VpnService) {
 
         /** Local SOCKS inbound of the generated Xray config, used for health checks. */
         private const val SOCKS_PORT = 10808
+        private const val YOUTUBE_PROBE_HOST = "www.youtube.com"
+        private const val YOUTUBE_PROBE_PORT = 443
 
         /** IP-literal endpoints (no local DNS needed) that answer plain HTTP. */
         private val PROBE_TARGETS = listOf(
-            "1.1.1.1" to 80,
-            "1.0.0.1" to 80,
-            "9.9.9.9" to 80
+            "1.1.1.1" to 80
         )
     }
 }
