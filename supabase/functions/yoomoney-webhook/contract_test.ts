@@ -1,5 +1,18 @@
-import { assert, assertEquals, assertStringIncludes } from "https://deno.land/std@0.168.0/assert/mod.ts";
 import { isRubleCurrency, makeVlessUrl, nextPaidUntil, parseDate } from "./contract.ts";
+
+function assert(condition: unknown, message = "assertion failed"): asserts condition {
+  if (!condition) throw new Error(message);
+}
+
+function assertEquals<T>(actual: T, expected: T): void {
+  if (actual !== expected) {
+    throw new Error(`expected ${String(expected)}, got ${String(actual)}`);
+  }
+}
+
+function assertStringIncludes(value: string, expected: string): void {
+  assert(value.includes(expected), `expected string to include ${expected}`);
+}
 
 Deno.test("subscription renewal extends an unexpired entitlement", () => {
   const now = Date.parse("2026-09-24T00:00:00.000Z");
