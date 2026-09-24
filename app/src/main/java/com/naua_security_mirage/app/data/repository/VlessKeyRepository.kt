@@ -134,7 +134,8 @@ class VlessKeyRepository(
     private fun parseOutbounds(root: JsonObject, servers: MutableList<VlessServer>) {
         val outbounds = root.getAsJsonArray("outbounds") ?: return
         for (elem in outbounds) {
-            val obj = elem.asJsonObject
+            try {
+                val obj = elem.asJsonObject
             val tag = obj.get("tag")?.asString ?: continue
             val protocol = obj.get("protocol")?.asString ?: continue
 
@@ -223,6 +224,9 @@ class VlessKeyRepository(
                     flow = flow
                 )
             )
+            } catch (e: Exception) {
+                Log.w(TAG, "Skipping malformed free outbound: ${e.message}")
+            }
         }
     }
 
