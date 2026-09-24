@@ -16,19 +16,24 @@ import java.util.TimeZone
 object SubscriptionPolicy {
     private val fractionPattern = Regex("\\.(\\d+)")
     private val patterns = listOf(
-        "yyyy-MM-dd'T'HH:mm:ss.SSSXXX",
-        "yyyy-MM-dd'T'HH:mm:ssXXX",
-        "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'",
-        "yyyy-MM-dd'T'HH:mm:ss'Z'",
+        // Z is supported on the app's minSdk; XXX is not available on every
+        // Android API level, so normalize offsets to RFC-822 form first.
+        "yyyy-MM-dd'T'HH:mm:ss.SSSZ",
+        "yyyy-MM-dd'T'HH:mm:ssZ",
+        "yyyy-MM-dd'T'HH:mm:ss.SSS",
         "yyyy-MM-dd'T'HH:mm:ss"
     )
 
     fun parseExpiry(value: String?): Date? {
         val raw = value?.trim().orEmpty()
         if (raw.isEmpty()) return null
-        val normalized = fractionPattern.replace(raw) { match ->
+        var normalized = fractionPattern.replace(raw) { match ->
             "." + match.groupValues[1].take(3).padEnd(3, '0')
         }
+        if (normalized.endsWith("Z")) {
+            normalized = normalized.dropLast(1) + "+0000"
+        }
+        normalized = normalized.replace(Regex("([+-]\\d{2}):(\\d{2})$"), "$1$2")
 
         for (pattern in patterns) {
             val parser = SimpleDateFormat(pattern, Locale.US).apply {

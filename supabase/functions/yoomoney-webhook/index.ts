@@ -49,7 +49,7 @@ function assert3xSuccess(response: Response, body: string, operation: string): v
   if (!body) return;
   try {
     const parsed = JSON.parse(body);
-    if (parsed && parsed.success === false) {
+    if (!parsed || parsed.success !== true) {
       throw new Error(`${operation} was rejected by 3X-UI`);
     }
   } catch (error) {

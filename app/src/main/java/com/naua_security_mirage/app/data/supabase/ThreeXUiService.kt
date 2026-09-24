@@ -289,7 +289,7 @@ object ThreeXUiService {
             if (!response.isSuccessful) return@withContext null
             try {
                 val result = gson.fromJson(resBody, JsonObject::class.java)
-                if (result?.get("success")?.asBoolean == false) return@withContext null
+                if (result?.get("success")?.asBoolean != true) return@withContext null
             } catch (e: Exception) {
                 AppLogger.w(TAG, "3X-UI addClient returned invalid JSON: ${e.message}")
                 return@withContext null
