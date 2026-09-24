@@ -596,7 +596,10 @@ class SupabaseManager private constructor() {
                             if (threeXUiReached && subFrom3XUi == null) {
                                 AppLogger.info(TAG, "Restoring missing 3X-UI client from Supabase data...")
                                 val restoredKey = ThreeXUiService.getOrCreateClient(user.email, clientUuid)
-                                val finalSub = restoredKey?.let { fullSub.copy(vlessKey = it) } ?: fullSub
+                                val restoredClientUuid = restoredKey?.let { extractUuidFromVless(it) } ?: clientUuid
+                                val finalSub = restoredKey?.let {
+                                    fullSub.copy(vlessKey = it, clientUuid = restoredClientUuid)
+                                } ?: fullSub
                                 _subscription.value = finalSub
                                 saveEmailCache(user.email, finalSub)
                                 prefs?.edit()
@@ -606,9 +609,9 @@ class SupabaseManager private constructor() {
                                     ?.putString(KEY_SUB_PLAN, finalSub.plan)
                                     ?.putString(KEY_SUB_PAID_UNTIL, finalSub.paidUntil)
                                     ?.putString(KEY_SUB_VLESS_KEY, finalSub.vlessKey)
-                                    ?.putString(KEY_SUB_CLIENT_UUID, clientUuid)
+                                    ?.putString(KEY_SUB_CLIENT_UUID, restoredClientUuid)
                                     ?.apply()
-                                AppLogger.info(TAG, "Subscription restored from Supabase: clientUuid=$clientUuid, keyRestored=${restoredKey != null}")
+                                AppLogger.info(TAG, "Subscription restored from Supabase: clientUuid=$restoredClientUuid, keyRestored=${restoredKey != null}")
                                 return@withContext
                             } else {
                                 _subscription.value = fullSub
