@@ -148,11 +148,14 @@ async function ensure3xClient(
     email,
     existing?.client_uuid || null,
   );
-  if (existingClient && existingClient.expiryTime > expiryMs) {
+  if (existingClient && (existingClient.expiryTime === 0 || existingClient.expiryTime > expiryMs)) {
     return { uuid: existingClient.id, flow: existingClient.flow || "xtls-rprx-vision" };
   }
 
-  const uuid = existingClient?.id || existing?.client_uuid || crypto.randomUUID();
+  // If the old client is expired, never submit the same UUID to addClient:
+  // 3X-UI treats that as a duplicate. Keep the old row for audit and issue a
+  // new client for the renewal.
+  const uuid = existingClient ? crypto.randomUUID() : (existing?.client_uuid || crypto.randomUUID());
   const flow = existingClient?.flow || existing?.flow || "xtls-rprx-vision";
   const client = {
     id: uuid,

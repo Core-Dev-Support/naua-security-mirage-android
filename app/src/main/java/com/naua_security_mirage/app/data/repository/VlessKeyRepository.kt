@@ -7,7 +7,6 @@ import android.util.Log
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
 import com.naua_security_mirage.app.data.model.VlessServer
-import com.naua_security_mirage.app.data.supabase.SupabaseConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.ConnectionSpec
@@ -201,7 +200,7 @@ class VlessKeyRepository(
 
             if (address.isBlank() || uuid.isBlank() ||
                 (security.equals("reality", ignoreCase = true) &&
-                    (publicKey.isBlank() || serverName.isBlank() || shortId.isBlank()))) {
+                    (publicKey.isBlank() || serverName.isBlank()))) {
                 continue
             }
 
@@ -242,8 +241,7 @@ class VlessKeyRepository(
                 serverName = defaultSni,
                 host = defaultSni,
                 mode = "packet-up",
-                path = "/widgetComponent.js",
-                shortId = SupabaseConfig.FRANCE_SID
+                path = "/widgetComponent.js"
             ),
             VlessServer(
                 id = "fallback_2",
@@ -258,8 +256,7 @@ class VlessKeyRepository(
                 serverName = defaultSni,
                 host = defaultSni,
                 mode = "packet-up",
-                path = "/widgetComponent.js",
-                shortId = SupabaseConfig.FRANCE_SID
+                path = "/widgetComponent.js"
             ),
             VlessServer(
                 id = "fallback_3",
@@ -274,8 +271,7 @@ class VlessKeyRepository(
                 serverName = defaultSni,
                 host = defaultSni,
                 mode = "packet-up",
-                path = "/widgetComponent.js",
-                shortId = SupabaseConfig.FRANCE_SID
+                path = "/widgetComponent.js"
             )
         )
     }

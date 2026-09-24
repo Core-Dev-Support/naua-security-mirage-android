@@ -561,9 +561,9 @@ class SupabaseManager private constructor() {
             try {
                 val (statusCode, responseString) = fetchSubscriptionResponse(user.id)
 
-                if (statusCode in 200..299) {
+                if (statusCode in 200..299 && responseString.isNotBlank()) {
                     val array = gson.fromJson(responseString, JsonArray::class.java)
-                    supabaseQuerySucceeded = true
+                    supabaseQuerySucceeded = array != null
                     if (array != null && array.size() > 0) {
                         val sub = gson.fromJson(array.get(0), SubscriptionDto::class.java)
                         val clientUuid = sub.clientUuid ?: extractUuidFromVless(sub.vlessKey) ?: user.id

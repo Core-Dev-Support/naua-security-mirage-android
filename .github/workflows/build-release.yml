@@ -96,6 +96,9 @@ jobs:
       - name: Test YooMoney edge-function contracts
         run: deno test supabase/functions/yoomoney-webhook/contract_test.ts
 
+      - name: Validate live-check script
+        run: bash -n .github/scripts/live_subscription_check.sh
+
       - name: Run Android Unit Tests
         run: |
           ./gradlew testDebugUnitTest --stacktrace

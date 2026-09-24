@@ -96,7 +96,7 @@ object ThreeXUiService {
     }
 
     /**
-     * Checks if the user already has an active, paid client in 3X-UI inbound 1.
+     * Checks if the user already has an active, paid client in the configured 3X-UI inbound.
      * Restores subscription even after logout, app reinstall, or across devices.
      *
      * @return SubscriptionDto if active client found, null if server responded but user not found.
