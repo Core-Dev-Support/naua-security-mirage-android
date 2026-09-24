@@ -73,7 +73,6 @@
     <string name="setting_updates">Источник обновления</string>
     <string name="setting_updates_desc">GitHub Releases (по умолчанию)</string>
     <string name="setting_updates_source_github">GitHub Releases (по умолчанию)</string>
-    <string name="setting_updates_source_rustore">RuStore (на модерации)</string>
     <string name="setting_updates_source_uptodown">Uptodown App Store (на модерации)</string>
     <string name="btn_check_updates_now">Проверить наличие обновления</string>
     <string name="app_version">Mirage 1.2.0</string>

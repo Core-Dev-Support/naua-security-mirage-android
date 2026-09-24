@@ -17,7 +17,6 @@
 
 <p align="center">
   <a href="https://github.com/Core-Dev-Support/naua-security-mirage-android/releases/latest"><b>⬇️ Скачать APK (GitHub Releases)</b></a> •
-  <a href="https://www.rustore.ru/catalog/app/com.naua_security_mirage.app"><b>🛒 RuStore (на модерации)</b></a> •
   <a href="https://en.uptodown.com/android"><b>🏪 Uptodown (на модерации)</b></a> •
   <a href="https://docs.google.com/document/d/1Q0_MpGF5D1GGoFu2HcdTle0kvLb3S7L52x2XIc47eLw/edit?usp=sharing"><b>📋 EULA</b></a> •
   <a href="https://docs.google.com/document/d/1FrmDpGS3sC_kQYyv1feNO2G2XMQr_ZV4_GAS-Qm4y1I/edit?usp=sharing"><b>🔒 Приватность</b></a>
@@ -28,13 +27,13 @@
 ## 📱 Скриншоты приложения
 
 <p align="center">
-  <img src="docs/screenshots/RuStore_Slide_1.jpg" width="13%" alt="Главный экран" />
-  <img src="docs/screenshots/RuStore_Slide_2.jpg" width="13%" alt="Выбор серверов" />
-  <img src="docs/screenshots/RuStore_Slide_3.jpg" width="13%" alt="Раздельное туннелирование" />
-  <img src="docs/screenshots/RuStore_Slide_4.jpg" width="13%" alt="Темы оформления" />
-  <img src="docs/screenshots/RuStore_Slide_5.jpg" width="13%" alt="3D стили кнопки" />
-  <img src="docs/screenshots/RuStore_Slide_6.jpg" width="13%" alt="Панель состояния" />
-  <img src="docs/screenshots/RuStore_Slide_7.jpg" width="13%" alt="Шторка уведомлений" />
+  <img src="docs/screenshots/App_Slide_1.jpg" width="13%" alt="Главный экран" />
+  <img src="docs/screenshots/App_Slide_2.jpg" width="13%" alt="Выбор серверов" />
+  <img src="docs/screenshots/App_Slide_3.jpg" width="13%" alt="Раздельное туннелирование" />
+  <img src="docs/screenshots/App_Slide_4.jpg" width="13%" alt="Темы оформления" />
+  <img src="docs/screenshots/App_Slide_5.jpg" width="13%" alt="3D стили кнопки" />
+  <img src="docs/screenshots/App_Slide_6.jpg" width="13%" alt="Панель состояния" />
+  <img src="docs/screenshots/App_Slide_7.jpg" width="13%" alt="Шторка уведомлений" />
 </p>
 
 ---

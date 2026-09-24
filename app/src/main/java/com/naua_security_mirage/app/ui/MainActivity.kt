@@ -16,7 +16,6 @@ import androidx.core.content.FileProvider
 import com.naua_security_mirage.app.util.AppLogger
 import com.naua_security_mirage.app.util.AppShield
 import com.naua_security_mirage.app.util.AnimationHelper
-import com.naua_security_mirage.app.util.RuStoreUpdateHelper
 import com.naua_security_mirage.app.util.AppUpdateManager
 import android.widget.RadioButton
 import android.text.SpannableStringBuilder
@@ -2877,8 +2876,6 @@ class MainActivity : AppCompatActivity() {
 
     private fun updateUpdateSourceUI() {
         val descText = when (settingsRepository.updateSource) {
-            SettingsRepository.UPDATE_SOURCE_GITHUB -> getString(R.string.setting_updates_source_github)
-            SettingsRepository.UPDATE_SOURCE_RUSTORE -> getString(R.string.setting_updates_source_rustore)
             SettingsRepository.UPDATE_SOURCE_UPTODOWN -> getString(R.string.setting_updates_source_uptodown)
             else -> getString(R.string.setting_updates_source_github)
         }
@@ -2911,13 +2908,6 @@ class MainActivity : AppCompatActivity() {
         val rbGithub = dialog.findViewById<RadioButton>(R.id.rbSourceGithub)
         val ivGithub = dialog.findViewById<ImageView>(R.id.ivSourceGithubIcon)
 
-        val rowRuStore = dialog.findViewById<LinearLayout>(R.id.rowSourceRuStore)
-        val tvRuStoreTitle = dialog.findViewById<TextView>(R.id.tvSourceRuStoreTitle)
-        val tvRuStoreDesc = dialog.findViewById<TextView>(R.id.tvSourceRuStoreDesc)
-        val badgeRuStore = dialog.findViewById<TextView>(R.id.badgeSourceRuStore)
-        val rbRuStore = dialog.findViewById<RadioButton>(R.id.rbSourceRuStore)
-        val ivRuStore = dialog.findViewById<ImageView>(R.id.ivSourceRuStoreIcon)
-
         val rowUptodown = dialog.findViewById<LinearLayout>(R.id.rowSourceUptodown)
         val tvUptodownTitle = dialog.findViewById<TextView>(R.id.tvSourceUptodownTitle)
         val tvUptodownDesc = dialog.findViewById<TextView>(R.id.tvSourceUptodownDesc)
@@ -2948,13 +2938,10 @@ class MainActivity : AppCompatActivity() {
 
         tvGithubTitle.setTextColor(titleTextColor)
         tvGithubDesc.setTextColor(subtitleTextColor)
-        tvRuStoreTitle.setTextColor(titleTextColor)
-        tvRuStoreDesc.setTextColor(subtitleTextColor)
         tvUptodownTitle.setTextColor(titleTextColor)
         tvUptodownDesc.setTextColor(subtitleTextColor)
 
         ivGithub.imageTintList = ColorStateList.valueOf(accentColor)
-        ivRuStore.imageTintList = ColorStateList.valueOf(subtitleTextColor)
         ivUptodown.imageTintList = ColorStateList.valueOf(subtitleTextColor)
 
         val badgeRecommendBg = GradientDrawable().apply {
@@ -2972,17 +2959,13 @@ class MainActivity : AppCompatActivity() {
             setColor(ColorUtils.setAlphaComponent(Color.parseColor("#64748B"), 30))
             setStroke((1f * density).toInt(), ColorUtils.setAlphaComponent(Color.parseColor("#64748B"), 80))
         }
-        badgeRuStore.background = badgeModBg
-        badgeRuStore.setTextColor(Color.parseColor("#94A3B8"))
         badgeUptodown.background = badgeModBg
         badgeUptodown.setTextColor(Color.parseColor("#94A3B8"))
 
         rbGithub.buttonTintList = ColorStateList.valueOf(accentColor)
-        rbRuStore.buttonTintList = ColorStateList.valueOf(accentColor)
         rbUptodown.buttonTintList = ColorStateList.valueOf(accentColor)
 
         rowGithub.background = getCardDrawable(isLightContext, 14f)
-        rowRuStore.background = getCardDrawable(isLightContext, 14f)
         rowUptodown.background = getCardDrawable(isLightContext, 14f)
 
         val btnCheckNow = dialog.findViewById<LinearLayout>(R.id.btnDialogCheckUpdatesNow)
@@ -2995,7 +2978,6 @@ class MainActivity : AppCompatActivity() {
 
         fun updateRadios(source: String) {
             rbGithub.isChecked = (source == SettingsRepository.UPDATE_SOURCE_GITHUB)
-            rbRuStore.isChecked = (source == SettingsRepository.UPDATE_SOURCE_RUSTORE)
             rbUptodown.isChecked = (source == SettingsRepository.UPDATE_SOURCE_UPTODOWN)
         }
 
@@ -3011,12 +2993,6 @@ class MainActivity : AppCompatActivity() {
         rowGithub.setOnClickListener {
             AnimationHelper.bounceClick(rowGithub, minScale = 0.96f, durationMs = 150) {
                 selectSource(SettingsRepository.UPDATE_SOURCE_GITHUB, "GitHub Releases")
-            }
-        }
-
-        rowRuStore.setOnClickListener {
-            AnimationHelper.bounceClick(rowRuStore, minScale = 0.96f, durationMs = 150) {
-                selectSource(SettingsRepository.UPDATE_SOURCE_RUSTORE, "RuStore")
             }
         }
 
@@ -3047,7 +3023,7 @@ class MainActivity : AppCompatActivity() {
             Принцип минимизации данных (Data Minimization) и приоритет приватности лежат в основе всей архитектуры приложения.</p>
             <br/>
             <h3>2. Использование системного сервиса Android VPNService</h3>
-            <p>В соответствии с требованиями платформ распространения (Google Play, RuStore):<br/>
+            <p>В соответствии с применимыми требованиями платформ распространения:<br/>
             1. <b>Цель использования:</b> Приложение использует системный компонент <code>android.net.VpnService</code> исключительно для выполнения своей основной функции — создания локального защищенного сквозного криптографического туннеля от устройства до выбранного узла маршрутизации.<br/>
             2. <b>Шифрование данных:</b> Весь сетевой трафик защищается с использованием современных протоколов сквозного криптографического шифрования транспортного уровня.<br/>
             3. <b>Отсутствие профилирования:</b> Сетевой трафик не перехватывается с целью анализа поведения, не модифицируется и не продается третьим лицам или рекламным сетям.</p>
@@ -3628,7 +3604,6 @@ class MainActivity : AppCompatActivity() {
         connectBreathingHandle?.cancel()
         connectGlowHandle?.cancel()
         refreshAnimationJob?.cancel()
-        RuStoreUpdateHelper.onDestroy()
     }
 
     companion object {

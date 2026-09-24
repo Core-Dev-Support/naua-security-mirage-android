@@ -137,7 +137,8 @@ class SettingsRepository {
         set(value) { state.geoLastUpdateTime = value; save() }
 
     var updateSource: String
-        get() = state.updateSource
+        get() = state.updateSource.takeIf { it == UPDATE_SOURCE_GITHUB || it == UPDATE_SOURCE_UPTODOWN }
+            ?: UPDATE_SOURCE_GITHUB
         set(value) { state.updateSource = value; save() }
 
     var lastShownWhatsNewVersion: String?
@@ -241,7 +242,6 @@ class SettingsRepository {
         const val DEFAULT_SPEED_INTERVAL = 1
 
         const val UPDATE_SOURCE_GITHUB = "github"
-        const val UPDATE_SOURCE_RUSTORE = "rustore"
         const val UPDATE_SOURCE_UPTODOWN = "uptodown"
     }
 }

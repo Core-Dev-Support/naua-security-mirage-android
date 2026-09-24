@@ -62,14 +62,6 @@
 -keepclassmembers class libXray.** { *; }
 
 # ===================================================================
-# RuStore In-App Update SDK
-# ===================================================================
--keep class ru.rustore.sdk.appupdate.** { *; }
--keep interface ru.rustore.sdk.appupdate.** { *; }
--dontwarn ru.rustore.sdk.**
-
-
-# ===================================================================
 # JSON Serialization (Gson & Data Models)
 # ===================================================================
 -keepclassmembers class * {

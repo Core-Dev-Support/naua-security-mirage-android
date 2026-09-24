@@ -99,7 +99,9 @@ class SettingsRepository(context: Context) {
         set(value) = prefs.edit().putLong(KEY_GEO_LAST_UPDATE, value).apply()
 
     var updateSource: String
-        get() = prefs.getString(KEY_UPDATE_SOURCE, UPDATE_SOURCE_GITHUB) ?: UPDATE_SOURCE_GITHUB
+        get() = prefs.getString(KEY_UPDATE_SOURCE, UPDATE_SOURCE_GITHUB)
+            ?.takeIf { it == UPDATE_SOURCE_GITHUB || it == UPDATE_SOURCE_UPTODOWN }
+            ?: UPDATE_SOURCE_GITHUB
         set(value) = prefs.edit().putString(KEY_UPDATE_SOURCE, value).apply()
 
     var lastShownWhatsNewVersion: String?
@@ -218,7 +220,6 @@ class SettingsRepository(context: Context) {
         const val DEFAULT_SPEED_INTERVAL = 1
 
         const val UPDATE_SOURCE_GITHUB = "github"
-        const val UPDATE_SOURCE_RUSTORE = "rustore"
         const val UPDATE_SOURCE_UPTODOWN = "uptodown"
 
         const val PLAN_FREE = "free"

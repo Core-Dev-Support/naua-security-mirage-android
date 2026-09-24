@@ -34,7 +34,7 @@ import java.util.Locale
 import java.util.concurrent.TimeUnit
 
 /**
- * AppUpdateManager: Unified update engine supporting GitHub Releases, RuStore, and Uptodown.
+ * AppUpdateManager: Unified update engine supporting GitHub Releases and Uptodown.
  * Provides in-app APK streaming download and PackageInstaller integration.
  */
 object AppUpdateManager {
@@ -98,13 +98,6 @@ object AppUpdateManager {
         onComplete: (() -> Unit)? = null
     ) {
         when (settingsRepository.updateSource) {
-            SettingsRepository.UPDATE_SOURCE_GITHUB -> {
-                checkGitHubUpdates(activity, settingsRepository, isManual, onComplete)
-            }
-            SettingsRepository.UPDATE_SOURCE_RUSTORE -> {
-                RuStoreUpdateHelper.checkForUpdates(activity, isManual = isManual)
-                onComplete?.invoke()
-            }
             SettingsRepository.UPDATE_SOURCE_UPTODOWN -> {
                 handleUptodownUpdates(activity, isManual)
                 onComplete?.invoke()

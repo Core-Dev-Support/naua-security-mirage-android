@@ -21,7 +21,6 @@ class MirageApp : Application() {
 
         AppLogger.init(this)
         com.naua_security_mirage.app.data.supabase.SupabaseManager.instance.init(this)
-        com.naua_security_mirage.app.util.RuStoreUpdateHelper.init(this)
 
         val settingsRepository = SettingsRepository(this)
         val telemetryEnabled = settingsRepository.isAnonymousTelemetryEnabled

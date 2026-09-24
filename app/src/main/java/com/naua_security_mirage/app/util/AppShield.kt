@@ -267,9 +267,8 @@ object AppShield {
                 @Suppress("DEPRECATION")
                 context.packageManager.getInstallerPackageName(context.packageName)
             }
-            // Доверяем RuStore, Google Play, системным установщикам и локальной установке (null)
+            // Доверяем Google Play, системным установщикам и локальной установке (null)
             val trusted = setOf(
-                "ru.vk.store",
                 "com.android.vending",
                 "com.google.android.packageinstaller",
                 "com.android.packageinstaller",
