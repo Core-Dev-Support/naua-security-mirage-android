@@ -15,6 +15,8 @@ import go.Seq
 import libXray.DialerController
 import libXray.LibXray
 import java.io.File
+import java.net.Inet4Address
+import java.net.InetAddress
 import java.nio.charset.StandardCharsets
 
 class XrayVpnController(private val vpnService: VpnService) {
@@ -322,7 +324,57 @@ class XrayVpnController(private val vpnService: VpnService) {
         return "vless://${server.uuid}@${server.address}:${server.port}?$params#$tag"
     }
 
+    /**
+     * Resolves a proxy hostname before Xray starts.
+     *
+     * Xray's VLESS transport asks its internal DNS client to resolve a domain address. That
+     * DNS request is normally routed through the very VLESS outbound it is trying to create,
+     * which leaves hostname-based free nodes in a DNS -> proxy -> DNS loop. The VPN service
+     * excludes its own UID from the TUN, so this lookup uses the underlying network directly.
+     * The original SNI/Host values remain untouched; only the TCP destination is pinned to IPv4.
+     */
+    private fun resolveProxyEndpoint(server: VlessServer): VlessServer {
+        val address = server.address.trim()
+        if (address.isEmpty() || isIpLiteral(address)) return server
+
+        return try {
+            val ipv4 = InetAddress.getAllByName(address)
+                .firstOrNull { it is Inet4Address }
+                ?.hostAddress
+            if (ipv4.isNullOrBlank()) {
+                AppLogger.w(TAG, "Не удалось заранее разрешить адрес прокси, используется DNS fallback")
+                server
+            } else {
+                server.copy(address = ipv4)
+            }
+        } catch (_: Throwable) {
+            AppLogger.w(TAG, "Не удалось заранее разрешить адрес прокси, используется DNS fallback")
+            server
+        }
+    }
+
+    private fun isIpLiteral(address: String): Boolean {
+        val normalized = address.trim().removePrefix("[").removeSuffix("]")
+        if (normalized.isEmpty()) return false
+        if (normalized.contains(":")) {
+            // IPv6 literals contain at least two colons and only hexadecimal/colon/dot chars.
+            return normalized.count { it == ':' } >= 2 &&
+                normalized.all { it.isDigit() || it in "abcdefABCDEF:." }
+        }
+        val octets = normalized.split('.')
+        return octets.size == 4 && octets.all { octet ->
+            (octet.toIntOrNull() ?: -1) in 0..255
+        }
+    }
+
+    private fun endpointDnsDomainRule(address: String): String? {
+        val normalized = address.trim().removePrefix("[").removeSuffix("]").trimEnd('.')
+        if (normalized.isEmpty() || isIpLiteral(normalized)) return null
+        return "domain:$normalized"
+    }
+
     private fun buildManualConfig(server: VlessServer): String {
+        val xrayServer = resolveProxyEndpoint(server)
         val root = JsonObject()
         val settingsRepo = SettingsRepository(vpnService)
 
@@ -417,6 +469,18 @@ class XrayVpnController(private val vpnService: VpnService) {
                     addProperty("skipFallback", true)
                 }
                 add(directDns)
+
+                // The proxy endpoint itself must never be resolved through the proxy. This
+                // fallback is used only when the app-side pre-resolution above is unavailable.
+                endpointDnsDomainRule(server.address)?.let { endpointDomain ->
+                    add(JsonObject().apply {
+                        addProperty("address", "77.88.8.8")
+                        addProperty("port", 53)
+                        add("domains", JsonArray().apply { add(endpointDomain) })
+                        addProperty("skipFallback", true)
+                        addProperty("finalQuery", true)
+                    })
+                }
             }
             add("servers", servers)
             addProperty("queryStrategy", "UseIPv4")
@@ -480,7 +544,7 @@ class XrayVpnController(private val vpnService: VpnService) {
 
         root.add("inbounds", inbounds)
 
-        // outbounds: vless proxy + freedom direct + blackhole block + dns
+        // outbounds: vless proxy + freedom direct + DNS
         val outbounds = JsonArray()
 
         val vlessOutbound = JsonObject().apply {
@@ -490,7 +554,7 @@ class XrayVpnController(private val vpnService: VpnService) {
             val settings = JsonObject()
             val vnext = JsonArray()
             val node = JsonObject().apply {
-                addProperty("address", server.address)
+                addProperty("address", xrayServer.address)
                 addProperty("port", server.port)
                 val users = JsonArray()
                 val user = JsonObject().apply {
@@ -563,7 +627,7 @@ class XrayVpnController(private val vpnService: VpnService) {
         var officialOutbound: JsonObject? = null
         if (SupabaseConfig.USE_LIBXRAY_CONVERTER) {
             try {
-            val vlessLink = buildShareLink(server)
+            val vlessLink = buildShareLink(xrayServer)
 
             val linkB64 = Base64.encodeToString(vlessLink.toByteArray(StandardCharsets.UTF_8), Base64.NO_WRAP)
             val rawConverted = LibXray.convertShareLinksToXrayJson(linkB64)
@@ -671,20 +735,6 @@ class XrayVpnController(private val vpnService: VpnService) {
         }
         outbounds.add(directOutbound)
 
-        // Block outbound for dropping problematic UDP 443 (QUIC/HTTP3)
-        val blockOutbound = JsonObject().apply {
-            addProperty("tag", "block")
-            addProperty("protocol", "blackhole")
-            val settings = JsonObject().apply {
-                val response = JsonObject().apply {
-                    addProperty("type", "none")
-                }
-                add("response", response)
-            }
-            add("settings", settings)
-        }
-        outbounds.add(blockOutbound)
-
         val dnsOutbound = JsonObject().apply {
             addProperty("tag", "dns-out")
             addProperty("protocol", "dns")
@@ -739,17 +789,9 @@ class XrayVpnController(private val vpnService: VpnService) {
             // 3. Anti-loop: route the proxy endpoint directly. Xray's `ip`
             // rule accepts IP literals only; putting a hostname there makes
             // the entire config fail before the tunnel can start.
-            val serverAddress = server.address.trim()
+            val serverAddress = xrayServer.address.trim()
             if (serverAddress.isNotEmpty()) {
-                val normalizedAddress = serverAddress.removePrefix("[").removeSuffix("]")
-                val serverIsIp = if (normalizedAddress.contains(":")) {
-                    normalizedAddress.all { it.isDigit() || it in "abcdefABCDEF:." }
-                } else {
-                    val octets = normalizedAddress.split('.')
-                    octets.size == 4 && octets.all { octet ->
-                        (octet.toIntOrNull() ?: -1) in 0..255
-                    }
-                }
+                val serverIsIp = isIpLiteral(serverAddress)
                 val serverDirectRule = JsonObject().apply {
                     addProperty("type", "field")
                     addProperty("outboundTag", "direct")
@@ -778,14 +820,24 @@ class XrayVpnController(private val vpnService: VpnService) {
                 AppLogger.i(TAG, "Раздельное туннелирование сайтов: добавлено пользовательских доменов в исключения: ${customBypassedDomains.size}")
             }
 
-            // 5. Block QUIC (UDP 443): forces browser & YouTube app to use TCP TLS 1.3 Vision
-            val blockQuicRule = JsonObject().apply {
+            // YouTube's Android client keeps QUIC sessions alive instead of reliably falling
+            // back to TCP when UDP/443 is silently blackholed. Keep its service domains on the
+            // proxy explicitly; the final global rule will carry QUIC through VLESS as well.
+            val youtubeProxyRule = JsonObject().apply {
                 addProperty("type", "field")
-                addProperty("port", "443")
-                addProperty("network", "udp")
-                addProperty("outboundTag", "block")
+                addProperty("outboundTag", "proxy")
+                add("domain", JsonArray().apply {
+                    add("domain:youtube.com")
+                    add("domain:youtube-nocookie.com")
+                    add("domain:googlevideo.com")
+                    add("domain:ytimg.com")
+                    add("domain:googleapis.com")
+                    add("domain:gstatic.com")
+                    add("domain:ggpht.com")
+                    add("domain:googleusercontent.com")
+                })
             }
-            rules.add(blockQuicRule)
+            rules.add(youtubeProxyRule)
 
             if (isDirectRu) {
                 // 6. Direct Russian Domains (TOP PRIORITY: bypasses proxy immediately for Russian websites)

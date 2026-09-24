@@ -3,6 +3,7 @@ package com.naua_security_mirage.app.util
 import android.content.Context
 import android.os.Build
 import android.util.Log
+import com.naua_security_mirage.app.BuildConfig
 import com.naua_security_mirage.app.data.repository.SettingsRepository
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -139,7 +140,7 @@ object AppLogger {
         sb.append("======================================================\n")
         sb.append("App Name     : NAUA Security Mirage\n")
         sb.append("Package      : com.naua_security_mirage.app\n")
-        sb.append("App Version  : 1.0.0 (Release)\n")
+        sb.append("App Version  : ${BuildConfig.VERSION_NAME} (${BuildConfig.BUILD_TYPE})\n")
         sb.append("Log Level    : $setting\n")
         sb.append("Export Time  : ${synchronized(headerTimeFormat) { headerTimeFormat.format(Date()) }}\n")
         sb.append("Device       : ${Build.MANUFACTURER} ${Build.MODEL} (${Build.DEVICE})\n")
