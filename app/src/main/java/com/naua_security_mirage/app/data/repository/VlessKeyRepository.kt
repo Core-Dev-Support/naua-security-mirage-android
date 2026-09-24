@@ -7,6 +7,7 @@ import android.util.Log
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
 import com.naua_security_mirage.app.data.model.VlessServer
+import com.naua_security_mirage.app.util.AppLogger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.ConnectionSpec
@@ -85,6 +86,12 @@ class VlessKeyRepository(
 
         kotlinx.coroutines.withTimeoutOrNull(4000) {
             try {
+                val apiHost = try {
+                    java.net.URI(apiUrl).host
+                } catch (_: Throwable) {
+                    null
+                }
+                AppLogger.i(TAG, "Free API endpoint host=${apiHost ?: "invalid"}")
                 val payload = JsonObject().apply {
                     addProperty("deviceId", deviceId)
                 }
@@ -113,6 +120,7 @@ class VlessKeyRepository(
             Unit
         }
 
+        AppLogger.i(TAG, "Free API parsed nodes=${servers.size}")
         // Ensure we always have exactly 3 servers
         val fallbackList = getFallbackServers()
         for (fallback in fallbackList) {
@@ -128,7 +136,15 @@ class VlessKeyRepository(
             servers.add(uniqueServer)
         }
 
-        servers.take(3)
+        val result = servers.take(3)
+        result.forEach { server ->
+            AppLogger.i(
+                TAG,
+                "Free candidate ${server.tag}: network=${server.network}, security=${server.security}, " +
+                    "port=${server.port}, mode=${server.mode}, path=${server.path}"
+            )
+        }
+        result
     }
 
     private fun parseOutbounds(root: JsonObject, servers: MutableList<VlessServer>) {
@@ -156,7 +172,8 @@ class VlessKeyRepository(
             val flow = user.get("flow")?.asString.orEmpty()
 
             val streamSettings = obj.getAsJsonObject("streamSettings") ?: continue
-            val network = streamSettings.get("network")?.asString ?: "tcp"
+            val rawNetwork = streamSettings.get("network")?.asString ?: "tcp"
+            val network = if (rawNetwork.equals("splithttp", ignoreCase = true)) "xhttp" else rawNetwork
             val security = streamSettings.get("security")?.asString ?: "none"
 
             var publicKey = ""
@@ -205,24 +222,30 @@ class VlessKeyRepository(
                 continue
             }
 
-            servers.add(
-                VlessServer(
-                    id = tag,
-                    tag = "Mirage Server #${servers.size + 1}",
-                    address = address,
-                    port = port,
-                    uuid = uuid,
-                    network = network,
-                    security = security,
-                    publicKey = publicKey,
-                    fingerprint = fingerprint,
-                    serverName = serverName,
-                    host = host,
-                    mode = mode,
-                    path = path,
-                    shortId = shortId,
-                    flow = flow
-                )
+            val parsedServer = VlessServer(
+                id = tag,
+                tag = "Mirage Server #${servers.size + 1}",
+                address = address,
+                port = port,
+                uuid = uuid,
+                network = network,
+                security = security,
+                publicKey = publicKey,
+                fingerprint = fingerprint,
+                serverName = serverName,
+                host = host,
+                mode = mode,
+                path = path,
+                shortId = shortId,
+                flow = flow
+            )
+            servers.add(parsedServer)
+            AppLogger.i(
+                TAG,
+                "Free node ${parsedServer.tag}: network=${parsedServer.network}, " +
+                    "security=${parsedServer.security}, port=${parsedServer.port}, " +
+                    "flow=${if (parsedServer.flow.isBlank()) "flowless" else "vision"}, " +
+                    "mode=${parsedServer.mode}, path=${parsedServer.path}"
             )
             } catch (e: Exception) {
                 Log.w(TAG, "Skipping malformed free outbound: ${e.message}")

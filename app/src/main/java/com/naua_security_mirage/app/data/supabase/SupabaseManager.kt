@@ -58,6 +58,7 @@ class SupabaseManager private constructor() {
         private const val KEY_SUB_PAID_UNTIL = "sub_paid_until"
         private const val KEY_SUB_VLESS_KEY = "sub_vless_key"
         private const val KEY_SUB_CLIENT_UUID = "sub_client_uuid"
+        private const val KEY_SUB_FLOW = "sub_flow"
 
         val instance by lazy { SupabaseManager() }
     }
@@ -89,6 +90,7 @@ class SupabaseManager private constructor() {
             ?.remove(KEY_SUB_PAID_UNTIL)
             ?.remove(KEY_SUB_VLESS_KEY)
             ?.remove(KEY_SUB_CLIENT_UUID)
+            ?.remove(KEY_SUB_FLOW)
             ?.apply()
     }
 
@@ -161,7 +163,8 @@ class SupabaseManager private constructor() {
                             plan = prefs?.getString(KEY_SUB_PLAN, "premium") ?: "premium",
                             paidUntil = prefs?.getString(KEY_SUB_PAID_UNTIL, null),
                             vlessKey = prefs?.getString(KEY_SUB_VLESS_KEY, null),
-                            clientUuid = prefs?.getString(KEY_SUB_CLIENT_UUID, null) ?: extractUuidFromVless(prefs?.getString(KEY_SUB_VLESS_KEY, null))
+                            clientUuid = prefs?.getString(KEY_SUB_CLIENT_UUID, null) ?: extractUuidFromVless(prefs?.getString(KEY_SUB_VLESS_KEY, null)),
+                            flow = prefs?.getString(KEY_SUB_FLOW, null)
                         )
                         _subscription.value = sub
                         // Migrate to email cache
@@ -690,48 +693,83 @@ class SupabaseManager private constructor() {
         if (!hasActiveSubscription()) return@withContext null
         val user = _currentUser.value ?: return@withContext null
         val sub = _subscription.value
-        if (!sub?.vlessKey.isNullOrBlank()) {
-            val extracted = extractUuidFromVless(sub?.vlessKey)
-            if (extracted != null && sub?.clientUuid == null) {
-                val updatedSub = sub?.copy(clientUuid = extracted)
-                _subscription.value = updatedSub
-                if (updatedSub != null) saveEmailCache(user.email, updatedSub)
-                prefs?.edit()?.putString(KEY_SUB_CLIENT_UUID, extracted)?.apply()
-            }
-            return@withContext sub?.vlessKey
+        val knownUuid = sub?.clientUuid?.takeIf { it.isNotBlank() }
+            ?: extractUuidFromVless(sub?.vlessKey)
+
+        // A cached France link can outlive a 3X-UI client rotation. Refresh the
+        // live inbound before every connection instead of blindly reusing it.
+        var liveLookupFailed = false
+        val live = try {
+            ThreeXUiService.checkSubscription(user.email, knownUuid)
+        } catch (e: Exception) {
+            liveLookupFailed = true
+            AppLogger.w(TAG, "Live 3X-UI key refresh failed: ${e.message}")
+            null
         }
 
-        val generatedKey = ThreeXUiService.getOrCreateClient(
-            user.email,
-            sub?.clientUuid ?: extractUuidFromVless(sub?.vlessKey) ?: user.id
-        )
-        if (generatedKey != null) {
-            val clientUuid = extractUuidFromVless(generatedKey) ?: user.id
+        fun persistVerifiedKey(key: String, source: SubscriptionDto? = null): SubscriptionDto {
+            val clientUuid = source?.clientUuid?.takeIf { it.isNotBlank() }
+                ?: extractUuidFromVless(key)
+                ?: knownUuid
+                ?: user.id
             val updated = (sub ?: SubscriptionDto(
-                    userId = user.id,
-                    email = user.email,
-                    isActive = true,
-                    plan = "premium"
-                )).copy(vlessKey = generatedKey, isActive = true, clientUuid = clientUuid)
+                userId = user.id,
+                email = user.email,
+                isActive = true,
+                plan = "premium"
+            )).copy(
+                vlessKey = key,
+                isActive = true,
+                plan = "premium",
+                paidUntil = source?.paidUntil ?: sub?.paidUntil,
+                clientUuid = clientUuid,
+                flow = source?.flow ?: sub?.flow
+            )
+            _subscription.value = updated
+            saveEmailCache(user.email, updated)
+            prefs?.edit()
+                ?.putString(KEY_SUB_USER_ID, user.id)
+                ?.putString(KEY_SUB_EMAIL, user.email)
+                ?.putBoolean(KEY_SUB_IS_ACTIVE, true)
+                ?.putString(KEY_SUB_PLAN, "premium")
+                ?.putString(KEY_SUB_PAID_UNTIL, updated.paidUntil)
+                ?.putString(KEY_SUB_VLESS_KEY, key)
+                ?.putString(KEY_SUB_CLIENT_UUID, clientUuid)
+                ?.putString(KEY_SUB_FLOW, updated.flow)
+                ?.apply()
+            return updated
+        }
 
-                _subscription.value = updated
-                saveEmailCache(user.email, updated)
+        val liveKey = live?.vlessKey
+        if (!liveKey.isNullOrBlank()) {
+            persistVerifiedKey(liveKey, live)
+            AppLogger.i(TAG, "Using live 3X-UI France key after inbound refresh")
+            return@withContext liveKey
+        }
 
-                prefs?.edit()
-                    ?.putString(KEY_SUB_USER_ID, user.id)
-                    ?.putString(KEY_SUB_EMAIL, user.email)
-                    ?.putBoolean(KEY_SUB_IS_ACTIVE, true)
-                    ?.putString(KEY_SUB_PLAN, "premium")
-                    ?.putString(KEY_SUB_PAID_UNTIL, updated.paidUntil)
-                    ?.putString(KEY_SUB_VLESS_KEY, generatedKey)
-                    ?.putString(KEY_SUB_CLIENT_UUID, clientUuid)
-                    ?.apply()
-
+        // A successful response with no matching client is different from a
+        // transport failure: in that case provision/reuse a client once.
+        if (!liveLookupFailed) {
+            val generatedKey = ThreeXUiService.getOrCreateClient(user.email, knownUuid)
+            if (!generatedKey.isNullOrBlank()) {
+                persistVerifiedKey(generatedKey)
+                AppLogger.i(TAG, "Provisioned and verified a live 3X-UI France client")
                 // The database is service-role/webhook-only. Keep the verified
                 // key locally and let the entitlement remain retryable.
                 AppLogger.w(TAG, "France key kept in local cache; Supabase writes are webhook-only")
+                return@withContext generatedKey
+            }
         }
-        generatedKey
+
+        val cachedKey = sub?.vlessKey ?: prefs?.getString(KEY_SUB_VLESS_KEY, null)
+        if (!cachedKey.isNullOrBlank()) {
+            AppLogger.w(TAG, "Using cached France key because live 3X-UI verification was unavailable")
+            return@withContext cachedKey
+        }
+
+        AppLogger.w(TAG, "No verified France key is available from 3X-UI")
+        null
+
     }
 
     fun extractUuidFromVless(vlessUrl: String?): String? {

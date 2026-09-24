@@ -83,7 +83,8 @@ data class VlessServer(
                     try { URLDecoder.decode(fragment, "UTF-8") } catch (_: Exception) { fragment }
                 } else "Mirage Server")
 
-                val network = params["type"] ?: params["net"] ?: "tcp"
+                val rawNetwork = params["type"] ?: params["net"] ?: "tcp"
+                val network = if (rawNetwork.equals("splithttp", ignoreCase = true)) "xhttp" else rawNetwork
                 val security = params["security"] ?: "reality"
                 val pbk = params["pbk"] ?: ""
                 val fp = params["fp"] ?: "chrome"

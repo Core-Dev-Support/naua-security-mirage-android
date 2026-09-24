@@ -25,6 +25,9 @@ import javax.net.ssl.SSLSocketFactory
 class XrayVpnController(private val vpnService: VpnService) {
 
     private var isStarted = false
+    private var dialerController: DialerController? = null
+    private var dialerControllerRegistered = false
+    private var protectFailures = 0
 
     fun startXray(server: VlessServer, tunFd: Int): Pair<Boolean, String?> {
         try {
@@ -49,18 +52,31 @@ class XrayVpnController(private val vpnService: VpnService) {
             // Register DialerController so all outgoing TCP/UDP sockets created by LibXray
             // (including the connection to France proxy server) are protected with vpnService.protect()
             // to bypass the TUN interface and prevent infinite connection loops.
+            protectFailures = 0
             Log.d(TAG, "Registering DialerController & ListenerController...")
-            val controller = object : DialerController {
+            val controller = dialerController ?: object : DialerController {
                 override fun protectFd(fd: Long): Boolean {
-                    return vpnService.protect(fd.toInt())
+                    return try {
+                        vpnService.protect(fd.toInt()).also { protected ->
+                            if (!protected) protectFailures++
+                        }
+                    } catch (e: Throwable) {
+                        protectFailures++
+                        Log.w(TAG, "protectFd failed: ${e.message}")
+                        false
+                    }
                 }
-            }
-            try {
-                LibXray.registerDialerController(controller)
-                LibXray.registerListenerController(controller)
-                Log.d(TAG, "DialerController registered successfully")
-            } catch (e: Throwable) {
-                Log.w(TAG, "registerDialerController failed: ${e.message}")
+            }.also { dialerController = it }
+            if (!dialerControllerRegistered) {
+                try {
+                    LibXray.registerDialerController(controller)
+                    LibXray.registerListenerController(controller)
+                    dialerControllerRegistered = true
+                    Log.d(TAG, "DialerController registered successfully")
+                } catch (e: Throwable) {
+                    AppLogger.w(TAG, "registerDialerController failed: ${e.message}")
+                    Log.w(TAG, "registerDialerController failed: ${e.message}")
+                }
             }
 
             Log.d(TAG, "Setting TunFd: $tunFd")
@@ -163,6 +179,9 @@ class XrayVpnController(private val vpnService: VpnService) {
             AppLogger.e(TAG, "Error stopping Xray: ${e.message}", e)
             Log.e(TAG, "Error stopping Xray: ${e.message}")
         } finally {
+            if (protectFailures > 0) {
+                AppLogger.w(TAG, "Socket protection failures during last Xray session: $protectFailures")
+            }
             isStarted = false
         }
     }
@@ -231,7 +250,11 @@ class XrayVpnController(private val vpnService: VpnService) {
 
             val header = ByteArray(4)
             readFully(input, header, 4)
-            if (header[0] != 0x05.toByte() || header[1] != 0x00.toByte()) return false
+            val replyCode = header[1].toInt() and 0xFF
+            if (header[0] != 0x05.toByte() || replyCode != 0x00) {
+                AppLogger.w(TAG, "SOCKS5 probe to $host:$port rejected with reply $replyCode")
+                return false
+            }
             val addrLen = when (header[3].toInt()) {
                 0x01 -> 4
                 0x04 -> 16
@@ -340,7 +363,11 @@ class XrayVpnController(private val vpnService: VpnService) {
     private fun readSocks5Reply(input: java.io.InputStream): Boolean {
         val header = ByteArray(4)
         readFully(input, header, 4)
-        if (header[0] != 0x05.toByte() || header[1] != 0x00.toByte()) return false
+        val replyCode = header[1].toInt() and 0xFF
+        if (header[0] != 0x05.toByte() || replyCode != 0x00) {
+            AppLogger.w(TAG, "SOCKS5 HTTPS probe rejected with reply $replyCode")
+            return false
+        }
         val addressLength = when (header[3].toInt() and 0xFF) {
             0x01 -> 4
             0x04 -> 16
@@ -403,7 +430,7 @@ class XrayVpnController(private val vpnService: VpnService) {
         }
 
         when (network) {
-            "xhttp" -> {
+            "xhttp", "splithttp" -> {
                 params.append("&path=").append(enc(server.path.ifEmpty { "/widgetComponent.js" }))
                 params.append("&host=").append(enc(server.host.ifEmpty { server.serverName }))
                 params.append("&mode=").append(enc(server.mode.ifEmpty { "packet-up" }))
@@ -475,6 +502,10 @@ class XrayVpnController(private val vpnService: VpnService) {
         return octets.size == 4 && octets.all { octet ->
             (octet.toIntOrNull() ?: -1) in 0..255
         }
+    }
+
+    private fun isXhttpNetwork(network: String): Boolean {
+        return network.equals("xhttp", ignoreCase = true) || network.equals("splithttp", ignoreCase = true)
     }
 
     private fun endpointDnsDomainRule(address: String): String? {
@@ -708,7 +739,7 @@ class XrayVpnController(private val vpnService: VpnService) {
                     add("realitySettings", realitySettings)
                 }
 
-                if (network == "xhttp") {
+                if (isXhttpNetwork(network)) {
                     val xhttpSettings = JsonObject().apply {
                         addProperty("host", server.host.ifEmpty { server.serverName })
                         addProperty("mode", server.mode.ifEmpty { "packet-up" })
@@ -737,7 +768,8 @@ class XrayVpnController(private val vpnService: VpnService) {
 
         // Generate official outbound using LibXray native link parser (matches v2rayNG / Happ exactly)
         var officialOutbound: JsonObject? = null
-        if (SupabaseConfig.USE_LIBXRAY_CONVERTER) {
+        val shouldUseLibXrayConverter = SupabaseConfig.USE_LIBXRAY_CONVERTER || isXhttpNetwork(server.network)
+        if (shouldUseLibXrayConverter) {
             try {
             val vlessLink = buildShareLink(xrayServer)
 
@@ -804,8 +836,8 @@ class XrayVpnController(private val vpnService: VpnService) {
         val usableOfficial = officialOutbound?.takeIf { outbound ->
             val stream = outbound.getAsJsonObject("streamSettings")
             val network = stream?.get("network")?.asString.orEmpty()
-            when (network) {
-                "xhttp" -> {
+            when {
+                isXhttpNetwork(network) -> {
                     val xhttp = stream?.getAsJsonObject("xhttpSettings")
                     val hostValue = xhttp?.get("host")
                     val host = if (hostValue == null) null else {
@@ -816,7 +848,7 @@ class XrayVpnController(private val vpnService: VpnService) {
                         !host.isNullOrEmpty() &&
                         !xhttp.get("mode")?.asString.isNullOrEmpty()
                 }
-                "tcp" -> {
+                network.equals("tcp", ignoreCase = true) -> {
                     if (server.security.ifEmpty { "reality" } != "reality") true
                     else {
                         val reality = stream?.getAsJsonObject("realitySettings")
