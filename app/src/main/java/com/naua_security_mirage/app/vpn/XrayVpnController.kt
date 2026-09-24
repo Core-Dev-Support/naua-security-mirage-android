@@ -269,11 +269,12 @@ class XrayVpnController(private val vpnService: VpnService) {
         var socket: Socket? = null
         var tlsSocket: SSLSocket? = null
         return try {
-            socket = Socket()
-            socket.connect(java.net.InetSocketAddress("127.0.0.1", SOCKS_PORT), timeoutMs)
-            socket.soTimeout = timeoutMs
-            val output = socket.getOutputStream()
-            val input = socket.getInputStream()
+            val rawSocket = Socket()
+            socket = rawSocket
+            rawSocket.connect(java.net.InetSocketAddress("127.0.0.1", SOCKS_PORT), timeoutMs)
+            rawSocket.soTimeout = timeoutMs
+            val output = rawSocket.getOutputStream()
+            val input = rawSocket.getInputStream()
 
             output.write(byteArrayOf(0x05, 0x01, 0x00))
             output.flush()
@@ -298,7 +299,8 @@ class XrayVpnController(private val vpnService: VpnService) {
             output.flush()
             if (!readSocks5Reply(input)) return false
 
-            val ssl = SSLSocketFactory.getDefault().createSocket(socket, host, port, true) as SSLSocket
+            val sslFactory = SSLSocketFactory.getDefault() as SSLSocketFactory
+            val ssl = sslFactory.createSocket(rawSocket, host, port, true) as SSLSocket
             tlsSocket = ssl
             ssl.soTimeout = timeoutMs
             try {
