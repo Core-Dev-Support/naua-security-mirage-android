@@ -141,7 +141,8 @@ class VlessKeyRepository(
             AppLogger.i(
                 TAG,
                 "Free candidate ${server.tag}: network=${server.network}, security=${server.security}, " +
-                    "port=${server.port}, mode=${server.mode}, path=${server.path}"
+                    "port=${server.port}, mode=${server.mode}, path_present=${server.path.isNotBlank()}, " +
+                    "path_query=${server.path.contains('?')}"
             )
         }
         result
@@ -245,7 +246,8 @@ class VlessKeyRepository(
                 "Free node ${parsedServer.tag}: network=${parsedServer.network}, " +
                     "security=${parsedServer.security}, port=${parsedServer.port}, " +
                     "flow=${if (parsedServer.flow.isBlank()) "flowless" else "vision"}, " +
-                    "mode=${parsedServer.mode}, path=${parsedServer.path}"
+                    "mode=${parsedServer.mode}, path_present=${parsedServer.path.isNotBlank()}, " +
+                    "path_query=${parsedServer.path.contains('?')}"
             )
             } catch (e: Exception) {
                 Log.w(TAG, "Skipping malformed free outbound: ${e.message}")
