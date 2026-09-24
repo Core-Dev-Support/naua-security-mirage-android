@@ -35,7 +35,7 @@ object AppLogger {
     fun sanitize(text: String): String {
         var result = text
         // Mask specific server domain and endpoints
-        result = result.replace(Regex("""[a-zA-Z0-9.-]*fantic\.top(:\d+)?""", RegexOption.IGNORE_CASE), "mirage-shield.internal:443")
+        result = result.replace(Regex("""[a-zA-Z0-9.-]*fantic\.top(:\d+)?""", RegexOption.IGNORE_CASE), "<redacted-server>")
         // Mask UUID credentials
         result = result.replace(Regex("""[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"""), "********-****-****-****-************")
         // Mask Reality public keys
