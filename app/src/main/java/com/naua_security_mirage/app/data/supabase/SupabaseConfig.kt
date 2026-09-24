@@ -37,6 +37,7 @@ object SupabaseConfig {
     val FRANCE_FINGERPRINT: String get() = BuildConfig.FRANCE_FINGERPRINT.ifEmpty { "chrome" }
 
     val FRANCE_DEFAULT_UUID: String get() = BuildConfig.FRANCE_DEFAULT_UUID
+    val USE_LIBXRAY_CONVERTER: Boolean get() = BuildConfig.USE_LIBXRAY_CONVERTER
 
     // YooMoney Payment Configuration
     var yooMoneyWallet: String = BuildConfig.YOOMONEY_WALLET

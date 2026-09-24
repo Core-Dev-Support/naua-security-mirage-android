@@ -51,6 +51,7 @@ android {
         buildConfigField("String", "FRANCE_FINGERPRINT", "\"${getSecret("FRANCE_FINGERPRINT", "chrome")}\"")
         buildConfigField("String", "FRANCE_DEFAULT_UUID", "\"${getSecret("FRANCE_DEFAULT_UUID")}\"")
         buildConfigField("String", "YOOMONEY_WALLET", "\"${getSecret("YOOMONEY_WALLET")}\"")
+        buildConfigField("boolean", "USE_LIBXRAY_CONVERTER", getSecret("USE_LIBXRAY_CONVERTER", "false"))
     }
 
     signingConfigs {

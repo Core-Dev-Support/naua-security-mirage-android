@@ -8,6 +8,7 @@
 - YooMoney notifications verify the signature, resolve the real account email, store the actual 3X-UI client UUID, use inbound `2` by default, and use `operation_id` for idempotency.
 - Free mode tries every returned free node and requires a real data-plane probe before reporting `CONNECTED`.
 - Xray empty/`{}` responses are not treated as success; failed candidates close the TUN instead of leaving a dead blocking tunnel.
+- The device log showed the bundled LibXray converter rejecting the France outbound and the routing rule putting the proxy hostname into an `ip` field. The app now uses the validated manual outbound by default and emits an IP-only anti-loop rule (hostnames use `domain:`).
 
 ## Apply the database migration once
 

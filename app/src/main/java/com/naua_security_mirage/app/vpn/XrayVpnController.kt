@@ -9,6 +9,7 @@ import com.google.gson.JsonParser
 import com.naua_security_mirage.app.data.model.VlessServer
 import com.naua_security_mirage.app.data.repository.GeoRoutingRepository
 import com.naua_security_mirage.app.data.repository.SettingsRepository
+import com.naua_security_mirage.app.data.supabase.SupabaseConfig
 import com.naua_security_mirage.app.util.AppLogger
 import go.Seq
 import libXray.DialerController
@@ -560,7 +561,8 @@ class XrayVpnController(private val vpnService: VpnService) {
 
         // Generate official outbound using LibXray native link parser (matches v2rayNG / Happ exactly)
         var officialOutbound: JsonObject? = null
-        try {
+        if (SupabaseConfig.USE_LIBXRAY_CONVERTER) {
+            try {
             val vlessLink = buildShareLink(server)
 
             val linkB64 = Base64.encodeToString(vlessLink.toByteArray(StandardCharsets.UTF_8), Base64.NO_WRAP)
@@ -615,9 +617,10 @@ class XrayVpnController(private val vpnService: VpnService) {
                     }
                 }
             }
-        } catch (e: Throwable) {
-            AppLogger.w(TAG, "LibXray.convertShareLinksToXrayJson fallback to manual: ${e.message}")
-            Log.w(TAG, "LibXray.convertShareLinksToXrayJson fallback to manual: ${e.message}")
+            } catch (e: Throwable) {
+                AppLogger.w(TAG, "LibXray.convertShareLinksToXrayJson fallback to manual: ${e.message}")
+                Log.w(TAG, "LibXray.convertShareLinksToXrayJson fallback to manual: ${e.message}")
+            }
         }
 
         // Only trust the LibXray-converted outbound when it kept the transport parameters
@@ -733,13 +736,28 @@ class XrayVpnController(private val vpnService: VpnService) {
             }
             rules.add(dotRule)
 
-            // 3. Anti-loop: Ensure server IP always routes directly
-            if (server.address.isNotEmpty()) {
+            // 3. Anti-loop: route the proxy endpoint directly. Xray's `ip`
+            // rule accepts IP literals only; putting a hostname there makes
+            // the entire config fail before the tunnel can start.
+            val serverAddress = server.address.trim()
+            if (serverAddress.isNotEmpty()) {
+                val normalizedAddress = serverAddress.removePrefix("[").removeSuffix("]")
+                val serverIsIp = if (normalizedAddress.contains(":")) {
+                    normalizedAddress.all { it.isDigit() || it in "abcdefABCDEF:." }
+                } else {
+                    val octets = normalizedAddress.split('.')
+                    octets.size == 4 && octets.all { octet ->
+                        (octet.toIntOrNull() ?: -1) in 0..255
+                    }
+                }
                 val serverDirectRule = JsonObject().apply {
                     addProperty("type", "field")
                     addProperty("outboundTag", "direct")
-                    val ips = JsonArray().apply { add(server.address) }
-                    add("ip", ips)
+                    if (serverIsIp) {
+                        add("ip", JsonArray().apply { add(serverAddress) })
+                    } else {
+                        add("domain", JsonArray().apply { add("domain:$serverAddress") })
+                    }
                 }
                 rules.add(serverDirectRule)
             }
