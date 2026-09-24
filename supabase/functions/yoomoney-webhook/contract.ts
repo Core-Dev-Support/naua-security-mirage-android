@@ -37,7 +37,8 @@ export function isExpectedAmount(
   const actualKopecks = parseAmountToKopecks(value);
   const expectedKopecks = parseAmountToKopecks(expected);
   if (actualKopecks === null || expectedKopecks === null) return false;
-  return Math.abs(actualKopecks - expectedKopecks) <= Math.max(0, toleranceKopecks);
+  const tolerance = Number.isFinite(toleranceKopecks) ? Math.max(0, Math.floor(toleranceKopecks)) : 0;
+  return Math.abs(actualKopecks - expectedKopecks) <= tolerance;
 }
 
 export function makeVlessUrl(
