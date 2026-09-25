@@ -207,7 +207,8 @@ class XrayVpnController(private val vpnService: VpnService) {
 
         // Always test the real domain/TLS path as well. A proxy can legitimately
         // block or throttle a public IP echo endpoint while still carrying YouTube.
-        val httpsPassed = probeHttpsDomain(YOUTUBE_PROBE_HOST, YOUTUBE_PROBE_PORT, timeoutMs)
+        val httpsTimeoutMs = if (tcpHttpPassed) timeoutMs else minOf(timeoutMs, 3500)
+        val httpsPassed = probeHttpsDomain(YOUTUBE_PROBE_HOST, YOUTUBE_PROBE_PORT, httpsTimeoutMs)
         if (httpsPassed) {
             AppLogger.i(TAG, "Проверка HTTPS/SNI YouTube пройдена")
             return true
