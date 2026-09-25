@@ -204,18 +204,21 @@ class XrayVpnController(private val vpnService: VpnService) {
                 break
             }
         }
-        if (!tcpHttpPassed) {
-            AppLogger.w(TAG, "Проверка трафика не пройдена: туннель поднят, но TCP-данные не проходят")
-            return false
-        }
 
+        // Always test the real domain/TLS path as well. A proxy can legitimately
+        // block or throttle a public IP echo endpoint while still carrying YouTube.
         val httpsPassed = probeHttpsDomain(YOUTUBE_PROBE_HOST, YOUTUBE_PROBE_PORT, timeoutMs)
         if (httpsPassed) {
             AppLogger.i(TAG, "Проверка HTTPS/SNI YouTube пройдена")
+            return true
+        }
+
+        if (!tcpHttpPassed) {
+            AppLogger.w(TAG, "Проверка трафика не пройдена: туннель поднят, но TCP/HTTPS-данные не проходят")
         } else {
             AppLogger.w(TAG, "Базовый TCP работает, но HTTPS/SNI YouTube не прошёл")
         }
-        return httpsPassed
+        return false
     }
 
     private fun probeOnce(host: String, port: Int, timeoutMs: Int): Boolean {
