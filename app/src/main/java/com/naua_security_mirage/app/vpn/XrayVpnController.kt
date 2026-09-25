@@ -26,8 +26,8 @@ class XrayVpnController(private val vpnService: VpnService) {
 
     private var isStarted = false
     private var dialerController: DialerController? = null
-    private var dialerControllerRegistered = false
     private var protectFailures = 0
+    private var protectCalls = 0
 
     fun startXray(server: VlessServer, tunFd: Int): Pair<Boolean, String?> {
         try {
@@ -53,10 +53,12 @@ class XrayVpnController(private val vpnService: VpnService) {
             // (including the connection to France proxy server) are protected with vpnService.protect()
             // to bypass the TUN interface and prevent infinite connection loops.
             protectFailures = 0
+            protectCalls = 0
             Log.d(TAG, "Registering DialerController & ListenerController...")
             val controller = dialerController ?: object : DialerController {
                 override fun protectFd(fd: Long): Boolean {
                     return try {
+                        protectCalls++
                         vpnService.protect(fd.toInt()).also { protected ->
                             if (!protected) protectFailures++
                         }
@@ -67,16 +69,15 @@ class XrayVpnController(private val vpnService: VpnService) {
                     }
                 }
             }.also { dialerController = it }
-            if (!dialerControllerRegistered) {
-                try {
-                    LibXray.registerDialerController(controller)
-                    LibXray.registerListenerController(controller)
-                    dialerControllerRegistered = true
-                    Log.d(TAG, "DialerController registered successfully")
-                } catch (e: Throwable) {
-                    AppLogger.w(TAG, "registerDialerController failed: ${e.message}")
-                    Log.w(TAG, "registerDialerController failed: ${e.message}")
-                }
+            try {
+                // Re-register for every core instance: stopping a native core may
+                // clear the global Go callback even when the Java proxy is retained.
+                LibXray.registerDialerController(controller)
+                LibXray.registerListenerController(controller)
+                Log.d(TAG, "DialerController registered successfully")
+            } catch (e: Throwable) {
+                AppLogger.w(TAG, "registerDialerController failed: ${e.message}")
+                Log.w(TAG, "registerDialerController failed: ${e.message}")
             }
 
             Log.d(TAG, "Setting TunFd: $tunFd")
@@ -179,8 +180,8 @@ class XrayVpnController(private val vpnService: VpnService) {
             AppLogger.e(TAG, "Error stopping Xray: ${e.message}", e)
             Log.e(TAG, "Error stopping Xray: ${e.message}")
         } finally {
-            if (protectFailures > 0) {
-                AppLogger.w(TAG, "Socket protection failures during last Xray session: $protectFailures")
+            if (protectCalls > 0 || protectFailures > 0) {
+                AppLogger.w(TAG, "Socket protection calls=$protectCalls failures=$protectFailures")
             }
             isStarted = false
         }
@@ -267,7 +268,7 @@ class XrayVpnController(private val vpnService: VpnService) {
             }
             readFully(input, ByteArray(addrLen + 2), addrLen + 2)
 
-            output.write("HEAD / HTTP/1.0\r\nHost: one.one.one.one\r\n\r\n".toByteArray())
+            output.write("GET / HTTP/1.0\r\nHost: one.one.one.one\r\nConnection: close\r\n\r\n".toByteArray())
             output.flush()
 
             val buffer = ByteArray(16)
@@ -275,6 +276,7 @@ class XrayVpnController(private val vpnService: VpnService) {
             read > 0 && String(buffer, 0, read).startsWith("HTTP")
         } catch (t: Throwable) {
             Log.d(TAG, "Probe to $host:$port failed: ${t.message}")
+            AppLogger.w(TAG, "TCP probe $host:$port failed: ${t.javaClass.simpleName}: ${t.message}")
             false
         } finally {
             try {
@@ -523,7 +525,7 @@ class XrayVpnController(private val vpnService: VpnService) {
 
         val cacheDir = vpnService.cacheDir.absolutePath
         val log = JsonObject().apply {
-            addProperty("loglevel", "warning")
+            addProperty("loglevel", "info")
             addProperty("access", "$cacheDir/xray_access.log")
             addProperty("error", "$cacheDir/xray_error.log")
         }
@@ -768,7 +770,10 @@ class XrayVpnController(private val vpnService: VpnService) {
 
         // Generate official outbound using LibXray native link parser (matches v2rayNG / Happ exactly)
         var officialOutbound: JsonObject? = null
-        val shouldUseLibXrayConverter = SupabaseConfig.USE_LIBXRAY_CONVERTER || isXhttpNetwork(server.network)
+        // The bundled converter currently rejects the XHTTP+Reality shape used by the
+        // free API. Keep the explicit manual builder for that transport; the flag is
+        // still honored for non-XHTTP profiles.
+        val shouldUseLibXrayConverter = SupabaseConfig.USE_LIBXRAY_CONVERTER && !isXhttpNetwork(server.network)
         if (shouldUseLibXrayConverter) {
             try {
             val vlessLink = buildShareLink(xrayServer)

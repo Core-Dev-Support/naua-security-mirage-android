@@ -109,7 +109,9 @@ class VlessKeyRepository(
                     val respBody = response.body?.string()
                     if (!respBody.isNullOrEmpty()) {
                         val root = JsonParser.parseString(respBody).asJsonObject
-                        parseOutbounds(root, servers)
+                        val responseConfig = root.getAsJsonObject("config") ?: root
+                        val sharedUserId = extractUuid(root.get("v2rayKey")?.asString)
+                        parseOutbounds(responseConfig, servers, sharedUserId)
                     }
                 } else {
                     Log.w(TAG, "API returned code ${response.code}, falling back to static servers")
@@ -148,7 +150,11 @@ class VlessKeyRepository(
         result
     }
 
-    private fun parseOutbounds(root: JsonObject, servers: MutableList<VlessServer>) {
+    private fun parseOutbounds(
+        root: JsonObject,
+        servers: MutableList<VlessServer>,
+        sharedUserId: String? = null
+    ) {
         val outbounds = root.getAsJsonArray("outbounds") ?: return
         for (elem in outbounds) {
             try {
@@ -165,11 +171,18 @@ class VlessKeyRepository(
             val vnext = vnextArray[0].asJsonObject
             val address = vnext.get("address")?.asString ?: continue
             val port = vnext.get("port")?.asInt ?: 443
-            val users = vnext.getAsJsonArray("users") ?: continue
-            if (users.size() == 0) continue
-
-            val user = users[0].asJsonObject
-            val uuid = user.get("id")?.asString ?: continue
+            val users = vnext.getAsJsonArray("users")
+            val user = if (users != null && users.size() > 0) {
+                users[0].asJsonObject
+            } else if (!sharedUserId.isNullOrBlank()) {
+                JsonObject().apply {
+                    addProperty("id", sharedUserId)
+                    addProperty("encryption", "none")
+                }
+            } else {
+                continue
+            }
+            val uuid = user.get("id")?.asString?.takeIf { it.isNotBlank() } ?: continue
             val flow = user.get("flow")?.asString.orEmpty()
 
             val streamSettings = obj.getAsJsonObject("streamSettings") ?: continue
@@ -253,6 +266,13 @@ class VlessKeyRepository(
                 Log.w(TAG, "Skipping malformed free outbound: ${e.message}")
             }
         }
+    }
+
+    private fun extractUuid(value: String?): String? {
+        if (value.isNullOrBlank()) return null
+        val trimmed = value.trim()
+        val uuidRegex = Regex("""[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}""")
+        return uuidRegex.find(trimmed)?.value
     }
 
     private fun getFallbackServers(): List<VlessServer> {

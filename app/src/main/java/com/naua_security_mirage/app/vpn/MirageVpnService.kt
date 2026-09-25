@@ -360,12 +360,14 @@ class MirageVpnService : VpnService() {
 
             var result = attemptTunnel(server, pfd)
             coreStarted = coreStarted || result.coreStarted
+            if (!isCurrentTunnel(pfd)) return null to coreStarted
 
             if (!result.trafficFlows && server.flow.isNotBlank()) {
                 AppLogger.w(TAG, "Узел ${server.tag}: XTLS Vision не пропускает трафик, повтор без flow...")
                 server = server.copy(flow = "")
                 result = attemptTunnel(server, pfd)
                 coreStarted = coreStarted || result.coreStarted
+                if (!isCurrentTunnel(pfd)) return null to coreStarted
                 if (result.trafficFlows) {
                     settingsRepository.flowStrippedHosts = knownFlowLess + hostKey
                     AppLogger.i(TAG, "Узел ${server.tag} подтверждён без XTLS Vision — запомнено для этого сервера.")
@@ -385,8 +387,24 @@ class MirageVpnService : VpnService() {
 
     private class TunnelAttempt(val coreStarted: Boolean, val trafficFlows: Boolean)
 
+    private fun isCurrentTunnel(pfd: ParcelFileDescriptor): Boolean {
+        return vpnInterface === pfd && _vpnState.value == VpnState.CONNECTING
+    }
+
     private suspend fun attemptTunnel(server: VlessServer, pfd: ParcelFileDescriptor): TunnelAttempt {
+        if (!isCurrentTunnel(pfd)) {
+            return TunnelAttempt(coreStarted = false, trafficFlows = false)
+        }
+        AppLogger.i(
+            TAG,
+            "Xray candidate ${server.tag}: network=${server.network}, security=${server.security}, " +
+                "pbk_present=${server.publicKey.isNotBlank()}, sni_present=${server.serverName.isNotBlank()}, " +
+                "sid_present=${server.shortId.isNotBlank()}, flow=${if (server.flow.isBlank()) "flowless" else "vision"}"
+        )
         val (started, errorMsg) = xrayController?.startXray(server, pfd.fd) ?: Pair(false, "Unknown Error")
+        if (!isCurrentTunnel(pfd)) {
+            return TunnelAttempt(coreStarted = started, trafficFlows = false)
+        }
         if (!started) {
             AppLogger.w(TAG, "Узел ${server.tag} не запустился: ${errorMsg ?: "неизвестная ошибка"}")
             return TunnelAttempt(coreStarted = false, trafficFlows = false)
@@ -521,9 +539,10 @@ class MirageVpnService : VpnService() {
             Log.e(TAG, "Error stopping Xray: ${e.message}")
         }
 
+        val interfaceToClose = vpnInterface
+        vpnInterface = null
         try {
-            vpnInterface?.close()
-            vpnInterface = null
+            interfaceToClose?.close()
         } catch (e: Throwable) {
             Log.e(TAG, "Error closing VPN interface: ${e.message}")
         }
@@ -632,7 +651,7 @@ class MirageVpnService : VpnService() {
 
                 val pfd = vpnInterface
                 val server = _activeServer.value ?: vlessKeyRepository.getVlessServers().firstOrNull()
-                if (server != null && pfd != null) {
+                if (server != null && pfd != null && vpnInterface === pfd && _vpnState.value == VpnState.CONNECTED) {
                     val (started, errorMsg) = xrayController?.startXray(server, pfd.fd) ?: Pair(false, "Unknown")
                     val trafficOk = started && xrayController?.verifyDataPlane(6000) == true
                     if (trafficOk) {
