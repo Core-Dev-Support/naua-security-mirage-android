@@ -123,19 +123,22 @@ class VlessKeyRepository(
         }
 
         AppLogger.i(TAG, "Free API parsed nodes=${servers.size}")
-        // Ensure we always have exactly 3 servers
-        val fallbackList = getFallbackServers()
-        for (fallback in fallbackList) {
-            if (servers.size >= 3) break
-            if (servers.none { it.address == fallback.address && it.port == fallback.port }) {
-                servers.add(fallback)
+        // Use only live API nodes when the API returned a valid config. Static
+        // fallbacks are for a completely unavailable/malformed API response;
+        // mixing them into a valid two-node response can select a dead node first.
+        if (servers.isEmpty()) {
+            val fallbackList = getFallbackServers()
+            for (fallback in fallbackList) {
+                if (servers.size >= 3) break
+                if (servers.none { it.address == fallback.address && it.port == fallback.port }) {
+                    servers.add(fallback)
+                }
             }
-        }
-
-        while (servers.size < 3 && fallbackList.isNotEmpty()) {
-            val template = fallbackList[servers.size % fallbackList.size]
-            val uniqueServer = template.copy(id = "fallback_clone_${servers.size + 1}")
-            servers.add(uniqueServer)
+            while (servers.size < 3 && fallbackList.isNotEmpty()) {
+                val template = fallbackList[servers.size % fallbackList.size]
+                val uniqueServer = template.copy(id = "fallback_clone_${servers.size + 1}")
+                servers.add(uniqueServer)
+            }
         }
 
         val result = servers.take(3)
