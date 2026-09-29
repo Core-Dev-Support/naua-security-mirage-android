@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="192dp"
+    android:height="192dp"
+    android:viewportWidth="192"
+    android:viewportHeight="192">
+
+    <!-- Circle background -->
+    <path android:pathData="M96,96m-80,0a80,80 0 1,0 160,0a80,80 0 1,0 -160,0">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:angle="135"
+                android:startColor="#161821"
+                android:endColor="#0A0B10"
+                android:type="linear" />
+        </aapt:attr>
+    </path>
+
+    <!-- Circle Amber Glow Stroke -->
+    <path
+        android:pathData="M96,96m-78,0a78,78 0 1,0 156,0a78,78 0 1,0 -156,0"
+        android:strokeWidth="2"
+        android:strokeColor="#4DE8A33D" />
+
+    <!-- Mirage Amber Shield -->
+    <group
+        android:scaleX="4.5"
+        android:scaleY="4.5"
+        android:translateX="42"
+        android:translateY="42">
+        <path
+            android:fillColor="@color/amber"
+            android:pathData="M12,1L3,5v6c0,5.55 3.84,10.74 9,12c5.16,-1.26 9,-6.45 9,-12V5L12,1zM12,11.99h7c-0.53,4.12 -3.28,7.79 -7,8.94V12H5V6.3l7,-3.11v8.8z"/>
+    </group>
+</vector>
