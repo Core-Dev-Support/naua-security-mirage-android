@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/rowWebsiteItem"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:gravity="center_vertical"
+    android:paddingStart="20dp"
+    android:paddingEnd="20dp"
+    android:paddingTop="11dp"
+    android:paddingBottom="11dp"
+    android:clickable="true"
+    android:focusable="true"
+    android:background="?attr/selectableItemBackground">
+
+    <!-- Globe Icon Container -->
+    <FrameLayout
+        android:id="@+id/containerSiteIcon"
+        android:layout_width="38dp"
+        android:layout_height="38dp"
+        android:layout_marginEnd="14dp"
+        android:background="@drawable/bg_chip">
+
+        <ImageView
+            android:id="@+id/ivSiteIcon"
+            android:layout_width="18dp"
+            android:layout_height="18dp"
+            android:layout_gravity="center"
+            android:src="@drawable/ic_globe"
+            android:contentDescription="@null" />
+    </FrameLayout>
+
+    <!-- Domain and Status -->
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/tvSiteDomain"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="@color/ink"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:maxLines="1"
+            android:ellipsize="end" />
+
+        <TextView
+            android:id="@+id/tvSiteStatus"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:text="Прямое подключение"
+            android:textColor="@color/ink_soft"
+            android:textSize="11.5sp"
+            android:maxLines="1"
+            android:ellipsize="end" />
+    </LinearLayout>
+
+    <!-- Switch to Toggle Bypass on/off -->
+    <com.naua_security_mirage.app.ui.view.MirageSwitch
+        android:id="@+id/switchSiteProxy"
+        android:layout_width="44dp"
+        android:layout_height="24dp"
+        android:layout_marginStart="8dp" />
+
+    <!-- Delete Site Button -->
+    <FrameLayout
+        android:id="@+id/btnDeleteSite"
+        android:layout_width="36dp"
+        android:layout_height="36dp"
+        android:layout_marginStart="8dp"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:clickable="true"
+        android:focusable="true">
+
+        <ImageView
+            android:id="@+id/ivDeleteSite"
+            android:layout_width="18dp"
+            android:layout_height="18dp"
+            android:layout_gravity="center"
+            android:src="@drawable/ic_delete"
+            android:contentDescription="@null" />
+    </FrameLayout>
+
+</LinearLayout>

@@ -1,0 +1,82 @@
+name: Build Windows PC Desktop Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      create_release:
+        description: 'Publish as GitHub Release'
+        required: false
+        default: true
+        type: boolean
+      release_tag:
+        description: 'Release Tag'
+        required: false
+        default: 'v1.3.0'
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-desktop:
+    name: Build Windows Desktop App & Installer
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          cache: 'gradle'
+
+      - name: Set up Inno Setup
+        run: |
+          choco install innosetup --no-progress -y
+
+      - name: Package Compose Desktop Application
+        env:
+          MIRAGE_API_URL: ${{ secrets.MIRAGE_API_URL }}
+          MIRAGE_DEFAULT_UUID: ${{ secrets.MIRAGE_DEFAULT_UUID }}
+          MIRAGE_DEFAULT_PBK: ${{ secrets.MIRAGE_DEFAULT_PBK }}
+          MIRAGE_DEFAULT_SNI: ${{ secrets.MIRAGE_DEFAULT_SNI }}
+        run: |
+          $StartTime = Get-Date
+          Write-Host "========================================================="
+          Write-Host "🚀 Building NAUA Security Mirage PC on GitHub Cloud..."
+          Write-Host "========================================================="
+          .\gradlew.bat :desktop:createDistributable --stacktrace
+          $EndTime = Get-Date
+          $Duration = ($EndTime - $StartTime).TotalSeconds
+          Write-Host "⏱️ Desktop createDistributable build completed in [math]::Round($Duration) seconds!"
+
+      - name: Compile Standalone Windows Installer
+        run: |
+          if (Get-Command iscc -ErrorAction SilentlyContinue) {
+              iscc desktop/SetupScript.iss
+          } elseif (Test-Path "C:\Program Files (x86)\Inno Setup 6\ISCC.exe") {
+              & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" desktop/SetupScript.iss
+          } else {
+              throw "Inno Setup compiler (ISCC.exe) not found!"
+          }
+
+      - name: Upload Windows Installer as Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: NAUA-Security-Mirage-PC-Setup
+          path: build/installer/NAUA-Security-Mirage-Setup-*.exe
+          if-no-files-found: error
+
+      - name: Publish to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v') || github.event.inputs.create_release == 'true' || github.event.inputs.create_release == true
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.inputs.release_tag || (startsWith(github.ref, 'refs/tags/v') && github.ref_name) || 'v1.3.0' }}
+          name: NAUA Security Mirage ${{ github.event.inputs.release_tag || (startsWith(github.ref, 'refs/tags/v') && github.ref_name) || 'v1.3.0' }}
+          files: build/installer/NAUA-Security-Mirage-Setup-*.exe
+          generate_release_notes: false

@@ -1,0 +1,234 @@
+name: Build Release APK
+
+on:
+  workflow_dispatch:
+    inputs:
+      create_release:
+        description: 'Publish as GitHub Release'
+        required: false
+        default: true
+        type: boolean
+      release_tag:
+        description: 'Release Tag'
+        required: false
+        default: 'v1.3.0'
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build Signed Release APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Verify No Plaintext Secrets in Source Code
+        env:
+          CHECK_PWD: ${{ secrets.THREE_X_UI_PASSWORD }}
+          CHECK_HOST: ${{ secrets.FRANCE_HOST }}
+          CHECK_PBK: ${{ secrets.FRANCE_PBK }}
+        run: |
+          echo "Scanning source code for plaintext credentials..."
+          FAILED=0
+          if [ -n "$CHECK_PWD" ] && git grep -F "$CHECK_PWD" -- ':!app/src/main/assets/geo/*' ':!desktop/Core/geo*' ':!.github/*'; then
+            echo "❌ [SECURITY VIOLATION] Secret password found in source code!"
+            FAILED=1
+          fi
+          if [ -n "$CHECK_HOST" ] && git grep -F "$CHECK_HOST" -- ':!app/src/main/assets/geo/*' ':!desktop/Core/geo*' ':!.github/*'; then
+            echo "❌ [SECURITY VIOLATION] Server IP found in source code!"
+            FAILED=1
+          fi
+          if [ -n "$CHECK_PBK" ] && git grep -F "$CHECK_PBK" -- ':!app/src/main/assets/geo/*' ':!desktop/Core/geo*' ':!.github/*'; then
+            echo "❌ [SECURITY VIOLATION] Reality key found in source code!"
+            FAILED=1
+          fi
+          if [ $FAILED -ne 0 ]; then
+            exit 1
+          fi
+          echo "✅ Security verification passed: Zero plaintext secrets in repository."
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Restore Keystore from Secrets
+        env:
+          KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+        run: |
+          echo "$KEYSTORE_BASE64" | base64 --decode > app/mirage-release.jks
+
+      - name: Restore google-services.json from Secrets
+        env:
+          GOOGLE_SERVICES_BASE64: ${{ secrets.GOOGLE_SERVICES_JSON_BASE64 }}
+        run: |
+          if [ -n "$GOOGLE_SERVICES_BASE64" ]; then
+            echo "$GOOGLE_SERVICES_BASE64" | base64 --decode > app/google-services.json
+          fi
+
+      - name: Grant Execute Permission for Gradlew
+        run: chmod +x gradlew
+
+      - name: Optimize Gradle Properties for Cloud Runner
+        run: |
+          sed -i '/org.gradle.java.home/d' gradle.properties || true
+          sed -i '/org.gradle.jvmargs/d' gradle.properties || true
+          echo "org.gradle.jvmargs=-Xmx4g -XX:+UseParallelGC" >> gradle.properties
+
+      - name: Check YooMoney edge function
+        uses: denoland/setup-deno@v1
+        with:
+          deno-version: '1.44.4'
+
+      - name: Type-check YooMoney edge function
+        run: deno check supabase/functions/yoomoney-webhook/index.ts
+
+
+      - name: Type-check france-config edge function
+        run: deno check supabase/functions/france-config/index.ts
+
+      - name: Test YooMoney edge-function contracts
+        run: deno test supabase/functions/yoomoney-webhook/contract_test.ts
+
+      - name: Validate live-check script
+        run: bash -n .github/scripts/live_subscription_check.sh
+
+      - name: Run Android Unit Tests
+        run: |
+          ./gradlew testDebugUnitTest --stacktrace
+
+      - name: Build Release APK with R8
+        env:
+          MIRAGE_STORE_PASSWORD: ${{ secrets.MIRAGE_STORE_PASSWORD }}
+          MIRAGE_KEY_PASSWORD: ${{ secrets.MIRAGE_KEY_PASSWORD }}
+          MIRAGE_KEY_ALIAS: ${{ secrets.MIRAGE_KEY_ALIAS }}
+          THREE_X_UI_BASE_URL: ${{ secrets.THREE_X_UI_BASE_URL }}
+          THREE_X_UI_USERNAME: ${{ secrets.THREE_X_UI_USERNAME }}
+          THREE_X_UI_PASSWORD: ${{ secrets.THREE_X_UI_PASSWORD }}
+          THREE_X_UI_INBOUND_ID: ${{ secrets.THREE_X_UI_INBOUND_ID }}
+          THREE_X_UI_CERT_SHA256: ${{ secrets.THREE_X_UI_CERT_SHA256 }}
+          FRANCE_HOST: ${{ secrets.FRANCE_HOST }}
+          FRANCE_PORT: ${{ secrets.FRANCE_PORT }}
+          FRANCE_PBK: ${{ secrets.FRANCE_PBK }}
+          FRANCE_SNI: ${{ secrets.FRANCE_SNI }}
+          FRANCE_SID: ${{ secrets.FRANCE_SID }}
+          FRANCE_SPX: ${{ secrets.FRANCE_SPX }}
+          FRANCE_FINGERPRINT: ${{ secrets.FRANCE_FINGERPRINT }}
+          YOOMONEY_WALLET: ${{ secrets.YOOMONEY_WALLET }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          FRANCE_DEFAULT_UUID: ${{ secrets.FRANCE_DEFAULT_UUID }}
+          FRANCE_ENDPOINTS: ${{ secrets.FRANCE_ENDPOINTS }}
+        run: |
+          START_TIME=$(date +%s)
+          echo "========================================================="
+          echo "🚀 Starting Release Build on GitHub Cloud Server..."
+          echo "========================================================="
+          ./gradlew assembleRelease --stacktrace
+          END_TIME=$(date +%s)
+          DURATION=$((END_TIME - START_TIME))
+          MINUTES=$((DURATION / 60))
+          SECONDS=$((DURATION % 60))
+          echo "========================================================="
+          echo "⏱️ BUILD SUCCESSFUL!"
+          echo "⏱️ Total build time on GitHub: ${MINUTES}m ${SECONDS}s (${DURATION} seconds)"
+          echo "========================================================="
+
+      - name: Check merged manifest for advertising identifiers
+        run: |
+          set -euo pipefail
+          merged=$(find app/build/intermediates -path '*release*' -path '*merged*' -name 'AndroidManifest.xml' | head -n 1)
+          if [ -z "$merged" ]; then
+            echo "::error::no release merged manifest found"
+            exit 1
+          fi
+          echo "checking $merged"
+
+
+          if grep -qE 'uses-permission.*(AD_ID|ACCESS_ADSERVICES)|uses-library.*adservices' "$merged"; then
+            echo "::error::the merged manifest can reach an advertising identifier"
+            grep -nE 'uses-permission.*(AD_ID|ACCESS_ADSERVICES)|uses-library.*adservices' "$merged"
+            exit 1
+          fi
+          echo "  no advertising permission, no adservices library"
+
+          leftover=$(grep -nE 'property.*adservices' "$merged" || true)
+          if [ -n "$leftover" ]; then
+            echo "  note, inert and not removable through the merger:"
+            echo "$leftover" | sed 's/^/    /'
+          fi
+          echo "  merged manifest is clean"
+
+      - name: Require a v2 or v3 signature on the APK
+        run: |
+          set -euo pipefail
+          apk=$(find app/build/outputs/apk/release -name '*.apk' | head -n 1)
+          if [ -z "$apk" ]; then
+            echo "::error::no release APK found"
+            exit 1
+          fi
+          echo "checking $apk"
+
+
+          apksigner_bin=""
+          if command -v apksigner >/dev/null 2>&1; then
+            apksigner_bin=$(command -v apksigner)
+          elif [ -n "${ANDROID_HOME:-}" ]; then
+            apksigner_bin=$(find "$ANDROID_HOME/build-tools" -name apksigner -type f 2>/dev/null | sort -V | tail -n 1)
+          elif [ -n "${ANDROID_SDK_ROOT:-}" ]; then
+            apksigner_bin=$(find "$ANDROID_SDK_ROOT/build-tools" -name apksigner -type f 2>/dev/null | sort -V | tail -n 1)
+          fi
+          if [ -z "$apksigner_bin" ]; then
+            echo "::error::apksigner was not found; cannot verify the signature"
+            exit 1
+          fi
+          echo "using $apksigner_bin"
+
+          "$apksigner_bin" verify --verbose --print-certs "$apk" || {
+            echo "::error::apksigner refused the APK"
+            exit 1
+          }
+          schemes=$("$apksigner_bin" verify --verbose "$apk" 2>&1 | grep -cE 'Verified using v[23] scheme' || true)
+          if [ "$schemes" -eq 0 ]; then
+            echo "::error::the APK carries no v2 or v3 signature"
+            exit 1
+          fi
+          echo "  $schemes modern signature scheme(s) present"
+
+      - name: Upload Release APK as Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: NAUA-Security-Mirage-Release-APK
+          path: app/build/outputs/apk/release/app-release.apk
+          if-no-files-found: error
+        env:
+          NODE_OPTIONS: --no-deprecation
+
+      - name: Prepare Release Asset
+        run: |
+          VERSION_TAG="${{ github.event.inputs.release_tag || (startsWith(github.ref, 'refs/tags/v') && github.ref_name) || 'v1.3.0' }}"
+          cp app/build/outputs/apk/release/app-release.apk "app/build/outputs/apk/release/NAUA-Security-Mirage-${VERSION_TAG}.apk"
+          if [ ! -f "docs/releases/${VERSION_TAG}.md" ]; then
+            echo "::error::no release notes for ${VERSION_TAG} at docs/releases/${VERSION_TAG}.md"
+            exit 1
+          fi
+
+      - name: Publish GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v') || github.event.inputs.create_release == 'true' || github.event.inputs.create_release == true
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.inputs.release_tag || (startsWith(github.ref, 'refs/tags/v') && github.ref_name) || 'v1.3.0' }}
+          name: NAUA Security Mirage ${{ github.event.inputs.release_tag || (startsWith(github.ref, 'refs/tags/v') && github.ref_name) || 'v1.3.0' }}
+          body_path: docs/releases/${{ github.event.inputs.release_tag || (startsWith(github.ref, 'refs/tags/v') && github.ref_name) || 'v1.3.0' }}.md
+          files: app/build/outputs/apk/release/NAUA-Security-Mirage-*.apk
+          generate_release_notes: false

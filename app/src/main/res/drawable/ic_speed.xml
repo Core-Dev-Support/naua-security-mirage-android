@@ -1,0 +1,20 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="20dp"
+    android:height="20dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- Download arrow (pointing down) -->
+    <path
+        android:strokeColor="@color/ink"
+        android:strokeWidth="1.9"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M7,4v14 M3.5,14.5L7,18l3.5,-3.5" />
+    <!-- Upload arrow (pointing up) -->
+    <path
+        android:strokeColor="@color/ink"
+        android:strokeWidth="1.9"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M17,20V6 M13.5,9.5L17,6l3.5,3.5" />
+</vector>

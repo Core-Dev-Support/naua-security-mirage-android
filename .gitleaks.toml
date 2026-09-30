@@ -1,0 +1,51 @@
+
+
+title = "NAUA Security Mirage secret scan"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Values that are public by design and must not be reported as leaked secrets."
+paths = [
+  '''(^|/)local\.properties$''',
+  '''(^|/)key\.properties$''',
+  '''(^|/)google-services\.json$''',
+  '''(^|/).*\.jks$''',
+  '''(^|/).*\.keystore$''',
+  '''(^|/)desktop/Core/''',
+  '''(^|/)\.gitleaks\.toml$''',
+]
+
+regexes = [
+  '''Core Dev Support''',
+  '''coredevsupport@gmail\.com''',
+]
+
+[[rules]]
+id = "mirage-literal-buildconfigfield"
+description = "A BuildConfig field assigned a literal instead of a secret lookup"
+regex = '''buildConfigField\(\s*"[^"]*"\s*,\s*"(SUPABASE_ANON_KEY|SUPABASE_URL|THREE_X_UI_[A-Z_]+|FRANCE_[A-Z_]+|YOOMONEY_WALLET)"\s*,\s*\\*"([^"$]{6,})'''
+keywords = [
+  "buildConfigField",
+  "THREE_X_UI",
+  "FRANCE_",
+  "YOOMONEY_WALLET",
+  "SUPABASE_ANON_KEY",
+]
+
+[[rules]]
+id = "mirage-3xui-panel-credentials"
+description = "3X-UI panel credentials stored in the repository"
+regex = '''THREE_X_UI_(USERNAME|PASSWORD|USER|PASS)\s*[:=]\s*["']([^"'$]{6,})["']'''
+keywords = [
+  "THREE_X_UI_USERNAME",
+  "THREE_X_UI_PASSWORD",
+]
+
+[[rules]]
+id = "mirage-supabase-service-role"
+description = "Supabase service role key committed to the repository"
+regex = '''eyJ[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{40,}\.[A-Za-z0-9_-]{20,}'''
+keywords = []
+

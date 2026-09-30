@@ -1,0 +1,1223 @@
+package com.naua_security_mirage.app.vpn
+
+import android.net.VpnService
+import android.util.Base64
+import android.util.Log
+import com.google.gson.JsonArray
+import com.google.gson.JsonObject
+import com.google.gson.JsonParser
+import com.naua_security_mirage.app.BuildConfig
+import com.naua_security_mirage.app.data.model.VlessServer
+import com.naua_security_mirage.app.data.repository.GeoRoutingRepository
+import com.naua_security_mirage.app.data.repository.SettingsRepository
+import com.naua_security_mirage.app.data.supabase.SupabaseConfig
+import com.naua_security_mirage.app.util.AppLogger
+import go.Seq
+import libXray.DialerController
+import libXray.LibXray
+import java.io.File
+import java.net.Inet4Address
+import java.net.InetAddress
+import java.net.Socket
+import java.nio.charset.StandardCharsets
+import javax.net.ssl.SSLSocket
+import javax.net.ssl.SSLSocketFactory
+
+class XrayVpnController(private val vpnService: VpnService) {
+
+    private var isStarted = false
+    private var dialerController: DialerController? = null
+    private var protectFailures = 0
+    private var protectCalls = 0
+
+    fun startXray(server: VlessServer, tunFd: Int, mtu: Int = TUN_MTU_WIFI): Pair<Boolean, String?> {
+        try {
+
+            try {
+                LibXray.xrayVersion()
+            } catch (t: Throwable) {
+                val reason = "Нативное ядро Xray недоступно (${t.javaClass.simpleName}: ${t.message})"
+                AppLogger.e(TAG, reason)
+                Log.e(TAG, reason, t)
+                return Pair(false, reason)
+            }
+
+            AppLogger.i(TAG, "Ensuring previous Xray instance is stopped...")
+            Log.d(TAG, "Ensuring previous Xray instance is stopped...")
+            try {
+                if (LibXray.getXrayState()) {
+                    LibXray.stopXray()
+                    Thread.sleep(50)
+                }
+            } catch (e: Throwable) {
+                Log.w(TAG, "Error checking/stopping prior Xray: ${e.message}")
+            }
+
+            Log.d(TAG, "Setting Go Seq context...")
+            try {
+                Seq.setContext(vpnService)
+            } catch (e: Throwable) {
+                Log.w(TAG, "Seq.setContext error: ${e.message}")
+            }
+
+            protectFailures = 0
+            protectCalls = 0
+            Log.d(TAG, "Registering DialerController & ListenerController...")
+            val controller = dialerController ?: object : DialerController {
+                override fun protectFd(fd: Long): Boolean {
+                    return try {
+                        protectCalls++
+                        vpnService.protect(fd.toInt()).also { protected ->
+                            if (!protected) protectFailures++
+                        }
+                    } catch (e: Throwable) {
+                        protectFailures++
+                        Log.w(TAG, "protectFd failed: ${e.message}")
+                        false
+                    }
+                }
+            }.also { dialerController = it }
+            try {
+
+                LibXray.registerDialerController(controller)
+                LibXray.registerListenerController(controller)
+                Log.d(TAG, "DialerController registered successfully")
+            } catch (e: Throwable) {
+                AppLogger.w(TAG, "registerDialerController failed: ${e.message}")
+                Log.w(TAG, "registerDialerController failed: ${e.message}")
+            }
+
+            Log.d(TAG, "Setting TunFd: $tunFd")
+            LibXray.setTunFd(tunFd)
+            try {
+                System.setProperty("xray.tun.fd", tunFd.toString())
+            } catch (_: Throwable) {}
+
+            val geoRoutingRepo = GeoRoutingRepository(vpnService)
+            geoRoutingRepo.cleanupInvalidFiles()
+            val geoDir = geoRoutingRepo.geoDir
+            if (!geoDir.exists()) {
+                geoDir.mkdirs()
+            }
+            val datDirPath = geoDir.absolutePath
+            try {
+                System.setProperty("xray.location.asset", datDirPath)
+            } catch (e: Throwable) {
+                Log.w(TAG, "Failed to set xray.location.asset: ${e.message}")
+            }
+
+            val configJson = buildManualConfig(server, mtu)
+            Log.d(TAG, "Xray config generated for ${server.tag}")
+            logRedactedOutboundShape(configJson)
+
+            val request = JsonObject().apply {
+                addProperty("datDir", datDirPath)
+                addProperty("mphCachePath", "")
+                addProperty("configJSON", configJson)
+            }
+            val base64Req = Base64.encodeToString(
+                request.toString().toByteArray(StandardCharsets.UTF_8),
+                Base64.NO_WRAP
+            )
+
+            Log.d(TAG, "Launching Xray via runXrayFromJSON...")
+            val rawResult = LibXray.runXrayFromJSON(base64Req)
+            Log.d(TAG, "runXrayFromJSON raw result: $rawResult")
+
+            val decodedResult = try {
+                if (!rawResult.isNullOrEmpty()) {
+                    val bytes = Base64.decode(rawResult, Base64.DEFAULT)
+                    String(bytes, StandardCharsets.UTF_8)
+                } else ""
+            } catch (_: Exception) {
+                rawResult ?: ""
+            }
+
+            Log.d(TAG, "Decoded Xray run response: $decodedResult")
+
+            val error = try {
+                if (decodedResult.isNotEmpty()) {
+                    val json = org.json.JSONObject(decodedResult)
+                    if (json.has("error")) json.optString("error") else null
+                } else null
+            } catch (_: Exception) {
+                if (decodedResult.contains("\"error\"")) decodedResult else null
+            }
+
+            var runningState = try { LibXray.getXrayState() } catch (_: Throwable) { false }
+            if (!runningState && !explicitResultContainsSuccess(decodedResult)) {
+                repeat(5) {
+                    if (runningState) return@repeat
+                    Thread.sleep(100)
+                    runningState = try { LibXray.getXrayState() } catch (_: Throwable) { false }
+                }
+            }
+            val explicitSuccess = explicitResultContainsSuccess(decodedResult)
+            val isSuccess = runningState || (error.isNullOrEmpty() && explicitSuccess)
+
+            if (!error.isNullOrEmpty()) {
+                AppLogger.e(TAG, "Xray core start error: $error")
+                Log.e(TAG, "Xray core start error: $error")
+            }
+
+            isStarted = isSuccess
+            AppLogger.i(TAG, "Xray start status: isSuccess=$isSuccess (xrayState=$runningState)")
+            Log.d(TAG, "Xray start status: isSuccess=$isSuccess (xrayState=$runningState)")
+            return Pair(isSuccess, error)
+
+        } catch (e: Throwable) {
+            AppLogger.e(TAG, "Failed to start Xray: ${e.message}", e)
+            Log.e(TAG, "Failed to start Xray: ${e.message}", e)
+            return Pair(false, e.message)
+        }
+    }
+
+    private fun logRedactedOutboundShape(configJson: String) {
+        try {
+            val root = JsonParser.parseString(configJson).asJsonObject
+            val outbounds = root.getAsJsonArray("outbounds") ?: return
+            val proxy = outbounds.firstOrNull()?.asJsonObject ?: return
+            val vnext = proxy.getAsJsonObject("settings")?.getAsJsonArray("vnext")?.firstOrNull()?.asJsonObject
+            val user = vnext?.getAsJsonArray("users")?.firstOrNull()?.asJsonObject
+            val stream = proxy.getAsJsonObject("streamSettings")
+            val reality = stream?.getAsJsonObject("realitySettings")
+            val tcp = stream?.getAsJsonObject("tcpSettings")
+
+            val tunInbound = root.getAsJsonArray("inbounds")?.map { it.asJsonObject }
+                ?.firstOrNull { it.get("protocol")?.asString == "tun" }
+            val tunMtu = tunInbound?.getAsJsonObject("settings")?.get("MTU")?.asString ?: "absent"
+            val fingerprintOf: (String?) -> String = { value ->
+                if (value.isNullOrEmpty()) "absent" else "len=${value.length};sha=${sha(value).take(12)}"
+            }
+            AppLogger.i(
+                TAG,
+                "Config shape: address=${vnext?.get("address")?.asString} port=${vnext?.get("port")?.asString} " +
+                    "id=${fingerprintOf(user?.get("id")?.asString)} flow=${user?.get("flow")?.asString ?: "absent"} " +
+                    "level=${user?.get("level")?.asString ?: "absent"} " +
+                    "network=${stream?.get("network")?.asString} security=${stream?.get("security")?.asString} " +
+                    "publicKey=${fingerprintOf(reality?.get("publicKey")?.asString)} " +
+                    "serverName=${reality?.get("serverName")?.asString} " +
+                    "fingerprint=${reality?.get("fingerprint")?.asString} " +
+                    "shortId=${fingerprintOf(reality?.get("shortId")?.asString)} " +
+                    "spiderX=${fingerprintOf(reality?.get("spiderX")?.asString)} " +
+                    "headerType=${tcp?.getAsJsonObject("header")?.get("type")?.asString ?: "absent"} " +
+                    "mux=${proxy.getAsJsonObject("mux")?.get("concurrency")?.asString ?: "absent"} " +
+                    "mtu=$tunMtu " +
+                    "outboundTag=${proxy.get("tag")?.asString}"
+            )
+        } catch (e: Throwable) {
+            AppLogger.w(TAG, "Не удалось снять форму конфига: ${e.message}")
+        }
+    }
+
+    private fun sha(value: String): String {
+        val digest = java.security.MessageDigest.getInstance("SHA-256").digest(value.toByteArray())
+        return digest.joinToString("") { "%02x".format(it) }
+    }
+
+    private fun explicitResultContainsSuccess(value: String): Boolean {
+        return Regex("\\\"success\\\"\\s*:\\s*true", RegexOption.IGNORE_CASE).containsMatchIn(value)
+    }
+
+    fun stopXray() {
+        try {
+            val isRunning = try { LibXray.getXrayState() } catch (_: Throwable) { false }
+            if (isStarted || isRunning) {
+                AppLogger.i(TAG, "Stopping Xray core...")
+                Log.d(TAG, "Stopping Xray core...")
+                LibXray.stopXray()
+            }
+        } catch (e: Throwable) {
+            AppLogger.e(TAG, "Error stopping Xray: ${e.message}", e)
+            Log.e(TAG, "Error stopping Xray: ${e.message}")
+        } finally {
+            if (protectCalls > 0 || protectFailures > 0) {
+                AppLogger.w(TAG, "Socket protection calls=$protectCalls failures=$protectFailures")
+            }
+            isStarted = false
+        }
+    }
+
+    fun verifyDataPlane(timeoutMs: Int = 6000): Boolean {
+        val httpResult = java.util.concurrent.atomic.AtomicBoolean(false)
+        val httpsResult = java.util.concurrent.atomic.AtomicBoolean(false)
+
+        val httpThread = Thread {
+            for ((host, port) in PROBE_TARGETS) {
+                if (probeOnce(host, port, timeoutMs)) {
+                    httpResult.set(true)
+                    return@Thread
+                }
+            }
+        }.apply { isDaemon = true; name = "probe-http" }
+
+        val httpsThread = Thread {
+            if (probeHttpsDomain(YOUTUBE_PROBE_HOST, YOUTUBE_PROBE_PORT, timeoutMs)) {
+                httpsResult.set(true)
+            }
+        }.apply { isDaemon = true; name = "probe-https" }
+
+        val started = System.currentTimeMillis()
+        val deadline = started + timeoutMs + 250L
+        httpThread.start()
+        httpsThread.start()
+        for (probe in listOf(httpThread, httpsThread)) {
+            val remaining = deadline - System.currentTimeMillis()
+            if (remaining <= 0) break
+            probe.join(remaining)
+        }
+        val elapsed = System.currentTimeMillis() - started
+
+        if (httpResult.get()) {
+            AppLogger.i(TAG, "Базовый TCP/HTTP-проба пройдена через ${PROBE_TARGETS.first().first}")
+        }
+        if (httpsResult.get()) {
+            AppLogger.i(TAG, "Проверка HTTPS/SNI YouTube пройдена")
+        }
+        if (httpResult.get() || httpsResult.get()) {
+            return true
+        }
+        AppLogger.w(TAG, "Проверка трафика не пройдена за ${elapsed}мс: туннель поднят, но данные не идут")
+        return false
+    }
+
+    private fun probeOnce(host: String, port: Int, timeoutMs: Int): Boolean {
+        var socket: java.net.Socket? = null
+        return try {
+            val ip = java.net.InetAddress.getByName(host).address
+            if (ip.size != 4) return false
+
+            socket = java.net.Socket()
+            socket.connect(java.net.InetSocketAddress("127.0.0.1", SOCKS_PORT), timeoutMs)
+            socket.soTimeout = timeoutMs
+            val output = socket.getOutputStream()
+            val input = socket.getInputStream()
+
+            output.write(byteArrayOf(0x05, 0x01, 0x00))
+            output.flush()
+            val greeting = ByteArray(2)
+            readFully(input, greeting, 2)
+            if (greeting[0] != 0x05.toByte() || greeting[1] != 0x00.toByte()) {
+                AppLogger.w(
+                    TAG,
+                    "Локальный SOCKS ещё не отвечает (приветствие ${greeting[0]}, ${greeting[1]}) — ядро не успело подняться"
+                )
+                return false
+            }
+
+            val request = ByteArray(10)
+            request[0] = 0x05
+            request[1] = 0x01
+            request[2] = 0x00
+            request[3] = 0x01
+            System.arraycopy(ip, 0, request, 4, 4)
+            request[8] = ((port shr 8) and 0xFF).toByte()
+            request[9] = (port and 0xFF).toByte()
+            output.write(request)
+            output.flush()
+
+            val header = ByteArray(4)
+            readFully(input, header, 4)
+            val replyCode = header[1].toInt() and 0xFF
+            if (header[0] != 0x05.toByte() || replyCode != 0x00) {
+                AppLogger.w(TAG, "SOCKS5 probe to $host:$port rejected with reply $replyCode")
+                return false
+            }
+            val addrLen = when (header[3].toInt()) {
+                0x01 -> 4
+                0x04 -> 16
+                0x03 -> {
+                    val len = ByteArray(1)
+                    readFully(input, len, 1)
+                    len[0].toInt() and 0xFF
+                }
+                else -> return false
+            }
+            readFully(input, ByteArray(addrLen + 2), addrLen + 2)
+
+            output.write("GET / HTTP/1.0\r\nHost: one.one.one.one\r\nConnection: close\r\n\r\n".toByteArray())
+            output.flush()
+
+            val buffer = ByteArray(16)
+            val read = input.read(buffer)
+            read > 0 && String(buffer, 0, read).startsWith("HTTP")
+        } catch (t: Throwable) {
+            Log.d(TAG, "Probe to $host:$port failed: ${t.message}")
+            AppLogger.w(TAG, "TCP probe $host:$port failed: ${t.javaClass.simpleName}: ${t.message}")
+            false
+        } finally {
+            try {
+                socket?.close()
+            } catch (_: Throwable) {}
+        }
+    }
+
+    private fun probeHttpsDomain(host: String, port: Int, timeoutMs: Int): Boolean {
+        var socket: Socket? = null
+        var tlsSocket: SSLSocket? = null
+        return try {
+            val rawSocket = Socket()
+            socket = rawSocket
+            rawSocket.connect(java.net.InetSocketAddress("127.0.0.1", SOCKS_PORT), timeoutMs)
+            rawSocket.soTimeout = timeoutMs
+            val output = rawSocket.getOutputStream()
+            val input = rawSocket.getInputStream()
+
+            output.write(byteArrayOf(0x05, 0x01, 0x00))
+            output.flush()
+            val greeting = ByteArray(2)
+            readFully(input, greeting, 2)
+            if (greeting[0] != 0x05.toByte() || greeting[1] != 0x00.toByte()) return false
+
+            val hostBytes = host.toByteArray(StandardCharsets.US_ASCII)
+            if (hostBytes.isEmpty() || hostBytes.size > 255) return false
+
+            val request = ByteArray(7 + hostBytes.size)
+            request[0] = 0x05
+            request[1] = 0x01
+            request[2] = 0x00
+            request[3] = 0x03
+            request[4] = hostBytes.size.toByte()
+            hostBytes.copyInto(request, 5)
+            val portOffset = 5 + hostBytes.size
+            request[portOffset] = ((port shr 8) and 0xFF).toByte()
+            request[portOffset + 1] = (port and 0xFF).toByte()
+            output.write(request)
+            output.flush()
+            if (!readSocks5Reply(input)) return false
+
+            val sslFactory = SSLSocketFactory.getDefault() as SSLSocketFactory
+            val ssl = sslFactory.createSocket(rawSocket, host, port, true) as SSLSocket
+            tlsSocket = ssl
+            ssl.soTimeout = timeoutMs
+            try {
+                val sslParameters = ssl.sslParameters
+                sslParameters.endpointIdentificationAlgorithm = "HTTPS"
+                ssl.sslParameters = sslParameters
+            } catch (_: Throwable) {
+
+            }
+            ssl.startHandshake()
+
+            val tlsOutput = ssl.getOutputStream()
+            val tlsInput = ssl.getInputStream()
+            tlsOutput.write(
+                ("HEAD / HTTP/1.1\r\nHost: $host\r\nConnection: close\r\n" +
+                    "User-Agent: NAUA-Security-Mirage\r\n\r\n").toByteArray(StandardCharsets.US_ASCII)
+            )
+            tlsOutput.flush()
+
+            val buffer = ByteArray(32)
+            val read = tlsInput.read(buffer)
+            read > 0 && String(buffer, 0, read, StandardCharsets.US_ASCII).startsWith("HTTP/")
+        } catch (t: Throwable) {
+            Log.d(TAG, "HTTPS probe to $host:$port failed: ${t.message}")
+            false
+        } finally {
+            try {
+                tlsSocket?.close()
+            } catch (_: Throwable) {}
+            try {
+                socket?.close()
+            } catch (_: Throwable) {}
+        }
+    }
+
+    private fun readSocks5Reply(input: java.io.InputStream): Boolean {
+        val header = ByteArray(4)
+        readFully(input, header, 4)
+        val replyCode = header[1].toInt() and 0xFF
+        if (header[0] != 0x05.toByte() || replyCode != 0x00) {
+            AppLogger.w(TAG, "SOCKS5 HTTPS probe rejected with reply $replyCode")
+            return false
+        }
+        val addressLength = when (header[3].toInt() and 0xFF) {
+            0x01 -> 4
+            0x04 -> 16
+            0x03 -> {
+                val length = ByteArray(1)
+                readFully(input, length, 1)
+                length[0].toInt() and 0xFF
+            }
+            else -> return false
+        }
+        readFully(input, ByteArray(addressLength + 2), addressLength + 2)
+        return true
+    }
+
+    private fun readFully(input: java.io.InputStream, buffer: ByteArray, length: Int) {
+        var offset = 0
+        while (offset < length) {
+            val read = input.read(buffer, offset, length - offset)
+            if (read <= 0) throw java.io.EOFException("probe stream closed")
+            offset += read
+        }
+    }
+
+    private fun buildShareLink(server: VlessServer): String {
+        fun enc(value: String): String = try {
+            java.net.URLEncoder.encode(value, "UTF-8")
+        } catch (_: Exception) {
+            value
+        }
+
+        val network = server.network.ifEmpty { "tcp" }
+        val security = server.security.ifEmpty { "reality" }
+
+        val params = StringBuilder()
+        params.append("type=").append(network)
+        params.append("&encryption=none")
+        params.append("&security=").append(security)
+
+        if (security == "reality") {
+            params.append("&pbk=").append(enc(server.publicKey))
+            params.append("&fp=").append(enc(server.fingerprint.ifEmpty { "chrome" }))
+            if (server.serverName.isNotEmpty()) {
+                params.append("&sni=").append(enc(server.serverName))
+            }
+            if (server.shortId.isNotEmpty()) {
+                params.append("&sid=").append(enc(server.shortId))
+            }
+        } else if (security == "tls") {
+            params.append("&tls=1")
+            if (server.serverName.isNotEmpty()) {
+                params.append("&sni=").append(enc(server.serverName))
+            }
+        }
+
+        when (network) {
+            "xhttp", "splithttp" -> {
+                params.append("&path=").append(enc(server.path.ifEmpty { "/widgetComponent.js" }))
+                params.append("&host=").append(enc(server.host.ifEmpty { server.serverName }))
+                params.append("&mode=").append(enc(server.mode.ifEmpty { "packet-up" }))
+            }
+            "tcp" -> {
+                if (security == "reality") {
+                    params.append("&spx=").append(enc(server.path.ifEmpty { "/" }))
+                }
+            }
+            "ws" -> {
+                params.append("&path=").append(enc(server.path.ifEmpty { "/" }))
+                if (server.host.isNotEmpty()) {
+                    params.append("&host=").append(enc(server.host))
+                }
+            }
+        }
+
+        if (server.flow.isNotBlank()) {
+            params.append("&flow=").append(enc(server.flow))
+        }
+
+        val tag = try {
+            java.net.URLEncoder.encode(server.tag.ifEmpty { "proxy" }, "UTF-8")
+        } catch (_: Exception) {
+            "proxy"
+        }
+
+        return "vless://${server.uuid}@${server.address}:${server.port}?$params#$tag"
+    }
+
+    private fun resolveProxyEndpoint(server: VlessServer): VlessServer {
+        val address = server.address.trim()
+        if (address.isEmpty() || isIpLiteral(address)) return server
+
+        val cached = resolvedHostCache[address]
+        if (cached != null && System.currentTimeMillis() - cached.at < HOST_RESOLVE_TTL_MS) {
+            return server.copy(address = cached.ipv4)
+        }
+
+        return try {
+            val ipv4 = InetAddress.getAllByName(address)
+                .firstOrNull { it is Inet4Address }
+                ?.hostAddress
+            if (ipv4.isNullOrBlank()) {
+                AppLogger.w(TAG, "Не удалось заранее разрешить адрес прокси, используется DNS fallback")
+                server
+            } else {
+                resolvedHostCache[address] = ResolvedHost(ipv4, System.currentTimeMillis())
+                if (resolvedHostCache.size > 32) resolvedHostCache.clear()
+                server.copy(address = ipv4)
+            }
+        } catch (_: Throwable) {
+            AppLogger.w(TAG, "Не удалось заранее разрешить адрес прокси, используется DNS fallback")
+            server
+        }
+    }
+
+    private data class ResolvedHost(val ipv4: String, val at: Long)
+
+    private fun xrayLogLevel(setting: String): String = when (setting) {
+        SettingsRepository.LOG_LEVEL_NONE -> "none"
+        SettingsRepository.LOG_LEVEL_ERROR -> "error"
+        SettingsRepository.LOG_LEVEL_WARNING -> "warning"
+        SettingsRepository.LOG_LEVEL_DEBUG -> "debug"
+        else -> "info"
+    }
+
+    private fun isIpLiteral(address: String): Boolean {
+        val normalized = address.trim().removePrefix("[").removeSuffix("]")
+        if (normalized.isEmpty()) return false
+        if (normalized.contains(":")) {
+
+            return normalized.count { it == ':' } >= 2 &&
+                normalized.all { it.isDigit() || it in "abcdefABCDEF:." }
+        }
+        val octets = normalized.split('.')
+        return octets.size == 4 && octets.all { octet ->
+            (octet.toIntOrNull() ?: -1) in 0..255
+        }
+    }
+
+    private fun isXhttpNetwork(network: String): Boolean {
+        return network.equals("xhttp", ignoreCase = true) || network.equals("splithttp", ignoreCase = true)
+    }
+
+    private fun willUseRealityMux(server: VlessServer): Boolean {
+        val network = server.network.ifEmpty { "tcp" }
+        return network.equals("tcp", ignoreCase = true) &&
+            server.security.ifEmpty { "reality" } == "reality" &&
+            server.flow.isBlank()
+    }
+
+    private fun applyRealityMux(outbound: JsonObject, server: VlessServer) {
+        val network = outbound.getAsJsonObject("streamSettings")
+            ?.get("network")?.asString.orEmpty()
+        if (!network.equals("tcp", ignoreCase = true)) return
+        if (server.security.ifEmpty { "reality" } != "reality") return
+
+        if (server.flow.isNotBlank()) {
+            AppLogger.w(
+                TAG,
+                "Узел ${server.tag} настроен на XTLS Vision, mux недоступен — сервер не пропустит всплеск соединений"
+            )
+            return
+        }
+
+        val mux = JsonObject().apply {
+            addProperty("enabled", true)
+            addProperty("concurrency", REALITY_MUX_CONCURRENCY)
+            addProperty("xudpConcurrency", 16)
+            addProperty("xudpProxyUDP443", "reject")
+        }
+        outbound.add("mux", mux)
+        AppLogger.i(TAG, "mux=$REALITY_MUX_CONCURRENCY для ${server.tag}: трафик сводится в одно соединение")
+    }
+
+    private fun endpointDnsDomainRule(address: String): String? {
+        val normalized = address.trim().removePrefix("[").removeSuffix("]").trimEnd('.')
+        if (normalized.isEmpty() || isIpLiteral(normalized)) return null
+        return "domain:$normalized"
+    }
+
+    private fun buildManualConfig(server: VlessServer, mtu: Int): String {
+        val xrayServer = resolveProxyEndpoint(server)
+
+        val shouldBlockQuic =
+            (xrayServer.flow.contains("xtls-rprx-vision", ignoreCase = true) &&
+                !xrayServer.flow.contains("udp443", ignoreCase = true)) ||
+                willUseRealityMux(xrayServer)
+        val root = JsonObject()
+        val settingsRepo = SettingsRepository(vpnService)
+
+        val cacheDir = vpnService.cacheDir.absolutePath
+        val log = JsonObject().apply {
+
+            if (BuildConfig.LOGS_ENABLED) {
+                addProperty("loglevel", xrayLogLevel(settingsRepo.logLevel))
+                addProperty("access", "$cacheDir/xray_access.log")
+                addProperty("error", "$cacheDir/xray_error.log")
+            } else {
+                addProperty("loglevel", "none")
+            }
+        }
+        root.add("log", log)
+
+        val policy = JsonObject().apply {
+            val levels = JsonObject()
+            val level8 = JsonObject().apply {
+                addProperty("handshake", 8)
+                addProperty("connIdle", 300)
+            }
+            levels.add("8", level8)
+            val level0 = JsonObject().apply {
+                addProperty("handshake", 8)
+                addProperty("connIdle", 300)
+            }
+            levels.add("0", level0)
+            add("levels", levels)
+            val system = JsonObject().apply {
+
+                addProperty("statsOutboundUplink", false)
+                addProperty("statsOutboundDownlink", false)
+            }
+            add("system", system)
+        }
+        root.add("policy", policy)
+
+        val isDirectRu = settingsRepo.isDirectRuEnabled
+        val geoDir = File(vpnService.filesDir, "geo")
+        val geositeFile = File(geoDir, "geosite.dat")
+        val geoipFile = File(geoDir, "geoip.dat")
+        val hasGeoSite = geositeFile.exists() && geositeFile.length() > 100_000 && GeoRoutingRepository.hasCategoryRu(geositeFile)
+        val hasGeoIp = geoipFile.exists() && geoipFile.length() > 500_000
+
+        val dns = JsonObject().apply {
+            val hosts = JsonObject().apply {
+                val cfIps = JsonArray().apply { add("1.1.1.1"); add("1.0.0.1") }
+                add("cloudflare-dns.com", cfIps)
+                add("one.one.one.one", cfIps)
+                add("1dot1dot1dot1.cloudflare-dns.com", cfIps)
+                val cfDnsComIps = JsonArray().apply { add("162.159.61.8"); add("172.64.41.8") }
+                add("dns.cloudflare.com", cfDnsComIps)
+                val googleIps = JsonArray().apply { add("8.8.8.8"); add("8.8.4.4") }
+                add("dns.google", googleIps)
+                val yandexIps = JsonArray().apply { add("77.88.8.8"); add("77.88.8.1") }
+                add("common.dot.dns.yandex.net", yandexIps)
+            }
+            add("hosts", hosts)
+
+            val servers = JsonArray().apply {
+
+                add("tcp://1.1.1.1:53")
+                add("tcp://8.8.8.8:53")
+
+                val directDns = JsonObject().apply {
+                    addProperty("address", "77.88.8.8")
+                    addProperty("port", 53)
+                    val domains = JsonArray().apply {
+                        if (hasGeoSite) {
+                            add("geosite:category-ru")
+                            add("geosite:tld-ru")
+                        }
+                        add("domain:ru")
+                        add("domain:su")
+                        add("domain:xn--p1ai")
+                        add("domain:рф")
+                        add("domain:yandex")
+                        add("domain:ya.ru")
+                        add("domain:vk.com")
+                        add("domain:mail.ru")
+                        add("domain:gosuslugi.ru")
+                        add("domain:sberbank.ru")
+                        add("domain:sber.ru")
+                        add("domain:tbank.ru")
+                        add("domain:tinkoff.ru")
+                        add("domain:ozon.ru")
+                        add("domain:wildberries.ru")
+                        add("domain:avito.ru")
+                        add("domain:rutube.ru")
+                    }
+                    add("domains", domains)
+                    addProperty("skipFallback", true)
+                }
+                add(directDns)
+
+                endpointDnsDomainRule(server.address)?.let { endpointDomain ->
+                    add(JsonObject().apply {
+                        addProperty("address", "77.88.8.8")
+                        addProperty("port", 53)
+                        add("domains", JsonArray().apply { add(endpointDomain) })
+                        addProperty("skipFallback", true)
+                        addProperty("finalQuery", true)
+                    })
+                }
+            }
+            add("servers", servers)
+            addProperty("queryStrategy", "UseIPv4")
+
+            addProperty("enableParallelQuery", true)
+
+            addProperty("disableCache", false)
+        }
+        root.add("dns", dns)
+
+        val inbounds = JsonArray()
+
+        val socksInbound = JsonObject().apply {
+            addProperty("tag", "socks")
+            addProperty("port", 10808)
+            addProperty("listen", "127.0.0.1")
+            addProperty("protocol", "socks")
+            val settings = JsonObject().apply {
+                addProperty("auth", "noauth")
+                addProperty("udp", true)
+                addProperty("userLevel", 8)
+            }
+            add("settings", settings)
+            val sniffing = JsonObject().apply {
+                addProperty("enabled", true)
+                val destOverride = JsonArray().apply {
+                    add("http")
+                    add("tls")
+                    add("quic")
+                }
+                add("destOverride", destOverride)
+                addProperty("routeOnly", true)
+            }
+            add("sniffing", sniffing)
+        }
+        inbounds.add(socksInbound)
+
+        val tunInbound = JsonObject().apply {
+            addProperty("tag", "tun")
+            addProperty("protocol", "tun")
+            val settings = JsonObject().apply {
+                addProperty("name", "xray0")
+
+                addProperty("MTU", mtu)
+                addProperty("userLevel", 8)
+            }
+            add("settings", settings)
+            val sniffing = JsonObject().apply {
+                addProperty("enabled", true)
+                val destOverride = JsonArray().apply {
+                    add("http")
+                    add("tls")
+                    add("quic")
+                }
+                add("destOverride", destOverride)
+                addProperty("routeOnly", true)
+            }
+            add("sniffing", sniffing)
+        }
+        inbounds.add(tunInbound)
+
+        root.add("inbounds", inbounds)
+
+        val outbounds = JsonArray()
+
+        val vlessOutbound = JsonObject().apply {
+            addProperty("tag", "proxy")
+            addProperty("protocol", "vless")
+
+            val settings = JsonObject()
+            val vnext = JsonArray()
+            val node = JsonObject().apply {
+                addProperty("address", xrayServer.address)
+                addProperty("port", server.port)
+                val users = JsonArray()
+                val user = JsonObject().apply {
+                    addProperty("id", server.uuid)
+                    addProperty("encryption", "none")
+                    if (server.flow.isNotEmpty()) {
+                        addProperty("flow", server.flow)
+                    }
+                    addProperty("level", 8)
+                }
+                users.add(user)
+                add("users", users)
+            }
+            vnext.add(node)
+            settings.add("vnext", vnext)
+            add("settings", settings)
+
+            val network = server.network.ifEmpty { "tcp" }
+            val security = server.security.ifEmpty { "reality" }
+
+            val streamSettings = JsonObject().apply {
+                addProperty("network", network)
+                addProperty("security", security)
+
+                if (security == "reality") {
+                    val realitySettings = JsonObject().apply {
+                        addProperty("publicKey", server.publicKey)
+                        addProperty("serverName", server.serverName)
+                        addProperty("fingerprint", server.fingerprint.ifEmpty { "chrome" })
+                        if (server.shortId.isNotEmpty()) {
+                            addProperty("shortId", server.shortId)
+                        }
+
+                        if (network == "tcp") {
+                            addProperty("spiderX", server.path.ifEmpty { "/" })
+                        }
+                    }
+                    add("realitySettings", realitySettings)
+                }
+
+                if (isXhttpNetwork(network)) {
+                    val xhttpSettings = JsonObject().apply {
+                        addProperty("host", server.host.ifEmpty { server.serverName })
+                        addProperty("mode", server.mode.ifEmpty { "packet-up" })
+                        addProperty("path", server.path.ifEmpty { "/widgetComponent.js" })
+                        addProperty("scMinPostsIntervalMs", XHTTP_POSTS_INTERVAL_MS)
+                    }
+                    add("xhttpSettings", xhttpSettings)
+                }
+
+                if (network == "tcp") {
+                    val tcpSettings = JsonObject().apply {
+                        val header = JsonObject().apply {
+                            addProperty("type", "none")
+                        }
+                        add("header", header)
+                    }
+                    add("tcpSettings", tcpSettings)
+                }
+
+                val sockopt = JsonObject().apply {
+                    addProperty("domainStrategy", "UseIP")
+
+                    addProperty("tcpNoDelay", true)
+
+                    addProperty("tcpKeepAliveInterval", 15)
+                    addProperty("tcpKeepAliveIdle", 30)
+                    addProperty("tcpUserTimeout", 60000)
+                }
+                add("sockopt", sockopt)
+            }
+            add("streamSettings", streamSettings)
+        }
+
+        var officialOutbound: JsonObject? = null
+
+        val shouldUseLibXrayConverter = SupabaseConfig.USE_LIBXRAY_CONVERTER && !isXhttpNetwork(server.network)
+        if (shouldUseLibXrayConverter) {
+            try {
+            val vlessLink = buildShareLink(xrayServer)
+
+            val linkB64 = Base64.encodeToString(vlessLink.toByteArray(StandardCharsets.UTF_8), Base64.NO_WRAP)
+            val rawConverted = LibXray.convertShareLinksToXrayJson(linkB64)
+            val decodedStr = if (!rawConverted.isNullOrEmpty()) {
+                try {
+                    String(Base64.decode(rawConverted, Base64.DEFAULT), StandardCharsets.UTF_8)
+                } catch (_: Exception) {
+                    rawConverted
+                }
+            } else ""
+
+            Log.d(TAG, "Decoded convertShareLinksToXrayJson response: $decodedStr")
+            if (decodedStr.isNotEmpty()) {
+                val jsonRoot = JsonParser.parseString(decodedStr).asJsonObject
+                val xrayConfigObj = XrayEnvelope.unwrap(jsonRoot)
+                if (xrayConfigObj.has("outbounds")) {
+                    val obs = xrayConfigObj.getAsJsonArray("outbounds")
+                    if (obs.size() > 0) {
+                        val ob = obs.get(0).asJsonObject
+                        ob.addProperty("tag", "proxy")
+
+                        try {
+                            val obSettings = ob.getAsJsonObject("settings")
+                            if (obSettings != null && obSettings.has("vnext")) {
+                                val vnextArr = obSettings.getAsJsonArray("vnext")
+                                for (nodeElem in vnextArr) {
+                                    val nodeObj = nodeElem.asJsonObject
+                                    if (nodeObj.has("users")) {
+                                        val usersArr = nodeObj.getAsJsonArray("users")
+                                        for (userElem in usersArr) {
+                                            userElem.asJsonObject.addProperty("level", 8)
+                                        }
+                                    }
+                                }
+                            }
+                        } catch (_: Throwable) {}
+
+                        try {
+                            val ss = if (ob.has("streamSettings")) ob.getAsJsonObject("streamSettings") else JsonObject().also { ob.add("streamSettings", it) }
+                            val sockopt = JsonObject().apply {
+                                addProperty("domainStrategy", "UseIP")
+                            }
+                            ss.add("sockopt", sockopt)
+                        } catch (_: Throwable) {}
+
+                        officialOutbound = ob
+                        AppLogger.i(TAG, "Using official LibXray outbound: ${ob.get("protocol")?.asString}")
+                        Log.d(TAG, "Using official LibXray outbound: $ob")
+                    }
+                }
+            }
+            } catch (e: Throwable) {
+                AppLogger.w(TAG, "LibXray.convertShareLinksToXrayJson fallback to manual: ${e.message}")
+                Log.w(TAG, "LibXray.convertShareLinksToXrayJson fallback to manual: ${e.message}")
+            }
+        }
+
+        val usableOfficial = officialOutbound?.takeIf { outbound ->
+            val stream = outbound.getAsJsonObject("streamSettings")
+            val network = stream?.get("network")?.asString.orEmpty()
+            when {
+                isXhttpNetwork(network) -> {
+                    val xhttp = stream?.getAsJsonObject("xhttpSettings")
+                    val hostValue = xhttp?.get("host")
+                    val host = if (hostValue == null) null else {
+                        if (hostValue.isJsonArray) hostValue.asJsonArray.firstOrNull()?.asString else hostValue.asString
+                    }
+                    xhttp != null &&
+                        !xhttp.get("path")?.asString.isNullOrEmpty() &&
+                        !host.isNullOrEmpty() &&
+                        !xhttp.get("mode")?.asString.isNullOrEmpty()
+                }
+                network.equals("tcp", ignoreCase = true) -> {
+                    if (server.security.ifEmpty { "reality" } != "reality") true
+                    else {
+                        val reality = stream?.getAsJsonObject("realitySettings")
+                        !reality?.get("publicKey")?.asString.isNullOrEmpty() &&
+                            !reality?.get("serverName")?.asString.isNullOrEmpty() &&
+                            !reality?.get("shortId")?.asString.isNullOrEmpty()
+                    }
+                }
+                else -> true
+            }
+        }
+        if (usableOfficial == null && officialOutbound != null) {
+            AppLogger.w(TAG, "LibXray outbound lost transport params for ${server.tag} — using the manual outbound")
+            Log.w(TAG, "LibXray outbound lost transport params for ${server.tag} — using the manual outbound")
+        }
+        val finalOutbound = usableOfficial ?: vlessOutbound
+        applyRealityMux(finalOutbound, xrayServer)
+        outbounds.add(finalOutbound)
+
+        val directOutbound = JsonObject().apply {
+            addProperty("tag", "direct")
+            addProperty("protocol", "freedom")
+            val streamSettings = JsonObject().apply {
+                val sockopt = JsonObject().apply {
+                    addProperty("domainStrategy", "UseIP")
+                }
+                add("sockopt", sockopt)
+            }
+            add("streamSettings", streamSettings)
+        }
+        outbounds.add(directOutbound)
+
+        if (shouldBlockQuic) {
+            val blockOutbound = JsonObject().apply {
+                addProperty("tag", "block")
+                addProperty("protocol", "blackhole")
+                val settings = JsonObject().apply {
+                    val response = JsonObject().apply {
+                        addProperty("type", "none")
+                    }
+                    add("response", response)
+                }
+                add("settings", settings)
+            }
+            outbounds.add(blockOutbound)
+        }
+
+        val dnsOutbound = JsonObject().apply {
+            addProperty("tag", "dns-out")
+            addProperty("protocol", "dns")
+        }
+        outbounds.add(dnsOutbound)
+
+        root.add("outbounds", outbounds)
+
+        val routing = JsonObject().apply {
+            addProperty("domainStrategy", "IPIfNonMatch")
+            val rules = JsonArray()
+
+            val dnsRule = JsonObject().apply {
+                addProperty("type", "field")
+                val inboundsList = JsonArray().apply { add("tun"); add("socks") }
+                add("inboundTag", inboundsList)
+                addProperty("port", "53")
+                addProperty("outboundTag", "dns-out")
+            }
+            rules.add(dnsRule)
+
+            val directDnsRule = JsonObject().apply {
+                addProperty("type", "field")
+                addProperty("outboundTag", "direct")
+                val ips = JsonArray().apply { add("77.88.8.8"); add("77.88.8.1") }
+                add("ip", ips)
+                addProperty("port", "53")
+            }
+            rules.add(directDnsRule)
+
+            val proxyDnsRule = JsonObject().apply {
+                addProperty("type", "field")
+                addProperty("outboundTag", "proxy")
+                val ips = JsonArray().apply { add("1.1.1.1"); add("8.8.8.8") }
+                add("ip", ips)
+                addProperty("port", "53")
+            }
+            rules.add(proxyDnsRule)
+
+            val dotRule = JsonObject().apply {
+                addProperty("type", "field")
+                addProperty("port", "853")
+                addProperty("outboundTag", "proxy")
+            }
+            rules.add(dotRule)
+
+            val serverAddress = xrayServer.address.trim()
+            if (serverAddress.isNotEmpty()) {
+                val serverIsIp = isIpLiteral(serverAddress)
+                val serverDirectRule = JsonObject().apply {
+                    addProperty("type", "field")
+                    addProperty("outboundTag", "direct")
+                    if (serverIsIp) {
+                        add("ip", JsonArray().apply { add(serverAddress) })
+                    } else {
+                        add("domain", JsonArray().apply { add("domain:$serverAddress") })
+                    }
+                }
+                rules.add(serverDirectRule)
+            }
+
+            val customBypassedDomains = settingsRepo.getActiveBypassedDomains()
+            if (customBypassedDomains.isNotEmpty()) {
+                val customDomainRule = JsonObject().apply {
+                    addProperty("type", "field")
+                    addProperty("outboundTag", "direct")
+                    val domains = JsonArray()
+                    customBypassedDomains.forEach { domain ->
+                        domains.add("domain:$domain")
+                    }
+                    add("domain", domains)
+                }
+                rules.add(customDomainRule)
+                AppLogger.i(TAG, "Раздельное туннелирование сайтов: добавлено пользовательских доменов в исключения: ${customBypassedDomains.size}")
+            }
+
+            if (shouldBlockQuic) {
+                val blockQuicRule = JsonObject().apply {
+                    addProperty("type", "field")
+                    addProperty("port", "443")
+                    addProperty("network", "udp")
+                    addProperty("outboundTag", "block")
+                }
+                rules.add(blockQuicRule)
+            }
+
+            val youtubeProxyRule = JsonObject().apply {
+                addProperty("type", "field")
+                addProperty("outboundTag", "proxy")
+                add("domain", JsonArray().apply {
+                    add("domain:youtube.com")
+                    add("domain:youtube-nocookie.com")
+                    add("domain:googlevideo.com")
+                    add("domain:ytimg.com")
+                    add("domain:googleapis.com")
+                    add("domain:gstatic.com")
+                    add("domain:ggpht.com")
+                    add("domain:googleusercontent.com")
+                })
+            }
+            rules.add(youtubeProxyRule)
+
+            if (isDirectRu) {
+
+                val directDomainRule = JsonObject().apply {
+                    addProperty("type", "field")
+                    addProperty("outboundTag", "direct")
+
+                    val domains = JsonArray().apply {
+                        if (hasGeoSite) {
+                            add("geosite:category-ru")
+                            add("geosite:tld-ru")
+                        }
+
+                        add("domain:yandex")
+                        add("domain:ya.ru")
+                        add("domain:yastatic.net")
+                        add("domain:yandex.net")
+                        add("domain:dzen.ru")
+                        add("domain:dzeninfra.ru")
+                        add("domain:kinopoisk.ru")
+                        add("domain:vk.com")
+                        add("domain:vk-cdn.net")
+                        add("domain:userapi.com")
+                        add("domain:mail.ru")
+                        add("domain:ok.ru")
+                        add("domain:gosuslugi.ru")
+                        add("domain:sberbank.ru")
+                        add("domain:sber.ru")
+                        add("domain:tbank.ru")
+                        add("domain:tinkoff.ru")
+                        add("domain:ozon.ru")
+                        add("domain:wildberries.ru")
+                        add("domain:avito.ru")
+                        add("domain:avito.st")
+                        add("domain:rutube.ru")
+                        add("domain:ru")
+                        add("domain:su")
+                        add("domain:xn--p1ai")
+                        add("domain:рф")
+                        add("regexp:.*\\.ru$")
+                        add("regexp:.*\\.su$")
+                        add("regexp:.*\\.xn--p1ai$")
+                        add("regexp:.*\\.рф$")
+                    }
+                    add("domain", domains)
+                }
+                rules.add(directDomainRule)
+
+                val directIpRule = JsonObject().apply {
+                    addProperty("type", "field")
+                    addProperty("outboundTag", "direct")
+
+                    val ips = JsonArray().apply {
+
+                        add("77.88.8.8")
+                        add("77.88.8.1")
+                        add("77.88.8.88")
+                        add("77.88.8.2")
+
+                        add("10.0.0.0/8")
+                        add("172.16.0.0/12")
+                        add("192.168.0.0/16")
+                        add("127.0.0.0/8")
+                        add("100.64.0.0/10")
+
+                        add("77.88.0.0/18")
+                        add("87.250.248.0/21")
+                        add("5.255.240.0/20")
+                        add("213.180.192.0/19")
+                        add("93.158.128.0/18")
+                        add("178.154.128.0/18")
+                        add("87.240.128.0/18")
+                        add("93.186.224.0/20")
+                        add("95.213.0.0/17")
+
+                        add("111.88.96.0/24")
+                        add("87.228.47.0/24")
+                        add("92.223.109.0/24")
+
+                        if (hasGeoIp) {
+                            add("geoip:ru")
+                            add("geoip:private")
+                        }
+                    }
+                    add("ip", ips)
+                }
+                rules.add(directIpRule)
+            }
+
+            val proxyRule = JsonObject().apply {
+                addProperty("type", "field")
+                addProperty("network", "tcp,udp")
+                addProperty("outboundTag", "proxy")
+            }
+            rules.add(proxyRule)
+
+            add("rules", rules)
+        }
+        root.add("routing", routing)
+
+        return root.toString()
+    }
+
+    companion object {
+        private const val TAG = "XrayVpnController"
+
+        private const val SOCKS_PORT = 10808
+        private const val YOUTUBE_PROBE_HOST = "www.youtube.com"
+        private const val YOUTUBE_PROBE_PORT = 443
+
+        private const val REALITY_MUX_CONCURRENCY = 8
+
+        private const val TUN_MTU_WIFI = 1400
+        private const val TUN_MTU_CELLULAR = 1280
+
+        private const val HOST_RESOLVE_TTL_MS = 5 * 60 * 1000L
+
+        private val resolvedHostCache = java.util.concurrent.ConcurrentHashMap<String, ResolvedHost>()
+
+        private const val XHTTP_POSTS_INTERVAL_MS = 5
+
+        private val PROBE_TARGETS = listOf(
+            "1.1.1.1" to 80
+        )
+    }
+}
