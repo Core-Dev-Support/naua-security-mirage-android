@@ -171,7 +171,8 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:text="Оформить подписку за 30 ₽ / мес"
+                    android:id="@+id/tvAccountSubscribeLabel"
+                    android:text="@string/sub_buy_button"
                     android:textColor="#E8A33D"
                     android:textSize="12sp"
                     android:textStyle="bold" />

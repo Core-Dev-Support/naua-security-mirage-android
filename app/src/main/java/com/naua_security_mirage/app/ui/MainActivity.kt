@@ -673,12 +673,12 @@ class MainActivity : AppCompatActivity() {
                 }
                 binding.cardAccount.tvAccountSubscriptionStatus.text = text
                 binding.cardAccount.tvAccountSubscriptionStatus.setTextColor(Color.parseColor("#10B981"))
-                binding.cardAccount.btnAccountSubscribe.text = getString(R.string.sub_renew_short)
+                binding.cardAccount.tvAccountSubscribeLabel.text = getString(R.string.sub_renew_short)
                 binding.cardAccount.btnAccountSubscribe.visibility = View.VISIBLE
             } else {
                 binding.cardAccount.tvAccountSubscriptionStatus.text = getString(R.string.sub_free_status)
                 binding.cardAccount.tvAccountSubscriptionStatus.setTextColor(Color.parseColor("#F59E0B"))
-                binding.cardAccount.btnAccountSubscribe.text = getString(R.string.sub_buy_button)
+                binding.cardAccount.tvAccountSubscribeLabel.text = getString(R.string.sub_buy_button)
                 binding.cardAccount.btnAccountSubscribe.visibility = View.VISIBLE
             }
         }
