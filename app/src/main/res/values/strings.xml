@@ -84,7 +84,13 @@
     <string name="sub_active_until">Подписка активна до %1$s. Оплата продлит её ещё на 30 дней с этой даты.</string>
     <string name="sub_renewed_toast">Подписка продлена до %1$s</string>
     <string name="sub_checking">Проверяем оплату…</string>
+    <string name="sub_active_status">Премиум активен (до %1$s)</string>
+    <string name="sub_active_no_date">Премиум активен</string>
+    <string name="sub_free_status">Базовый план (Бесплатный)</string>
+    <string name="sub_renew_short">Продлить подписку</string>
+    <string name="sub_buy_button">Оплатить подписку 30 ₽ / мес</string>
     <string name="update_available_title">Доступно обновление %1$s</string>
+    <string name="update_available_body">Нажмите, чтобы посмотреть изменения и скачать</string>
         <string name="update_channel_name">Обновления приложения</string>
     <string name="update_channel_description">Сообщения о новых версиях NAUA Security Mirage</string>
     <string name="update_dialog_title">Доступно обновление</string>

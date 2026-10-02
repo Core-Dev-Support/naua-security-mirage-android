@@ -257,6 +257,7 @@ class MainActivity : AppCompatActivity() {
         if (isWaitingForPayment) {
             handlePaymentReturn()
         }
+        updateAccountCardUI()
     }
 
     private fun setupEdgeToEdge() {
@@ -664,14 +665,20 @@ class MainActivity : AppCompatActivity() {
             binding.cardAccount.tvAccountEmail.text = user.email
 
             if (isActive) {
-                val untilStr = sub?.paidUntil?.take(10) ?: ""
-                val text = if (untilStr.isNotEmpty()) "Премиум активен (до $untilStr)" else "Премиум активен"
+                val untilStr = sub?.paidUntil?.take(10).orEmpty()
+                val text = if (untilStr.isNotEmpty()) {
+                    getString(R.string.sub_active_status, formatExpiry(untilStr))
+                } else {
+                    getString(R.string.sub_active_no_date)
+                }
                 binding.cardAccount.tvAccountSubscriptionStatus.text = text
                 binding.cardAccount.tvAccountSubscriptionStatus.setTextColor(Color.parseColor("#10B981"))
-                binding.cardAccount.btnAccountSubscribe.visibility = View.GONE
+                binding.cardAccount.btnAccountSubscribe.text = getString(R.string.sub_renew_short)
+                binding.cardAccount.btnAccountSubscribe.visibility = View.VISIBLE
             } else {
-                binding.cardAccount.tvAccountSubscriptionStatus.text = "Базовый план (Бесплатный)"
+                binding.cardAccount.tvAccountSubscriptionStatus.text = getString(R.string.sub_free_status)
                 binding.cardAccount.tvAccountSubscriptionStatus.setTextColor(Color.parseColor("#F59E0B"))
+                binding.cardAccount.btnAccountSubscribe.text = getString(R.string.sub_buy_button)
                 binding.cardAccount.btnAccountSubscribe.visibility = View.VISIBLE
             }
         }
