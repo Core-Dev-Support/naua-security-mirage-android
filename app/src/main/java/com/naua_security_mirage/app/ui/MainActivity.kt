@@ -172,9 +172,12 @@ class MainActivity : AppCompatActivity() {
         checkNotificationPermission()
 
         updateUpdateSourceUI()
-        AppUpdateManager.addUpdateListener { hasUpdate, _ ->
+        AppUpdateManager.addUpdateListener { hasUpdate, info ->
             runOnUiThread {
                 binding.containerUpdateBadge.visibility = if (hasUpdate) View.VISIBLE else View.GONE
+            }
+            if (hasUpdate && info != null) {
+                com.naua_security_mirage.app.work.UpdateNotifier.notifyIfNewer(this, info.tagName)
             }
         }
         AppUpdateManager.checkForUpdates(this, settingsRepository, isManual = false)
