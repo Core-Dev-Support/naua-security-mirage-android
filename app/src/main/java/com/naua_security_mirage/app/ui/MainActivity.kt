@@ -23,6 +23,7 @@ import android.text.SpannableStringBuilder
 import android.text.Spanned
 import android.text.style.ForegroundColorSpan
 import android.text.style.StyleSpan
+import android.content.res.Configuration
 import android.view.View
 import android.view.WindowManager
 import android.view.animation.AccelerateDecelerateInterpolator
@@ -172,6 +173,7 @@ class MainActivity : AppCompatActivity() {
         checkNotificationPermission()
 
         updateUpdateSourceUI()
+        binding.rootContainer.post { applyAdaptiveSizes() }
         AppUpdateManager.addUpdateListener { hasUpdate, info ->
             runOnUiThread {
                 binding.containerUpdateBadge.visibility = if (hasUpdate) View.VISIBLE else View.GONE
@@ -248,6 +250,37 @@ class MainActivity : AppCompatActivity() {
                 paymentPollingJob = null
             }
         }
+    }
+
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        binding.rootContainer.post { applyAdaptiveSizes() }
+    }
+
+    private fun applyAdaptiveSizes() {
+        val container = binding.rootContainer
+        val available = container.width
+        if (available <= 0) return
+
+        val base = (CONNECT_BUTTON_DP * resources.displayMetrics.density).toInt()
+        val edgeMargin = (available * 0.05f).toInt()
+        val maxGlow = available - edgeMargin * 2
+
+        var button = base
+        if ((button * GLOW_RATIO).toInt() > maxGlow) {
+            button = (maxGlow / GLOW_RATIO).toInt()
+        }
+
+        binding.btnConnect.updateSize(button)
+        binding.connectGlowRing.updateSize((button * GLOW_RATIO).toInt())
+    }
+
+    private fun View.updateSize(size: Int) {
+        val params = layoutParams
+        if (params.width == size && params.height == size) return
+        params.width = size
+        params.height = size
+        layoutParams = params
     }
 
     override fun onResume() {
@@ -3507,6 +3540,9 @@ class MainActivity : AppCompatActivity() {
             "https://docs.google.com/document/d/1FrmDpGS3sC_kQYyv1feNO2G2XMQr_ZV4_GAS-Qm4y1I/edit?usp=sharing"
 
         private val AUTO_PING_STEPS = intArrayOf(0, 3, 5, 10, 15, 20, 30, 45, 60)
+
+        private const val CONNECT_BUTTON_DP = 180f
+        private const val GLOW_RATIO = 214f / 180f
         private val SPEED_STEPS = intArrayOf(0, 1, 2, 3, 5)
 
         private const val FILTER_ALL = 0

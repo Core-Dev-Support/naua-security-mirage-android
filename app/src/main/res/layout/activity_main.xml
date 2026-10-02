@@ -24,12 +24,20 @@
         android:visibility="gone" />
 
     <!-- ==================== MAIN VIEW ==================== -->
-    <androidx.constraintlayout.widget.ConstraintLayout
-        android:id="@+id/viewMain"
+    <androidx.core.widget.NestedScrollView
+        android:id="@+id/scrollMain"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:paddingTop="16dp"
-        android:paddingBottom="24dp">
+        android:clipToPadding="false"
+        android:fillViewport="true"
+        android:scrollbars="none">
+
+        <androidx.constraintlayout.widget.ConstraintLayout
+            android:id="@+id/viewMain"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingTop="16dp"
+            android:paddingBottom="24dp">
 
         <!-- Top Header Row -->
         <LinearLayout
@@ -445,7 +453,9 @@
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 
-    <!-- ==================== SETTINGS VIEW ==================== -->
+    </androidx.core.widget.NestedScrollView>
+
+      <!-- ==================== SETTINGS VIEW ==================== -->
     <ScrollView
         android:id="@+id/viewSettings"
         android:layout_width="match_parent"
