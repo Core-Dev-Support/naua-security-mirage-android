@@ -320,12 +320,27 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun withAccentFirstLine(source: CharSequence): CharSequence {
+        val plain = source.toString()
+        val breakAt = plain.indexOf("\n\n")
+        if (breakAt <= 0) return source
+
+        val accented = android.text.SpannableString(plain)
+        accented.setSpan(
+            android.text.style.ForegroundColorSpan(ContextCompat.getColor(this, R.color.accent)),
+            0,
+            breakAt,
+            android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+        )
+        return accented
+    }
+
     private fun setupUI() {
 
         binding.tvHint.text = androidx.core.text.HtmlCompat.fromHtml(
             getString(R.string.hint_text),
             androidx.core.text.HtmlCompat.FROM_HTML_MODE_LEGACY
-        )
+        ).let { withAccentFirstLine(it) }
 
         binding.btnHeaderUpdate.setOnClickListener {
             AnimationHelper.bounceClick(binding.btnHeaderUpdate, minScale = 0.88f, durationMs = 180) {

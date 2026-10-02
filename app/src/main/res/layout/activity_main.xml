@@ -427,9 +427,9 @@
             android:gravity="top"
             android:orientation="horizontal"
             android:padding="16dp"
-            app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent">
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/btnSupportChat">
 
             <ImageView
                 android:id="@+id/ivHintIcon"
