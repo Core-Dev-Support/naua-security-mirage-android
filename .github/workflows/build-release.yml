@@ -232,3 +232,51 @@ jobs:
           body_path: docs/releases/${{ github.event.inputs.release_tag || (startsWith(github.ref, 'refs/tags/v') && github.ref_name) || 'v1.3.0' }}.md
           files: app/build/outputs/apk/release/NAUA-Security-Mirage-*.apk
           generate_release_notes: false
+
+      - name: Notify installed apps about the new version
+        if: startsWith(github.ref, 'refs/tags/v') || github.event.inputs.create_release == 'true' || github.event.inputs.create_release == true
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          PUSH_SEND_SECRET: ${{ secrets.PUSH_SEND_SECRET }}
+          RELEASE_TAG: ${{ github.event.inputs.release_tag || (startsWith(github.ref, 'refs/tags/v') && github.ref_name) || 'v1.3.0' }}
+        run: |
+          set -euo pipefail
+          notes="docs/releases/${RELEASE_TAG}.md"
+          if [ ! -f "$notes" ]; then
+            echo "Release notes not found at $notes"
+            exit 1
+          fi
+          payload=$(python3 - "$notes" "$RELEASE_TAG" <<'PY'
+          import json, sys
+          path, tag = sys.argv[1], sys.argv[2]
+          bullets = []
+          skipped_header = False
+          with open(path, encoding="utf-8") as handle:
+              for line in handle:
+                  raw = line.strip()
+                  if not raw or raw.startswith("#"):
+                      continue
+                  if not skipped_header:
+                      skipped_header = True
+                      continue
+                  text = raw.lstrip("-\u2022*").strip()
+                  if len(text) > 3:
+                      bullets.append(text)
+          summary = " ".join(bullets[:2])
+          if len(summary) > 140:
+              summary = summary[:137].rsplit(" ", 1)[0].rstrip() + "..."
+          print(json.dumps({
+              "tag": tag,
+              "title": "\u0414\u043e\u0441\u0442\u0443\u043f\u043d\u043e \u043e\u0431\u043d\u043e\u0432\u043b\u0435\u043d\u0438\u0435 " + tag.lstrip("vV"),
+              "body": summary or "\u041d\u0430\u0436\u043c\u0438\u0442\u0435 \u043d\u0430 \u043f\u0440\u0438\u043b\u043e\u0436\u0435\u043d\u0438\u0438, \u0447\u0442\u043e \u0438\u0437\u043c\u0435\u043d\u0438\u043b\u043e\u0441\u044c",
+          }, ensure_ascii=False))
+          PY
+          )
+          echo "Sending: $(echo "$payload" | head -c 200)"
+          response=$(curl -sS -w '\n%{http_code}' -X POST \
+            -H "x-push-secret: ${PUSH_SEND_SECRET}" \
+            -H "Content-Type: application/json" \
+            -d "$payload" \
+            "${SUPABASE_URL}/functions/v1/send-release-push")
+          status=$(echo "$response" | tail -n1)
+          echo "Result: $status $(echo "$response" | head -n-1)"

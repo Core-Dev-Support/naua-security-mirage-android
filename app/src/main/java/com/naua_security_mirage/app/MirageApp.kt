@@ -40,6 +40,7 @@ class MirageApp : Application() {
             geoRoutingRepository.autoUpdateIfNeeded()
         }
         scheduleUpdateCheck(this)
+        com.naua_security_mirage.app.push.MirageMessagingService.refresh()
     }
 
     companion object {

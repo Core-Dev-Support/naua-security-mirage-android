@@ -59,7 +59,8 @@ class UpdateCheckWorker(
             if (prefs.getString(KEY_NOTIFIED_TAG, "") == tag) return@withContext Result.success()
             prefs.edit().putString(KEY_NOTIFIED_TAG, tag).apply()
 
-            showNotification(tag, json.optString("name", tag))
+            val releaseNotes = json.optString("body", "")
+            showNotification(tag, AppUpdateManager.releaseSummary(releaseNotes))
             Result.success()
         } catch (t: Throwable) {
             AppLogger.w(TAG, "Background update check failed: ${t.message}")
@@ -68,7 +69,7 @@ class UpdateCheckWorker(
     }
 
     @android.annotation.SuppressLint("MissingPermission")
-    private fun showNotification(tag: String, releaseName: String) {
+    private fun showNotification(tag: String, summary: String) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
             ContextCompat.checkSelfPermission(applicationContext, Manifest.permission.POST_NOTIFICATIONS)
             != PackageManager.PERMISSION_GRANTED
@@ -89,10 +90,13 @@ class UpdateCheckWorker(
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
+        val label = tag.trim().removePrefix("v").removePrefix("V")
         val notification = NotificationCompat.Builder(applicationContext, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.stat_sys_download)
-            .setContentTitle(applicationContext.getString(R.string.update_available_title, releaseName))
-            .setContentText(applicationContext.getString(R.string.update_available_body))
+            .setContentTitle(applicationContext.getString(R.string.update_available_title, label))
+            .setContentText(
+                summary.ifBlank { AppUpdateManager.releaseSummaryFallback() }
+            )
             .setAutoCancel(true)
             .setContentIntent(pendingIntent)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)

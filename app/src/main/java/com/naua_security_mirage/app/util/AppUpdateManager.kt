@@ -254,7 +254,30 @@ object AppUpdateManager {
         }
     }
 
-    fun isNewerVersion(latestTag: String, currentVersion: String): Boolean {
+    fun releaseSummary(body: String): String {
+    val bullets = mutableListOf<String>()
+    var skippedHeader = false
+    for (line in body.lines()) {
+        val raw = line.trim()
+        if (raw.isEmpty() || raw.startsWith("#")) continue
+        if (!skippedHeader) {
+            skippedHeader = true
+            continue
+        }
+        val text = raw.trimStart('-', '\u2022', '*').trim()
+        if (text.length > 3) bullets.add(text)
+    }
+
+    var summary = bullets.take(2).joinToString(" ")
+    if (summary.length > 140) {
+        summary = summary.substring(0, 137).substringBeforeLast(' ').trimEnd() + "..."
+    }
+    return summary
+}
+
+fun releaseSummaryFallback(): String = "Нажмите на приложение, что изменилось"
+
+fun isNewerVersion(latestTag: String, currentVersion: String): Boolean {
         val cleanLatest = latestTag.trim().removePrefix("v").removePrefix("V")
         val cleanCurrent = currentVersion.trim().removePrefix("v").removePrefix("V")
 
