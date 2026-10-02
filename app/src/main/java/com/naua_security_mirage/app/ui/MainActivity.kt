@@ -700,6 +700,19 @@ class MainActivity : AppCompatActivity() {
         dialog.show()
     }
 
+    private fun formatExpiry(isoDate: String): String {
+        return try {
+            val parts = isoDate.split("-")
+            if (parts.size < 3) {
+                isoDate
+            } else {
+                "${parts[2]}.${parts[1]}.${parts[0]}"
+            }
+        } catch (e: Exception) {
+            isoDate
+        }
+    }
+
     private fun showSubscriptionDialog() {
         val user = com.naua_security_mirage.app.data.supabase.SupabaseManager.instance.currentUser.value
         if (user == null) {
@@ -715,6 +728,16 @@ class MainActivity : AppCompatActivity() {
             (resources.displayMetrics.widthPixels * 0.9).toInt(),
             ViewGroup.LayoutParams.WRAP_CONTENT
         )
+
+        val manager = com.naua_security_mirage.app.data.supabase.SupabaseManager.instance
+        val subscription = manager.subscription.value
+        if (manager.hasActiveSubscription() && subscription != null) {
+            val until = subscription.paidUntil?.take(10)
+            if (!until.isNullOrBlank()) {
+                dialogBinding.tvSubDesc.text = getString(R.string.sub_active_until, formatExpiry(until))
+                dialogBinding.btnSubPay.text = getString(R.string.sub_renew_button)
+            }
+        }
 
         dialogBinding.btnSubPay.setOnClickListener {
             isWaitingForPayment = true
@@ -733,7 +756,14 @@ class MainActivity : AppCompatActivity() {
                 if (com.naua_security_mirage.app.data.supabase.SupabaseManager.instance.hasActiveSubscription()) {
                     isWaitingForPayment = false
                     settingsRepository.selectedServerPlan = SettingsRepository.PLAN_PREMIUM_FRANCE
-                    Toast.makeText(this@MainActivity, "Подписка активна! Доступ к Франции открыт.", Toast.LENGTH_SHORT).show()
+                    val until = com.naua_security_mirage.app.data.supabase.SupabaseManager.instance
+                        .subscription.value?.paidUntil?.take(10)
+                    val message = if (!until.isNullOrBlank()) {
+                        getString(R.string.sub_renewed_toast, formatExpiry(until))
+                    } else {
+                        "Подписка активна! Доступ к Франции открыт."
+                    }
+                    Toast.makeText(this@MainActivity, message, Toast.LENGTH_SHORT).show()
                     dialog.dismiss()
                     updateAccountCardUI()
                     updateServerPlanSelectorUI()

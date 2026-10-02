@@ -80,6 +80,14 @@
     <string name="setting_updates_source_uptodown">Uptodown App Store (на модерации)</string>
     <string name="btn_check_updates_now">Проверить наличие обновления</string>
     <string name="app_version">Mirage %1$s</string>
+    <string name="sub_renew_button">Продлить на 30 дней</string>
+    <string name="sub_active_until">Подписка активна до %1$s. Оплата продлит её ещё на 30 дней с этой даты.</string>
+    <string name="sub_renewed_toast">Подписка продлена до %1$s</string>
+    <string name="sub_checking">Проверяем оплату…</string>
+    <string name="update_available_title">Доступно обновление %1$s</string>
+    <string name="update_available_body">Нажмите, чтобы посмотреть изменения и скачать</string>
+    <string name="update_channel_name">Обновления приложения</string>
+    <string name="update_channel_description">Сообщения о новых версиях NAUA Security Mirage</string>
     <string name="update_dialog_title">Доступно обновление</string>
     <string name="update_dialog_download">Скачать</string>
     <string name="update_dialog_later">Отмена</string>

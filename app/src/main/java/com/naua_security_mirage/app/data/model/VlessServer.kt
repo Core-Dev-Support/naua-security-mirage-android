@@ -20,7 +20,9 @@ data class VlessServer(
     val path: String = "/",
     val shortId: String = "",
     val flow: String = "",
-    var pingMs: Long = -1L
+    var pingMs: Long = -1L,
+    var lossPercent: Int = -1,
+    var jitterMs: Long = -1L
 ) {
     fun toVlessUri(): String {
         val queryParams = mutableListOf(

@@ -14,6 +14,7 @@ import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
+import android.util.Log
 import android.view.View
 import android.widget.ImageView
 import android.widget.LinearLayout
@@ -114,13 +115,26 @@ object AppUpdateManager {
     ) {
         Thread {
             try {
-                val request = Request.Builder()
-                    .url(GITHUB_API_URL)
-                    .header("Accept", "application/vnd.github.v3+json")
+                val proxyUrl =
+                    "${com.naua_security_mirage.app.data.supabase.SupabaseConfig.SUPABASE_URL}/functions/v1/latest-release"
+
+                var request = Request.Builder()
+                    .url(proxyUrl)
                     .header("User-Agent", "NAUA-Security-Mirage/${BuildConfig.VERSION_NAME}")
                     .build()
 
-                val response = httpClient.newCall(request).execute()
+                var response = httpClient.newCall(request).execute()
+                if (!response.isSuccessful && response.code != 404) {
+                    response.close()
+                    Log.w(TAG, "Прокси релизов ответил ${response.code}, пробуем GitHub напрямую")
+                    request = Request.Builder()
+                        .url(GITHUB_API_URL)
+                        .header("Accept", "application/vnd.github.v3+json")
+                        .header("User-Agent", "NAUA-Security-Mirage/${BuildConfig.VERSION_NAME}")
+                        .build()
+                    response = httpClient.newCall(request).execute()
+                }
+
                 val statusCode = response.code
                 val responseBody = response.body?.string()
 
@@ -240,7 +254,7 @@ object AppUpdateManager {
         }
     }
 
-    private fun isNewerVersion(latestTag: String, currentVersion: String): Boolean {
+    fun isNewerVersion(latestTag: String, currentVersion: String): Boolean {
         val cleanLatest = latestTag.trim().removePrefix("v").removePrefix("V")
         val cleanCurrent = currentVersion.trim().removePrefix("v").removePrefix("V")
 
