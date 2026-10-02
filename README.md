@@ -13,6 +13,8 @@
   <img src="https://img.shields.io/badge/Android-8.0%2B-green.svg?style=for-the-badge&logo=android" alt="Android 8.0+" />
   <img src="https://img.shields.io/badge/Protocol-VLESS%20%2B%20Reality-orange.svg?style=for-the-badge" alt="VLESS + Reality" />
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-Proprietary-red.svg?style=for-the-badge" alt="License" /></a>
+  <img src="https://img.shields.io/github/downloads/Core-Dev-Support/naua-security-mirage-android/total?style=for-the-badge&logo=github&label=Downloads" alt="Downloads" />
+  <img src="https://img.shields.io/github/stars/Core-Dev-Support/naua-security-mirage-android?style=for-the-badge&logo=github&label=Stars" alt="Stars" />
 </p>
 
 <p align="center">

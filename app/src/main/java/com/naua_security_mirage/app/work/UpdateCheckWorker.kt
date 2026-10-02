@@ -14,6 +14,7 @@ import androidx.core.content.ContextCompat
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.naua_security_mirage.app.BuildConfig
+import com.naua_security_mirage.app.R
 import com.naua_security_mirage.app.data.supabase.SupabaseConfig
 import com.naua_security_mirage.app.ui.MainActivity
 import com.naua_security_mirage.app.util.AppLogger
@@ -66,6 +67,7 @@ class UpdateCheckWorker(
         }
     }
 
+    @android.annotation.SuppressLint("MissingPermission")
     private fun showNotification(tag: String, releaseName: String) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
             ContextCompat.checkSelfPermission(applicationContext, Manifest.permission.POST_NOTIFICATIONS)
