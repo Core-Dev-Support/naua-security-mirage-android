@@ -25,7 +25,6 @@
 
     <!-- ==================== MAIN VIEW ==================== -->
     <androidx.core.widget.NestedScrollView
-        android:id="@+id/scrollMain"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:clipToPadding="false"
