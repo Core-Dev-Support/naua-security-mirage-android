@@ -3216,7 +3216,7 @@ class MainActivity : AppCompatActivity() {
 
         binding.hintCard.background = getCardDrawable(isLightContext, 18f)
         binding.tvHint.setTextColor(subtitleTextColor)
-        binding.ivHintIcon.imageTintList = ColorStateList.valueOf(subtitleTextColor)
+        binding.ivHintIcon.imageTintList = ColorStateList.valueOf(titleTextColor)
 
         binding.tvSettingsTitle.setTextColor(titleTextColor)
         binding.cardAccount.root.background = getCardDrawable(isLightContext, 18f)
