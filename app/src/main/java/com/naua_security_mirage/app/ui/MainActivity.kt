@@ -224,6 +224,24 @@ class MainActivity : AppCompatActivity() {
     private var isWaitingForPayment = false
     private var paymentPollingJob: Job? = null
 
+    private var paymentBaselineUntil: String? = null
+
+    private suspend fun awaitSubscriptionExtension(): String? {
+        val baseline = paymentBaselineUntil
+        repeat(5) { attempt ->
+            com.naua_security_mirage.app.data.supabase.SupabaseManager.instance.refreshSubscription()
+            val current = com.naua_security_mirage.app.data.supabase.SupabaseManager.instance
+                .subscription.value?.paidUntil?.take(10)
+            if (current != null && current.isNotBlank()) {
+                if (baseline == null || baseline.isBlank() || current > baseline) {
+                    return current
+                }
+            }
+            if (attempt < 4) delay(3000)
+        }
+        return null
+    }
+
     private fun handlePaymentReturn() {
         val user = com.naua_security_mirage.app.data.supabase.SupabaseManager.instance.currentUser.value
         if (user == null) {
@@ -232,20 +250,21 @@ class MainActivity : AppCompatActivity() {
         if (paymentPollingJob?.isActive == true) return
         paymentPollingJob = lifecycleScope.launch {
             try {
-                repeat(5) { attempt ->
-                    com.naua_security_mirage.app.data.supabase.SupabaseManager.instance.refreshSubscription()
-                    if (com.naua_security_mirage.app.data.supabase.SupabaseManager.instance.hasActiveSubscription()) {
-                        isWaitingForPayment = false
-                        settingsRepository.selectedServerPlan = SettingsRepository.PLAN_PREMIUM_FRANCE
-                        updateServerPlanSelectorUI()
-                        updateAccountCardUI()
-                        Toast.makeText(this@MainActivity, "Подписка активна! Выбран сервер во Франции 🇫🇷", Toast.LENGTH_LONG).show()
-                        return@launch
-                    }
-                    if (attempt < 4) delay(3000)
-                }
+                val renewedUntil = awaitSubscriptionExtension()
                 isWaitingForPayment = false
-                Toast.makeText(this@MainActivity, "Оплата ещё обрабатывается. Проверьте статус позже.", Toast.LENGTH_LONG).show()
+                if (renewedUntil != null) {
+                    settingsRepository.selectedServerPlan = SettingsRepository.PLAN_PREMIUM_FRANCE
+                    updateServerPlanSelectorUI()
+                    updateAccountCardUI()
+                    paymentBaselineUntil = null
+                    Toast.makeText(
+                        this@MainActivity,
+                        getString(R.string.sub_renewed_toast, formatExpiry(renewedUntil)),
+                        Toast.LENGTH_LONG,
+                    ).show()
+                } else {
+                    Toast.makeText(this@MainActivity, R.string.sub_payment_pending, Toast.LENGTH_LONG).show()
+                }
             } finally {
                 paymentPollingJob = null
             }
@@ -803,6 +822,7 @@ class MainActivity : AppCompatActivity() {
 
         dialogBinding.btnSubPay.setOnClickListener {
             isWaitingForPayment = true
+            paymentBaselineUntil = subscription?.paidUntil?.take(10)
             val opened = com.naua_security_mirage.app.data.supabase.PaymentManager.openPaymentBrowser(this, user.id)
             if (!opened) {
                 isWaitingForPayment = false
@@ -812,25 +832,24 @@ class MainActivity : AppCompatActivity() {
 
         dialogBinding.btnSubCheck.setOnClickListener {
             dialogBinding.btnSubCheck.isEnabled = false
+            dialogBinding.btnSubCheck.text = getString(R.string.sub_checking)
             lifecycleScope.launch {
-                com.naua_security_mirage.app.data.supabase.SupabaseManager.instance.refreshSubscription()
+                val renewedUntil = awaitSubscriptionExtension()
                 dialogBinding.btnSubCheck.isEnabled = true
-                if (com.naua_security_mirage.app.data.supabase.SupabaseManager.instance.hasActiveSubscription()) {
+                if (renewedUntil != null) {
                     isWaitingForPayment = false
+                    paymentBaselineUntil = null
                     settingsRepository.selectedServerPlan = SettingsRepository.PLAN_PREMIUM_FRANCE
-                    val until = com.naua_security_mirage.app.data.supabase.SupabaseManager.instance
-                        .subscription.value?.paidUntil?.take(10)
-                    val message = if (!until.isNullOrBlank()) {
-                        getString(R.string.sub_renewed_toast, formatExpiry(until))
-                    } else {
-                        "Подписка активна! Доступ к Франции открыт."
-                    }
-                    Toast.makeText(this@MainActivity, message, Toast.LENGTH_SHORT).show()
+                    Toast.makeText(
+                        this@MainActivity,
+                        getString(R.string.sub_renewed_toast, formatExpiry(renewedUntil)),
+                        Toast.LENGTH_LONG,
+                    ).show()
                     dialog.dismiss()
                     updateAccountCardUI()
                     updateServerPlanSelectorUI()
                 } else {
-                    Toast.makeText(this@MainActivity, "Оплата ещё обрабатывается. Попробуйте через пару минут.", Toast.LENGTH_LONG).show()
+                    Toast.makeText(this@MainActivity, R.string.sub_payment_pending, Toast.LENGTH_LONG).show()
                 }
             }
         }

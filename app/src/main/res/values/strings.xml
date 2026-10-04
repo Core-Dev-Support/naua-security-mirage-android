@@ -84,6 +84,7 @@
     <string name="sub_active_until">Подписка активна до %1$s. Оплата продлит её ещё на 30 дней с этой даты.</string>
     <string name="sub_renewed_toast">Подписка продлена до %1$s</string>
     <string name="sub_checking">Проверяем оплату…</string>
+    <string name="sub_payment_pending">Оплата получена, узел готовится. Обычно это занимает 1–2 минуты. Попробуйте ещё раз чуть позже.</string>
     <string name="sub_active_status">Премиум активен (до %1$s)</string>
     <string name="sub_active_no_date">Премиум активен</string>
     <string name="sub_free_status">Базовый план (Бесплатный)</string>
