@@ -432,7 +432,7 @@
         android:background="@drawable/bg_card"
         android:gravity="top"
         android:orientation="horizontal"
-        android:padding="16dp"
+        android:padding="16dp">
 
         <ImageView
             android:id="@+id/ivHintIcon"
