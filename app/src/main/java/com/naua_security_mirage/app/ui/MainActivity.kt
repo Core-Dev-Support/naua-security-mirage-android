@@ -316,6 +316,10 @@ class MainActivity : AppCompatActivity() {
             binding.viewPerAppProxy.setPadding(0, padTop, 0, padBottom)
             binding.viewCustomWebsites.setPadding(0, padTop, 0, padBottom)
 
+            val hintParams = binding.hintCard.layoutParams as android.widget.FrameLayout.LayoutParams
+            hintParams.bottomMargin = (16 * density).toInt() + insets.bottom
+            binding.hintCard.layoutParams = hintParams
+
             windowInsets
         }
     }
@@ -1366,12 +1370,14 @@ class MainActivity : AppCompatActivity() {
         binding.viewSettings.scrollTo(0, 0)
         AnimationHelper.fadeAndSlideOut(binding.viewMain, toX = -slideDist, durationMs = 210)
         AnimationHelper.fadeAndSlideIn(binding.viewSettings, fromX = slideDist, durationMs = 230)
+        binding.hintCard.visibility = View.GONE
     }
 
     private fun closeSettings() {
         val slideDist = 42f * resources.displayMetrics.density
         AnimationHelper.fadeAndSlideOut(binding.viewSettings, toX = slideDist, durationMs = 210)
         AnimationHelper.fadeAndSlideIn(binding.viewMain, fromX = -slideDist, durationMs = 230)
+        binding.hintCard.visibility = View.VISIBLE
     }
 
     private fun openAppearance() {

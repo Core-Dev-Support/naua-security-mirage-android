@@ -28,6 +28,7 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:clipToPadding="false"
+        android:paddingBottom="112dp"
         android:fillViewport="true"
         android:scrollbars="none">
 
@@ -415,46 +416,42 @@
         </LinearLayout>
 
 
-        <!-- Hint Card -->
-        <LinearLayout
-            android:id="@+id/hintCard"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="22dp"
-            android:layout_marginEnd="22dp"
-            android:layout_marginBottom="16dp"
-            android:background="@drawable/bg_card"
-            android:gravity="top"
-            android:orientation="horizontal"
-            android:padding="16dp"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/btnSupportChat"
-            app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintVertical_bias="1">
-
-            <ImageView
-                android:id="@+id/ivHintIcon"
-                android:layout_width="18dp"
-                android:layout_height="18dp"
-                android:layout_marginTop="1dp"
-                android:layout_marginEnd="12dp"
-                android:contentDescription="@null"
-                android:src="@drawable/ic_info" />
-
-            <TextView
-                android:id="@+id/tvHint"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:lineSpacingExtra="3dp"
-                android:textColor="@color/ink_soft"
-                android:textSize="12.5sp" />
-        </LinearLayout>
-
     </androidx.constraintlayout.widget.ConstraintLayout>
 
     </androidx.core.widget.NestedScrollView>
+
+    <!-- Hint Card -->
+    <LinearLayout
+        android:id="@+id/hintCard"
+            android:layout_width="match_parent"
+            android:layout_gravity="bottom"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="22dp"
+        android:layout_marginEnd="22dp"
+        android:layout_marginBottom="16dp"
+        android:background="@drawable/bg_card"
+        android:gravity="top"
+        android:orientation="horizontal"
+        android:padding="16dp"
+
+        <ImageView
+            android:id="@+id/ivHintIcon"
+            android:layout_width="18dp"
+            android:layout_height="18dp"
+            android:layout_marginTop="1dp"
+            android:layout_marginEnd="12dp"
+            android:contentDescription="@null"
+            android:src="@drawable/ic_info" />
+
+        <TextView
+            android:id="@+id/tvHint"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:lineSpacingExtra="3dp"
+            android:textColor="@color/ink_soft"
+            android:textSize="12.5sp" />
+    </LinearLayout>
 
       <!-- ==================== SETTINGS VIEW ==================== -->
     <ScrollView
