@@ -107,7 +107,6 @@
     <string name="update_downloading_title">Загрузка обновления %1$s</string>
     <string name="update_download_complete_title">Обновление загружено</string>
     <string name="update_download_complete_body">Нажмите для установки %1$s</string>
-    <string name="action_cancel">Отмена</string>
     <string name="update_install_permission_hint">Разрешите установку из этого источника для завершения обновления</string>
     <string name="update_uptodown_status">Приложение находится на модерации в Uptodown App Store. Новых версий пока нет.</string>
     <string name="update_github_rate_limit">Временный лимит запросов GitHub (60 в час). Попробуйте через несколько минут или скачайте через браузер.</string>
