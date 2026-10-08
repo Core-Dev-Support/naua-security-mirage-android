@@ -572,6 +572,37 @@ class XrayVpnController(private val vpnService: VpnService) {
         return network.equals("xhttp", ignoreCase = true) || network.equals("splithttp", ignoreCase = true)
     }
 
+    private fun willUseRealityMux(server: VlessServer): Boolean {
+        val network = server.network.ifEmpty { "tcp" }
+        return network.equals("tcp", ignoreCase = true) &&
+            server.security.ifEmpty { "reality" } == "reality" &&
+            server.flow.isBlank()
+    }
+
+    private fun applyRealityMux(outbound: JsonObject, server: VlessServer) {
+        val network = outbound.getAsJsonObject("streamSettings")
+            ?.get("network")?.asString.orEmpty()
+        if (!network.equals("tcp", ignoreCase = true)) return
+        if (server.security.ifEmpty { "reality" } != "reality") return
+
+        if (server.flow.isNotBlank()) {
+            AppLogger.w(
+                TAG,
+                "Узел ${server.tag} настроен на XTLS Vision, mux недоступен — сервер не пропустит всплеск соединений"
+            )
+            return
+        }
+
+        val mux = JsonObject().apply {
+            addProperty("enabled", true)
+            addProperty("concurrency", REALITY_MUX_CONCURRENCY)
+            addProperty("xudpConcurrency", 16)
+            addProperty("xudpProxyUDP443", "reject")
+        }
+        outbound.add("mux", mux)
+        AppLogger.i(TAG, "mux=$REALITY_MUX_CONCURRENCY для ${server.tag}: трафик сводится в одно соединение")
+    }
+
     private fun endpointDnsDomainRule(address: String): String? {
         val normalized = address.trim().removePrefix("[").removeSuffix("]").trimEnd('.')
         if (normalized.isEmpty() || isIpLiteral(normalized)) return null
@@ -582,8 +613,9 @@ class XrayVpnController(private val vpnService: VpnService) {
         val xrayServer = resolveProxyEndpoint(server)
 
         val shouldBlockQuic =
-            xrayServer.flow.contains("xtls-rprx-vision", ignoreCase = true) &&
-                !xrayServer.flow.contains("udp443", ignoreCase = true)
+            (xrayServer.flow.contains("xtls-rprx-vision", ignoreCase = true) &&
+                !xrayServer.flow.contains("udp443", ignoreCase = true)) ||
+                willUseRealityMux(xrayServer)
         val root = JsonObject()
         val settingsRepo = SettingsRepository(vpnService)
 
@@ -931,6 +963,7 @@ class XrayVpnController(private val vpnService: VpnService) {
             Log.w(TAG, "LibXray outbound lost transport params for ${server.tag} — using the manual outbound")
         }
         val finalOutbound = usableOfficial ?: vlessOutbound
+        applyRealityMux(finalOutbound, xrayServer)
         outbounds.add(finalOutbound)
 
         val directOutbound = JsonObject().apply {
