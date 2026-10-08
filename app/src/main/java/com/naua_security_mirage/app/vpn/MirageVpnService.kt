@@ -317,6 +317,25 @@ class MirageVpnService : VpnService() {
                 vpnInterface = pfd
                 AppLogger.i(TAG, "VPN Tun interface established successfully (FD: ${pfd.fd})")
 
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP_MR1) {
+                    lastKnownNetwork?.let { net ->
+                        try {
+                            setUnderlyingNetworks(arrayOf(net))
+                        } catch (e: Throwable) {
+                            Log.w(TAG, "Immediate setUnderlyingNetworks failed: ${e.message}")
+                        }
+                    }
+                }
+                try {
+                    android.system.Os.setsockoptInt(
+                        pfd.fileDescriptor,
+                        android.system.OsConstants.SOL_SOCKET,
+                        android.system.OsConstants.SO_SNDBUF,
+                        64 * 1024
+                    )
+                } catch (_: Throwable) {
+                }
+
                 val onPaidNode = bestServer != null
                 val tunnelBudgetMs = if (isFrancePlan && onPaidNode) 90_000L else 60_000L
                 var tunnelAttempt = withTimeoutOrNull(tunnelBudgetMs) {
@@ -1101,8 +1120,8 @@ class MirageVpnService : VpnService() {
 
 
 
-        private const val TUN_MTU_WIFI = 1460
-        private const val TUN_MTU_CELLULAR = 1380
+        private const val TUN_MTU_WIFI = 1360
+        private const val TUN_MTU_CELLULAR = 1360
 
 
 

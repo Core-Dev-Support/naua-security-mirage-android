@@ -356,10 +356,6 @@ class MainActivity : AppCompatActivity() {
             binding.viewPerAppProxy.setPadding(0, padTop, 0, padBottom)
             binding.viewCustomWebsites.setPadding(0, padTop, 0, padBottom)
 
-            val hintParams = binding.hintCard.layoutParams as android.widget.FrameLayout.LayoutParams
-            hintParams.bottomMargin = (16 * density).toInt() + insets.bottom
-            binding.hintCard.layoutParams = hintParams
-
             windowInsets
         }
     }

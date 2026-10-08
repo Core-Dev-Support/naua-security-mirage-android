@@ -927,6 +927,9 @@ class XrayVpnController(private val vpnService: VpnService) {
                             sockopt.addProperty("domainStrategy", "UseIP")
                             sockopt.addProperty("tcpNoDelay", true)
                             sockopt.addProperty("tcpFastOpen", true)
+                            sockopt.addProperty("tcpKeepAliveInterval", 15)
+                            sockopt.addProperty("tcpKeepAliveIdle", 30)
+                            sockopt.addProperty("tcpUserTimeout", 60000)
                         } catch (_: Throwable) {}
 
                         officialOutbound = ob
@@ -1219,8 +1222,8 @@ class XrayVpnController(private val vpnService: VpnService) {
 
         private const val REALITY_MUX_CONCURRENCY = 8
 
-        private const val TUN_MTU_WIFI = 1460
-        private const val TUN_MTU_CELLULAR = 1380
+        private const val TUN_MTU_WIFI = 1360
+        private const val TUN_MTU_CELLULAR = 1360
 
         private const val HOST_RESOLVE_TTL_MS = 5 * 60 * 1000L
 
