@@ -684,9 +684,13 @@ class XrayVpnController(private val vpnService: VpnService) {
             val servers = JsonArray().apply {
 
                 add("1.1.1.1")
+                add("1.0.0.1")
                 add("8.8.8.8")
+                add("8.8.4.4")
                 add("tcp://1.1.1.1:53")
+                add("tcp://1.0.0.1:53")
                 add("tcp://8.8.8.8:53")
+                add("tcp://8.8.4.4:53")
 
                 val directDns = JsonObject().apply {
                     addProperty("address", "77.88.8.8")
@@ -1042,7 +1046,12 @@ class XrayVpnController(private val vpnService: VpnService) {
             val proxyDnsRule = JsonObject().apply {
                 addProperty("type", "field")
                 addProperty("outboundTag", "proxy")
-                val ips = JsonArray().apply { add("1.1.1.1"); add("8.8.8.8") }
+                val ips = JsonArray().apply {
+                    add("1.1.1.1")
+                    add("1.0.0.1")
+                    add("8.8.8.8")
+                    add("8.8.4.4")
+                }
                 add("ip", ips)
                 addProperty("port", "53")
             }
@@ -1149,10 +1158,6 @@ class XrayVpnController(private val vpnService: VpnService) {
                         add("domain:su")
                         add("domain:xn--p1ai")
                         add("domain:рф")
-                        add("regexp:.*\\.ru$")
-                        add("regexp:.*\\.su$")
-                        add("regexp:.*\\.xn--p1ai$")
-                        add("regexp:.*\\.рф$")
                     }
                     add("domain", domains)
                 }
