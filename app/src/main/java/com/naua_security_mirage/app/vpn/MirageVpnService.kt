@@ -317,16 +317,6 @@ class MirageVpnService : VpnService() {
                 vpnInterface = pfd
                 AppLogger.i(TAG, "VPN Tun interface established successfully (FD: ${pfd.fd})")
 
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP_MR1) {
-                    lastKnownNetwork?.let { net ->
-                        try {
-                            setUnderlyingNetworks(arrayOf(net))
-                        } catch (e: Throwable) {
-                            Log.w(TAG, "Immediate setUnderlyingNetworks failed: ${e.message}")
-                        }
-                    }
-                }
-
                 val onPaidNode = bestServer != null
                 val tunnelBudgetMs = if (isFrancePlan && onPaidNode) 90_000L else 60_000L
                 var tunnelAttempt = withTimeoutOrNull(tunnelBudgetMs) {
@@ -546,6 +536,7 @@ class MirageVpnService : VpnService() {
         }
         if (reachability in 1..9998) {
             AppLogger.i(TAG, "Платный вход ${server.address}:${server.port} доступен с устройства (${reachability} мс)")
+            probeTlsHandshake(server)
         } else {
             AppLogger.w(
                 TAG,
@@ -639,10 +630,8 @@ class MirageVpnService : VpnService() {
     private suspend fun waitForTraffic(): Boolean {
         val controller = xrayController ?: return false
         if (controller.verifyDataPlane(5000)) return true
-        delay(500)
-        if (controller.verifyDataPlane(6000)) return true
-        delay(500)
-        return controller.verifyDataPlane(6000)
+        delay(400)
+        return controller.verifyDataPlane(3500)
     }
 
     private fun startSessionTimer(initialSeconds: Long = _sessionSeconds.value) {
@@ -1112,8 +1101,8 @@ class MirageVpnService : VpnService() {
 
 
 
-        private const val TUN_MTU_WIFI = 1360
-        private const val TUN_MTU_CELLULAR = 1360
+        private const val TUN_MTU_WIFI = 1400
+        private const val TUN_MTU_CELLULAR = 1280
 
 
 
