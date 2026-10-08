@@ -24,7 +24,7 @@ class MirageApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
-        appContext = this
+        appContextOrNull = this
 
         com.naua_security_mirage.app.util.AppShield.checkIntegrity(this)
 
@@ -47,8 +47,12 @@ class MirageApp : Application() {
     companion object {
         private const val TAG = "MirageApp"
 
-        lateinit var appContext: Context
+        @Volatile
+        var appContextOrNull: Context? = null
             private set
+
+        val appContext: Context
+            get() = appContextOrNull ?: throw IllegalStateException("MirageApp not initialized")
 
         private const val UPDATE_WORK_NAME = "mirage_update_check"
 

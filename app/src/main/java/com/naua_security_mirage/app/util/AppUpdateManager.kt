@@ -583,7 +583,7 @@ object AppUpdateManager {
         try {
             activeDownloadCall?.cancel()
             activeDownloadCall = null
-            val ctx = context ?: if (MirageApp::appContext.isInitialized) MirageApp.appContext else null
+            val ctx = context ?: MirageApp.appContextOrNull
             ctx?.let { UpdateNotifier.cancelDownloadNotification(it) }
             onDownloadCancelled?.invoke()
         } catch (e: Exception) {
