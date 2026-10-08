@@ -1101,7 +1101,7 @@ class MirageVpnService : VpnService() {
 
 
 
-        private const val TUN_MTU_WIFI = 1400
+        private const val TUN_MTU_WIFI = 1360
         private const val TUN_MTU_CELLULAR = 1280
 
 

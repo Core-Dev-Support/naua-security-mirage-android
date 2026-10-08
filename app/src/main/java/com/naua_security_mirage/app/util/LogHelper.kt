@@ -10,10 +10,6 @@ object LogHelper {
 
     fun collectLogs(context: Context): File {
         val logFile = File(context.cacheDir, "mirage_debug_logs.txt")
-        if (!BuildConfig.LOGS_ENABLED) {
-            logFile.writeText("Диагностика недоступна в релизной сборке.\n")
-            return logFile
-        }
 
         val xrayError = File(context.cacheDir, "xray_error.log")
         val xrayAccess = File(context.cacheDir, "xray_access.log")

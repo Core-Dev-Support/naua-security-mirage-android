@@ -1888,28 +1888,30 @@ class MainActivity : AppCompatActivity() {
 
     private fun performDownloadLogs() {
         val level = settingsRepository.logLevel
-        val fileName = "Log-NAUA-Security-Mirage-$level.txt"
+        val timeStamp = java.text.SimpleDateFormat("yyyy-MM-dd_HH-mm-ss", java.util.Locale.getDefault()).format(java.util.Date())
+        val fileName = "Log-NAUA-Security-Mirage-${timeStamp}-$level.txt"
         val content = AppLogger.getAllLogsFormatted() + "\n\n" + com.naua_security_mirage.app.util.LogHelper.collectLogs(this).readText()
 
         lifecycleScope.launch(Dispatchers.IO) {
             try {
+                val folderName = "NAUA Security Mirage Logs"
                 val savedPath = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                     val values = ContentValues().apply {
                         put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
                         put(MediaStore.MediaColumns.MIME_TYPE, "text/plain")
-                        put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
+                        put(MediaStore.MediaColumns.RELATIVE_PATH, "${Environment.DIRECTORY_DOWNLOADS}/$folderName")
                     }
                     val uri = contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
                     if (uri != null) {
                         contentResolver.openOutputStream(uri)?.use { os ->
                             os.write(content.toByteArray(Charsets.UTF_8))
                         }
-                        "Downloads/$fileName"
+                        "Downloads/$folderName/$fileName"
                     } else {
                         throw Exception("Не удалось создать запись в MediaStore")
                     }
                 } else {
-                    val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+                    val downloadsDir = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), folderName)
                     if (!downloadsDir.exists()) {
                         downloadsDir.mkdirs()
                     }
@@ -1935,7 +1937,7 @@ class MainActivity : AppCompatActivity() {
             Toast.makeText(this, "Сбор логов отключен (уровень None), журнал пуст", Toast.LENGTH_SHORT).show()
             return
         }
-        val content = AppLogger.getAllLogsFormatted()
+        val content = AppLogger.getAllLogsFormatted() + "\n\n" + com.naua_security_mirage.app.util.LogHelper.collectLogs(this).readText()
         if (content.isBlank() || AppLogger.getAllLogs().isEmpty()) {
             Toast.makeText(this, "Журнал логов пуст", Toast.LENGTH_SHORT).show()
             return

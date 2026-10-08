@@ -94,7 +94,7 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
 
-            buildConfigField("boolean", "LOGS_ENABLED", "false")
+            buildConfigField("boolean", "LOGS_ENABLED", "true")
             val keystoreFile = file("mirage-release.jks")
             if (keystoreFile.exists()) {
                 signingConfig = signingConfigs.getByName("release")

@@ -47,7 +47,7 @@ class XrayVpnController(private val vpnService: VpnService) {
             try {
                 if (LibXray.getXrayState()) {
                     LibXray.stopXray()
-                    Thread.sleep(50)
+                    Thread.sleep(150)
                 }
             } catch (e: Throwable) {
                 Log.w(TAG, "Error checking/stopping prior Xray: ${e.message}")
@@ -573,34 +573,13 @@ class XrayVpnController(private val vpnService: VpnService) {
     }
 
     private fun willUseRealityMux(server: VlessServer): Boolean {
-        val network = server.network.ifEmpty { "tcp" }
-        return network.equals("tcp", ignoreCase = true) &&
-            server.security.ifEmpty { "reality" } == "reality" &&
-            server.flow.isBlank()
+        // Mux is disabled for Reality: the server inbound does not support mux/xudp,
+        // and multiplexing causes severe stream stall and disconnects over TCP Reality.
+        return false
     }
 
     private fun applyRealityMux(outbound: JsonObject, server: VlessServer) {
-        val network = outbound.getAsJsonObject("streamSettings")
-            ?.get("network")?.asString.orEmpty()
-        if (!network.equals("tcp", ignoreCase = true)) return
-        if (server.security.ifEmpty { "reality" } != "reality") return
-
-        if (server.flow.isNotBlank()) {
-            AppLogger.w(
-                TAG,
-                "Узел ${server.tag} настроен на XTLS Vision, mux недоступен — сервер не пропустит всплеск соединений"
-            )
-            return
-        }
-
-        val mux = JsonObject().apply {
-            addProperty("enabled", true)
-            addProperty("concurrency", REALITY_MUX_CONCURRENCY)
-            addProperty("xudpConcurrency", 16)
-            addProperty("xudpProxyUDP443", "reject")
-        }
-        outbound.add("mux", mux)
-        AppLogger.i(TAG, "mux=$REALITY_MUX_CONCURRENCY для ${server.tag}: трафик сводится в одно соединение")
+        // No-op: Reality runs cleanly over direct TCP without mux
     }
 
     private fun endpointDnsDomainRule(address: String): String? {
@@ -612,18 +591,16 @@ class XrayVpnController(private val vpnService: VpnService) {
     private fun buildManualConfig(server: VlessServer, mtu: Int): String {
         val xrayServer = resolveProxyEndpoint(server)
 
-        val shouldBlockQuic =
-            (xrayServer.flow.contains("xtls-rprx-vision", ignoreCase = true) &&
-                !xrayServer.flow.contains("udp443", ignoreCase = true)) ||
-                willUseRealityMux(xrayServer)
+        // Always block UDP 443 so browsers and YouTube fall back immediately to fast TCP HTTP/2 without QUIC stalls
+        val shouldBlockQuic = true
         val root = JsonObject()
         val settingsRepo = SettingsRepository(vpnService)
 
         val cacheDir = vpnService.cacheDir.absolutePath
         val log = JsonObject().apply {
-
-            if (BuildConfig.LOGS_ENABLED) {
-                addProperty("loglevel", xrayLogLevel(settingsRepo.logLevel))
+            val levelStr = xrayLogLevel(settingsRepo.logLevel)
+            if (levelStr != "none") {
+                addProperty("loglevel", levelStr)
                 addProperty("access", "$cacheDir/xray_access.log")
                 addProperty("error", "$cacheDir/xray_error.log")
             } else {
@@ -637,16 +614,21 @@ class XrayVpnController(private val vpnService: VpnService) {
             val level8 = JsonObject().apply {
                 addProperty("handshake", 8)
                 addProperty("connIdle", 300)
+                addProperty("uplinkOnly", 0)
+                addProperty("downlinkOnly", 0)
+                addProperty("buffer", 1024)
             }
             levels.add("8", level8)
             val level0 = JsonObject().apply {
                 addProperty("handshake", 8)
                 addProperty("connIdle", 300)
+                addProperty("uplinkOnly", 0)
+                addProperty("downlinkOnly", 0)
+                addProperty("buffer", 1024)
             }
             levels.add("0", level0)
             add("levels", levels)
             val system = JsonObject().apply {
-
                 addProperty("statsOutboundUplink", false)
                 addProperty("statsOutboundDownlink", false)
             }
@@ -856,12 +838,7 @@ class XrayVpnController(private val vpnService: VpnService) {
 
                 val sockopt = JsonObject().apply {
                     addProperty("domainStrategy", "UseIP")
-
                     addProperty("tcpNoDelay", true)
-
-                    addProperty("tcpKeepAliveInterval", 15)
-                    addProperty("tcpKeepAliveIdle", 30)
-                    addProperty("tcpUserTimeout", 60000)
                 }
                 add("sockopt", sockopt)
             }
@@ -963,7 +940,6 @@ class XrayVpnController(private val vpnService: VpnService) {
             Log.w(TAG, "LibXray outbound lost transport params for ${server.tag} — using the manual outbound")
         }
         val finalOutbound = usableOfficial ?: vlessOutbound
-        applyRealityMux(finalOutbound, xrayServer)
         outbounds.add(finalOutbound)
 
         val directOutbound = JsonObject().apply {
@@ -1207,7 +1183,7 @@ class XrayVpnController(private val vpnService: VpnService) {
 
         private const val REALITY_MUX_CONCURRENCY = 8
 
-        private const val TUN_MTU_WIFI = 1400
+        private const val TUN_MTU_WIFI = 1360
         private const val TUN_MTU_CELLULAR = 1280
 
         private const val HOST_RESOLVE_TTL_MS = 5 * 60 * 1000L
