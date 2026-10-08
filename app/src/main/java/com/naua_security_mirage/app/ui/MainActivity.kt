@@ -189,6 +189,7 @@ class MainActivity : AppCompatActivity() {
             handleConnectButtonClick()
         }
         handleAuthDeepLink(intent)
+        handleUpdateIntent(intent)
     }
 
     override fun onNewIntent(intent: Intent?) {
@@ -197,6 +198,26 @@ class MainActivity : AppCompatActivity() {
             handleConnectButtonClick()
         }
         handleAuthDeepLink(intent)
+        handleUpdateIntent(intent)
+    }
+
+    private fun handleUpdateIntent(intent: Intent?) {
+        if (intent == null) return
+        val apkPath = intent.getStringExtra(EXTRA_INSTALL_APK_PATH)
+        if (!apkPath.isNullOrEmpty()) {
+            val file = java.io.File(apkPath)
+            if (file.exists()) {
+                AppUpdateManager.installApk(this, file)
+                return
+            }
+        }
+        if (intent.getBooleanExtra(EXTRA_SHOW_UPDATE, false)) {
+            AppUpdateManager.latestUpdate?.let { info ->
+                AppUpdateManager.showUpdateAvailableDialog(this, info, settingsRepository)
+            } ?: run {
+                AppUpdateManager.checkForUpdates(this, settingsRepository, isManual = true)
+            }
+        }
     }
 
     private fun handleAuthDeepLink(intent: Intent?) {
@@ -3573,6 +3594,9 @@ class MainActivity : AppCompatActivity() {
 
     companion object {
         const val ACTION_QUICK_CONNECT = "com.naua_security_mirage.app.ACTION_QUICK_CONNECT"
+        const val EXTRA_SHOW_UPDATE = "extra_show_update"
+        const val EXTRA_UPDATE_TAG = "extra_update_tag"
+        const val EXTRA_INSTALL_APK_PATH = "extra_install_apk_path"
 
         const val TERMS_URL =
             "https://docs.google.com/document/d/1Q0_MpGF5D1GGoFu2HcdTle0kvLb3S7L52x2XIc47eLw/edit?usp=sharing"

@@ -20,6 +20,10 @@ class MirageMessagingService : FirebaseMessagingService() {
 
     override fun onMessageReceived(message: RemoteMessage) {
         AppLogger.d(TAG, "Message received: ${message.notification?.title ?: "no title"}")
+        val tag = message.data["tag"]
+        if (!tag.isNullOrBlank()) {
+            com.naua_security_mirage.app.work.UpdateNotifier.notifyIfNewer(applicationContext, tag)
+        }
     }
 
     companion object {

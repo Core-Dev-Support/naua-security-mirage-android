@@ -172,7 +172,11 @@ serve(async (req) => {
                 data: { tag },
                 android: {
                   priority: "high",
-                  notification: { channel_id: CHANNEL_ID },
+                  notification: {
+                    channel_id: CHANNEL_ID,
+                    icon: "ic_notification",
+                    color: "#E8A33D",
+                  },
                 },
               },
             }),

@@ -139,6 +139,24 @@
             </intent-filter>
         </receiver>
 
+        <receiver
+            android:name=".receiver.UpdateDownloadReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.naua_security_mirage.app.CANCEL_UPDATE_DOWNLOAD" />
+            </intent-filter>
+        </receiver>
+
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_icon"
+            android:resource="@drawable/ic_notification" />
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_color"
+            android:resource="@color/amber" />
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="mirage_updates" />
+
     </application>
 
 </manifest>

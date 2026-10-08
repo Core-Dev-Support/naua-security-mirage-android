@@ -25,8 +25,10 @@ import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.core.graphics.ColorUtils
 import com.naua_security_mirage.app.BuildConfig
+import com.naua_security_mirage.app.MirageApp
 import com.naua_security_mirage.app.R
 import com.naua_security_mirage.app.data.repository.SettingsRepository
+import com.naua_security_mirage.app.work.UpdateNotifier
 import okhttp3.Call
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -62,6 +64,7 @@ object AppUpdateManager {
 
     private var pendingInstallFile: File? = null
     private var activeDownloadCall: Call? = null
+    var onDownloadCancelled: (() -> Unit)? = null
 
     private val updateListeners = mutableListOf<(Boolean, UpdateInfo?) -> Unit>()
 
@@ -398,6 +401,14 @@ object AppUpdateManager {
                     pbDownload.progress = 0
                     tvDownloadProgress.text = activity.getString(R.string.update_download_preparing)
 
+                    onDownloadCancelled = {
+                        mainHandler.post {
+                            layoutProgress.visibility = View.GONE
+                            btnDownload.visibility = View.VISIBLE
+                            btnDownload.text = activity.getString(R.string.update_dialog_download)
+                        }
+                    }
+
                     downloadAndInstallApk(
                         activity = activity,
                         updateInfo = updateInfo,
@@ -418,6 +429,7 @@ object AppUpdateManager {
                             }
                         },
                         onComplete = { downloadedFile ->
+                            onDownloadCancelled = null
                             layoutProgress.visibility = View.GONE
                             btnDownload.visibility = View.VISIBLE
                             btnDownload.text = activity.getString(R.string.update_dialog_install)
@@ -427,6 +439,7 @@ object AppUpdateManager {
                             installApk(activity, downloadedFile)
                         },
                         onError = { _ ->
+                            onDownloadCancelled = null
                             layoutProgress.visibility = View.GONE
                             btnDownload.visibility = View.VISIBLE
                             btnDownload.text = activity.getString(R.string.update_dialog_download)
@@ -442,7 +455,8 @@ object AppUpdateManager {
         }
 
         dialog.setOnDismissListener {
-            cancelDownload()
+            onDownloadCancelled = null
+            cancelDownload(activity)
         }
 
         dialog.show()
@@ -457,16 +471,25 @@ object AppUpdateManager {
         onError: (String) -> Unit
     ) {
         Thread {
-            try {
-                val updateDir = File(activity.cacheDir, "updates")
-                if (!updateDir.exists()) {
-                    updateDir.mkdirs()
-                }
-                val apkFile = File(updateDir, updateInfo.apkFileName)
-                if (apkFile.exists()) {
-                    apkFile.delete()
-                }
+            val updateDir = File(activity.cacheDir, "updates")
+            if (!updateDir.exists()) {
+                updateDir.mkdirs()
+            }
+            val apkFile = File(updateDir, updateInfo.apkFileName)
+            if (apkFile.exists()) {
+                apkFile.delete()
+            }
 
+            val appContext = activity.applicationContext
+            UpdateNotifier.showDownloadProgress(
+                context = appContext,
+                versionName = updateInfo.versionName,
+                percent = 0,
+                downloadedBytes = 0L,
+                totalBytes = -1L
+            )
+
+            try {
                 val request = Request.Builder()
                     .url(updateInfo.downloadUrl)
                     .header("User-Agent", "NAUA-Security-Mirage/${BuildConfig.VERSION_NAME}")
@@ -501,6 +524,13 @@ object AppUpdateManager {
                         mainHandler.post {
                             onProgress(percent, downloaded, totalLength)
                         }
+                        UpdateNotifier.showDownloadProgress(
+                            context = appContext,
+                            versionName = updateInfo.versionName,
+                            percent = percent,
+                            downloadedBytes = downloaded,
+                            totalBytes = totalLength
+                        )
                     }
                 }
 
@@ -510,29 +540,52 @@ object AppUpdateManager {
                 activeDownloadCall = null
 
                 if (!verifyApkSignature(activity, apkFile)) {
+                    UpdateNotifier.cancelDownloadNotification(appContext)
                     mainHandler.post {
                         onError("Подпись обновления недействительна")
                     }
                     return@Thread
                 }
 
+                UpdateNotifier.showDownloadComplete(
+                    context = appContext,
+                    versionName = updateInfo.versionName,
+                    apkFile = apkFile
+                )
+
                 mainHandler.post {
                     onComplete(apkFile)
                 }
             } catch (e: Exception) {
                 activeDownloadCall = null
-                AppLogger.w(TAG, "Ошибка загрузки APK: ${e.message}")
-                mainHandler.post {
-                    onError(e.message ?: "Unknown error")
+                UpdateNotifier.cancelDownloadNotification(appContext)
+
+                val isCanceled = e is java.io.InterruptedIOException ||
+                        e.message?.contains("Canceled", ignoreCase = true) == true ||
+                        e.message?.contains("Socket closed", ignoreCase = true) == true
+
+                if (isCanceled) {
+                    AppLogger.d(TAG, "Загрузка обновления отменена пользователем")
+                    if (apkFile.exists()) {
+                        apkFile.delete()
+                    }
+                } else {
+                    AppLogger.w(TAG, "Ошибка загрузки APK: ${e.message}")
+                    mainHandler.post {
+                        onError(e.message ?: "Unknown error")
+                    }
                 }
             }
         }.start()
     }
 
-    fun cancelDownload() {
+    fun cancelDownload(context: Context? = null) {
         try {
             activeDownloadCall?.cancel()
             activeDownloadCall = null
+            val ctx = context ?: if (MirageApp::appContext.isInitialized) MirageApp.appContext else null
+            ctx?.let { UpdateNotifier.cancelDownloadNotification(it) }
+            onDownloadCancelled?.invoke()
         } catch (e: Exception) {
             AppLogger.w(TAG, "Error cancelling download: ${e.message}")
         }
