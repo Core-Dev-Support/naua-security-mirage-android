@@ -412,6 +412,7 @@ class XrayVpnController(private val vpnService: VpnService) {
             read > 0 && String(buffer, 0, read, StandardCharsets.US_ASCII).startsWith("HTTP/")
         } catch (t: Throwable) {
             Log.d(TAG, "HTTPS probe to $host:$port failed: ${t.message}")
+            AppLogger.d(TAG, "HTTPS probe to $host:$port failed: ${t.javaClass.simpleName}: ${t.message}")
             false
         } finally {
             try {
@@ -635,7 +636,7 @@ class XrayVpnController(private val vpnService: VpnService) {
         val policy = JsonObject().apply {
             val levels = JsonObject()
             val level8 = JsonObject().apply {
-                addProperty("handshake", 4)
+                addProperty("handshake", 8)
                 addProperty("connIdle", 300)
                 addProperty("uplinkOnly", 2)
                 addProperty("downlinkOnly", 5)
@@ -643,7 +644,7 @@ class XrayVpnController(private val vpnService: VpnService) {
             }
             levels.add("8", level8)
             val level0 = JsonObject().apply {
-                addProperty("handshake", 4)
+                addProperty("handshake", 8)
                 addProperty("connIdle", 300)
                 addProperty("uplinkOnly", 2)
                 addProperty("downlinkOnly", 5)
@@ -872,7 +873,7 @@ class XrayVpnController(private val vpnService: VpnService) {
                 val sockopt = JsonObject().apply {
                     addProperty("domainStrategy", "UseIP")
                     addProperty("tcpNoDelay", true)
-                    addProperty("tcpFastOpen", true)
+                    addProperty("tcpFastOpen", false)
                     addProperty("tcpKeepAliveInterval", 15)
                     addProperty("tcpKeepAliveIdle", 30)
                     addProperty("tcpUserTimeout", 60000)
@@ -930,7 +931,7 @@ class XrayVpnController(private val vpnService: VpnService) {
                             val sockopt = if (ss.has("sockopt")) ss.getAsJsonObject("sockopt") else JsonObject().also { ss.add("sockopt", it) }
                             sockopt.addProperty("domainStrategy", "UseIP")
                             sockopt.addProperty("tcpNoDelay", true)
-                            sockopt.addProperty("tcpFastOpen", true)
+                            sockopt.addProperty("tcpFastOpen", false)
                             sockopt.addProperty("tcpKeepAliveInterval", 15)
                             sockopt.addProperty("tcpKeepAliveIdle", 30)
                             sockopt.addProperty("tcpUserTimeout", 60000)
@@ -1237,7 +1238,8 @@ class XrayVpnController(private val vpnService: VpnService) {
         private const val XHTTP_POSTS_INTERVAL_MS = 5
 
         private val PROBE_TARGETS = listOf(
-            "1.1.1.1" to 80
+            "1.1.1.1" to 80,
+            "1.0.0.1" to 80
         )
     }
 }

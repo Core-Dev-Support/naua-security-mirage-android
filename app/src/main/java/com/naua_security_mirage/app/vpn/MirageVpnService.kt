@@ -326,15 +326,6 @@ class MirageVpnService : VpnService() {
                         }
                     }
                 }
-                try {
-                    android.system.Os.setsockoptInt(
-                        pfd.fileDescriptor,
-                        android.system.OsConstants.SOL_SOCKET,
-                        android.system.OsConstants.SO_SNDBUF,
-                        64 * 1024
-                    )
-                } catch (_: Throwable) {
-                }
 
                 val onPaidNode = bestServer != null
                 val tunnelBudgetMs = if (isFrancePlan && onPaidNode) 90_000L else 60_000L
@@ -555,7 +546,6 @@ class MirageVpnService : VpnService() {
         }
         if (reachability in 1..9998) {
             AppLogger.i(TAG, "Платный вход ${server.address}:${server.port} доступен с устройства (${reachability} мс)")
-            probeTlsHandshake(server)
         } else {
             AppLogger.w(
                 TAG,
@@ -649,8 +639,10 @@ class MirageVpnService : VpnService() {
     private suspend fun waitForTraffic(): Boolean {
         val controller = xrayController ?: return false
         if (controller.verifyDataPlane(5000)) return true
-        delay(400)
-        return controller.verifyDataPlane(3500)
+        delay(500)
+        if (controller.verifyDataPlane(6000)) return true
+        delay(500)
+        return controller.verifyDataPlane(6000)
     }
 
     private fun startSessionTimer(initialSeconds: Long = _sessionSeconds.value) {
