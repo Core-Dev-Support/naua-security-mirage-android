@@ -635,18 +635,23 @@ class XrayVpnController(private val vpnService: VpnService) {
         val policy = JsonObject().apply {
             val levels = JsonObject()
             val level8 = JsonObject().apply {
-                addProperty("handshake", 8)
+                addProperty("handshake", 4)
                 addProperty("connIdle", 300)
+                addProperty("uplinkOnly", 2)
+                addProperty("downlinkOnly", 5)
+                addProperty("bufferSize", 1024)
             }
             levels.add("8", level8)
             val level0 = JsonObject().apply {
-                addProperty("handshake", 8)
+                addProperty("handshake", 4)
                 addProperty("connIdle", 300)
+                addProperty("uplinkOnly", 2)
+                addProperty("downlinkOnly", 5)
+                addProperty("bufferSize", 1024)
             }
             levels.add("0", level0)
             add("levels", levels)
             val system = JsonObject().apply {
-
                 addProperty("statsOutboundUplink", false)
                 addProperty("statsOutboundDownlink", false)
             }
@@ -678,6 +683,8 @@ class XrayVpnController(private val vpnService: VpnService) {
 
             val servers = JsonArray().apply {
 
+                add("1.1.1.1")
+                add("8.8.8.8")
                 add("tcp://1.1.1.1:53")
                 add("tcp://8.8.8.8:53")
 
@@ -749,7 +756,9 @@ class XrayVpnController(private val vpnService: VpnService) {
                 val destOverride = JsonArray().apply {
                     add("http")
                     add("tls")
-                    add("quic")
+                    if (!shouldBlockQuic) {
+                        add("quic")
+                    }
                 }
                 add("destOverride", destOverride)
                 addProperty("routeOnly", true)
@@ -773,7 +782,9 @@ class XrayVpnController(private val vpnService: VpnService) {
                 val destOverride = JsonArray().apply {
                     add("http")
                     add("tls")
-                    add("quic")
+                    if (!shouldBlockQuic) {
+                        add("quic")
+                    }
                 }
                 add("destOverride", destOverride)
                 addProperty("routeOnly", true)
@@ -856,9 +867,8 @@ class XrayVpnController(private val vpnService: VpnService) {
 
                 val sockopt = JsonObject().apply {
                     addProperty("domainStrategy", "UseIP")
-
                     addProperty("tcpNoDelay", true)
-
+                    addProperty("tcpFastOpen", true)
                     addProperty("tcpKeepAliveInterval", 15)
                     addProperty("tcpKeepAliveIdle", 30)
                     addProperty("tcpUserTimeout", 60000)
@@ -913,10 +923,10 @@ class XrayVpnController(private val vpnService: VpnService) {
 
                         try {
                             val ss = if (ob.has("streamSettings")) ob.getAsJsonObject("streamSettings") else JsonObject().also { ob.add("streamSettings", it) }
-                            val sockopt = JsonObject().apply {
-                                addProperty("domainStrategy", "UseIP")
-                            }
-                            ss.add("sockopt", sockopt)
+                            val sockopt = if (ss.has("sockopt")) ss.getAsJsonObject("sockopt") else JsonObject().also { ss.add("sockopt", it) }
+                            sockopt.addProperty("domainStrategy", "UseIP")
+                            sockopt.addProperty("tcpNoDelay", true)
+                            sockopt.addProperty("tcpFastOpen", true)
                         } catch (_: Throwable) {}
 
                         officialOutbound = ob
@@ -972,6 +982,7 @@ class XrayVpnController(private val vpnService: VpnService) {
             val streamSettings = JsonObject().apply {
                 val sockopt = JsonObject().apply {
                     addProperty("domainStrategy", "UseIP")
+                    addProperty("tcpNoDelay", true)
                 }
                 add("sockopt", sockopt)
             }
@@ -1004,6 +1015,7 @@ class XrayVpnController(private val vpnService: VpnService) {
 
         val routing = JsonObject().apply {
             addProperty("domainStrategy", "IPIfNonMatch")
+            addProperty("domainMatcher", "mph")
             val rules = JsonArray()
 
             val dnsRule = JsonObject().apply {
@@ -1207,8 +1219,8 @@ class XrayVpnController(private val vpnService: VpnService) {
 
         private const val REALITY_MUX_CONCURRENCY = 8
 
-        private const val TUN_MTU_WIFI = 1400
-        private const val TUN_MTU_CELLULAR = 1280
+        private const val TUN_MTU_WIFI = 1460
+        private const val TUN_MTU_CELLULAR = 1380
 
         private const val HOST_RESOLVE_TTL_MS = 5 * 60 * 1000L
 
