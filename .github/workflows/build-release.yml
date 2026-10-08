@@ -11,7 +11,7 @@ on:
       release_tag:
         description: 'Release Tag'
         required: false
-        default: 'v1.3.0'
+        default: 'v1.4.0'
   push:
     tags:
       - 'v*'
@@ -215,8 +215,9 @@ jobs:
           NODE_OPTIONS: --no-deprecation
 
       - name: Prepare Release Asset
+        if: startsWith(github.ref, 'refs/tags/v') || github.event.inputs.create_release == 'true' || github.event.inputs.create_release == true
         run: |
-          VERSION_TAG="${{ github.event.inputs.release_tag || (startsWith(github.ref, 'refs/tags/v') && github.ref_name) || 'v1.3.0' }}"
+          VERSION_TAG="${{ github.event.inputs.release_tag || (startsWith(github.ref, 'refs/tags/v') && github.ref_name) || 'v1.4.0' }}"
           cp app/build/outputs/apk/release/app-release.apk "app/build/outputs/apk/release/NAUA-Security-Mirage-${VERSION_TAG}.apk"
           if [ ! -f "docs/releases/${VERSION_TAG}.md" ]; then
             echo "::error::no release notes for ${VERSION_TAG} at docs/releases/${VERSION_TAG}.md"
@@ -227,9 +228,9 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/v') || github.event.inputs.create_release == 'true' || github.event.inputs.create_release == true
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.event.inputs.release_tag || (startsWith(github.ref, 'refs/tags/v') && github.ref_name) || 'v1.3.0' }}
-          name: NAUA Security Mirage ${{ github.event.inputs.release_tag || (startsWith(github.ref, 'refs/tags/v') && github.ref_name) || 'v1.3.0' }}
-          body_path: docs/releases/${{ github.event.inputs.release_tag || (startsWith(github.ref, 'refs/tags/v') && github.ref_name) || 'v1.3.0' }}.md
+          tag_name: ${{ github.event.inputs.release_tag || (startsWith(github.ref, 'refs/tags/v') && github.ref_name) || 'v1.4.0' }}
+          name: NAUA Security Mirage ${{ github.event.inputs.release_tag || (startsWith(github.ref, 'refs/tags/v') && github.ref_name) || 'v1.4.0' }}
+          body_path: docs/releases/${{ github.event.inputs.release_tag || (startsWith(github.ref, 'refs/tags/v') && github.ref_name) || 'v1.4.0' }}.md
           files: app/build/outputs/apk/release/NAUA-Security-Mirage-*.apk
           generate_release_notes: false
 
@@ -238,7 +239,7 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           PUSH_SEND_SECRET: ${{ secrets.PUSH_SEND_SECRET }}
-          RELEASE_TAG: ${{ github.event.inputs.release_tag || (startsWith(github.ref, 'refs/tags/v') && github.ref_name) || 'v1.3.0' }}
+          RELEASE_TAG: ${{ github.event.inputs.release_tag || (startsWith(github.ref, 'refs/tags/v') && github.ref_name) || 'v1.4.0' }}
         run: |
           set -euo pipefail
           notes="docs/releases/${RELEASE_TAG}.md"
