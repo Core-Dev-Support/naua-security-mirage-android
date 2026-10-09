@@ -434,20 +434,6 @@ class MainActivity : AppCompatActivity() {
             openSettings()
         }
 
-        binding.cardPrivateDns.rowPrivateDns.setOnClickListener {
-            AnimationHelper.bounceClick(
-                binding.cardPrivateDns.rowPrivateDns, minScale = 0.98f, durationMs = 150
-            )
-            openPrivateDnsSettings()
-        }
-
-        binding.cardPrivateDns.tvPrivateDnsAction.setOnClickListener {
-            AnimationHelper.bounceClick(
-                binding.cardPrivateDns.tvPrivateDnsAction, minScale = 0.93f, durationMs = 150
-            )
-            openPrivateDnsSettings()
-        }
-
         binding.btnBackFromSettings.setOnClickListener {
             AnimationHelper.bounceClick(binding.btnBackFromSettings, minScale = 0.88f, durationMs = 180)
             closeSettings()
@@ -458,6 +444,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun setupSettings() {
         setupAccountCard()
+        installPrivateDnsCard()
 
         binding.switchStatusNotification.isChecked = settingsRepository.isStatusNotificationEnabled
         binding.switchStatusNotification.setOnCheckedChangeListener { _, isChecked ->
@@ -1467,10 +1454,33 @@ class MainActivity : AppCompatActivity() {
         refreshPrivateDnsRow()
     }
 
+    private var privateDnsCard: View? = null
+
+    private fun installPrivateDnsCard() {
+        if (privateDnsCard != null) return
+        val anchor = binding.cardDirectRu
+        val parent = anchor.parent as? ViewGroup ?: return
+        val card = layoutInflater.inflate(R.layout.card_private_dns, parent, false)
+        val index = parent.indexOfChild(anchor) + 1
+        parent.addView(card, index)
+        privateDnsCard = card
+
+        card.findViewById<View>(R.id.rowPrivateDns)?.setOnClickListener {
+            AnimationHelper.bounceClick(it, minScale = 0.98f, durationMs = 150)
+            openPrivateDnsSettings()
+        }
+        card.findViewById<View>(R.id.tvPrivateDnsAction)?.setOnClickListener {
+            AnimationHelper.bounceClick(it, minScale = 0.93f, durationMs = 150)
+            openPrivateDnsSettings()
+        }
+    }
+
     private fun refreshPrivateDnsRow() {
-        val card = binding.cardPrivateDns
+        val card = privateDnsCard ?: return
+        val stateView = card.findViewById<TextView>(R.id.tvPrivateDnsState) ?: return
+        val actionView = card.findViewById<TextView>(R.id.tvPrivateDnsAction)
         val state = PrivateDnsInspector.read(this)
-        card.tvPrivateDnsState.text = when (state.mode) {
+        stateView.text = when (state.mode) {
             PrivateDnsInspector.Mode.OFF -> getString(R.string.private_dns_state_off)
             PrivateDnsInspector.Mode.OPPORTUNISTIC -> getString(R.string.private_dns_state_auto)
             PrivateDnsInspector.Mode.STRICT ->
@@ -1478,11 +1488,11 @@ class MainActivity : AppCompatActivity() {
             PrivateDnsInspector.Mode.UNKNOWN -> getString(R.string.private_dns_state_unknown)
         }
         val risky = state.mode == PrivateDnsInspector.Mode.STRICT
-        card.tvPrivateDnsState.setTextColor(
+        stateView.setTextColor(
             if (risky) Color.parseColor("#${Integer.toHexString(ContextCompat.getColor(this, R.color.danger))}")
             else Color.parseColor("#${Integer.toHexString(ContextCompat.getColor(this, R.color.ink_faint))}")
         )
-        card.tvPrivateDnsAction.visibility = View.VISIBLE
+        actionView?.visibility = View.VISIBLE
         AppLogger.i("PrivateDns", "Настройки приложения: ${PrivateDnsInspector.describe(state)}")
     }
 
