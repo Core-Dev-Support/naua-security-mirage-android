@@ -350,6 +350,12 @@ object AppUpdateManager {
         tvChangelog.setTextColor(subtitleTextColor)
         ivIcon.imageTintList = ColorStateList.valueOf(accentColor)
         btnLater.setTextColor(subtitleTextColor)
+        btnLater.background = GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            cornerRadius = 14f * density
+            setColor(cardBgColor)
+            setStroke((1f * density).toInt(), strokeColor)
+        }
         btnBrowser.setTextColor(subtitleTextColor)
 
         val updateDir = File(activity.cacheDir, "updates")

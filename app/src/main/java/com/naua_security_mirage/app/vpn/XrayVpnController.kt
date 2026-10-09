@@ -799,7 +799,6 @@ class XrayVpnController(private val vpnService: VpnService) {
                     if (server.flow.isNotEmpty()) {
                         addProperty("flow", server.flow)
                     }
-                    addProperty("level", 8)
                 }
                 users.add(user)
                 add("users", users)
@@ -896,7 +895,7 @@ class XrayVpnController(private val vpnService: VpnService) {
                                     if (nodeObj.has("users")) {
                                         val usersArr = nodeObj.getAsJsonArray("users")
                                         for (userElem in usersArr) {
-                                            userElem.asJsonObject.addProperty("level", 8)
+                                            userElem.asJsonObject.remove("level")
                                         }
                                     }
                                 }
@@ -1198,7 +1197,7 @@ class XrayVpnController(private val vpnService: VpnService) {
 
         private const val REALITY_MUX_CONCURRENCY = 8
 
-        private const val TUN_MTU_WIFI = 1360
+        private const val TUN_MTU_WIFI = 1400
         private const val TUN_MTU_CELLULAR = 1280
 
         private const val HOST_RESOLVE_TTL_MS = 5 * 60 * 1000L
