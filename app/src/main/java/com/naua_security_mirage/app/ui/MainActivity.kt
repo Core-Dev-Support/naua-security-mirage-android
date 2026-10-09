@@ -434,13 +434,17 @@ class MainActivity : AppCompatActivity() {
             openSettings()
         }
 
-        binding.rowPrivateDns.setOnClickListener {
-            AnimationHelper.bounceClick(binding.rowPrivateDns, minScale = 0.98f, durationMs = 150)
+        binding.cardPrivateDns.rowPrivateDns.setOnClickListener {
+            AnimationHelper.bounceClick(
+                binding.cardPrivateDns.rowPrivateDns, minScale = 0.98f, durationMs = 150
+            )
             openPrivateDnsSettings()
         }
 
-        binding.tvPrivateDnsAction.setOnClickListener {
-            AnimationHelper.bounceClick(binding.tvPrivateDnsAction, minScale = 0.93f, durationMs = 150)
+        binding.cardPrivateDns.tvPrivateDnsAction.setOnClickListener {
+            AnimationHelper.bounceClick(
+                binding.cardPrivateDns.tvPrivateDnsAction, minScale = 0.93f, durationMs = 150
+            )
             openPrivateDnsSettings()
         }
 
@@ -1464,8 +1468,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun refreshPrivateDnsRow() {
+        val card = binding.cardPrivateDns
         val state = PrivateDnsInspector.read(this)
-        binding.tvPrivateDnsState.text = when (state.mode) {
+        card.tvPrivateDnsState.text = when (state.mode) {
             PrivateDnsInspector.Mode.OFF -> getString(R.string.private_dns_state_off)
             PrivateDnsInspector.Mode.OPPORTUNISTIC -> getString(R.string.private_dns_state_auto)
             PrivateDnsInspector.Mode.STRICT ->
@@ -1473,11 +1478,11 @@ class MainActivity : AppCompatActivity() {
             PrivateDnsInspector.Mode.UNKNOWN -> getString(R.string.private_dns_state_unknown)
         }
         val risky = state.mode == PrivateDnsInspector.Mode.STRICT
-        binding.tvPrivateDnsState.setTextColor(
+        card.tvPrivateDnsState.setTextColor(
             if (risky) Color.parseColor("#${Integer.toHexString(ContextCompat.getColor(this, R.color.danger))}")
             else Color.parseColor("#${Integer.toHexString(ContextCompat.getColor(this, R.color.ink_faint))}")
         )
-        binding.tvPrivateDnsAction.visibility = View.VISIBLE
+        card.tvPrivateDnsAction.visibility = View.VISIBLE
         AppLogger.i("PrivateDns", "Настройки приложения: ${PrivateDnsInspector.describe(state)}")
     }
 
