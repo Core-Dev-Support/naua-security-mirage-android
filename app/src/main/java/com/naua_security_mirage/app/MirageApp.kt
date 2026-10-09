@@ -14,6 +14,7 @@ import com.google.firebase.perf.FirebasePerformance
 import com.naua_security_mirage.app.data.repository.GeoRoutingRepository
 import com.naua_security_mirage.app.data.repository.SettingsRepository
 import com.naua_security_mirage.app.util.AppLogger
+import com.naua_security_mirage.app.work.SubscriptionExpiryWorker
 import com.naua_security_mirage.app.work.UpdateCheckWorker
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -41,6 +42,7 @@ class MirageApp : Application() {
             geoRoutingRepository.autoUpdateIfNeeded()
         }
         scheduleUpdateCheck(this)
+        scheduleSubscriptionExpiryCheck(this)
         com.naua_security_mirage.app.push.MirageMessagingService.refresh()
     }
 
@@ -55,6 +57,28 @@ class MirageApp : Application() {
             get() = appContextOrNull ?: throw IllegalStateException("MirageApp not initialized")
 
         private const val UPDATE_WORK_NAME = "mirage_update_check"
+        private const val SUBSCRIPTION_WORK_NAME = "mirage_subscription_expiry"
+
+        fun scheduleSubscriptionExpiryCheck(context: Context) {
+            try {
+                val request = PeriodicWorkRequestBuilder<SubscriptionExpiryWorker>(12, TimeUnit.HOURS)
+                    .setConstraints(
+                        Constraints.Builder()
+                            .setRequiredNetworkType(NetworkType.NOT_REQUIRED)
+                            .build()
+                    )
+                    .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 1, TimeUnit.HOURS)
+                    .build()
+
+                WorkManager.getInstance(context).enqueueUniquePeriodicWork(
+                    SUBSCRIPTION_WORK_NAME,
+                    ExistingPeriodicWorkPolicy.KEEP,
+                    request
+                )
+            } catch (t: Throwable) {
+                AppLogger.w(TAG, "Failed to schedule subscription expiry check: ${t.message}")
+            }
+        }
 
         fun scheduleUpdateCheck(context: Context) {
             try {

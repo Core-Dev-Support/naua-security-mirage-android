@@ -188,6 +188,11 @@ class MainActivity : AppCompatActivity() {
         AppUpdateManager.checkForUpdates(this, settingsRepository, isManual = false)
         AppUpdateManager.showWhatsNewDialog(this, settingsRepository)
 
+        lifecycleScope.launch(Dispatchers.IO) {
+            delay(2500)
+            com.naua_security_mirage.app.work.SubscriptionExpiryNotifier.check(this@MainActivity)
+        }
+
         if (intent?.action == ACTION_QUICK_CONNECT) {
             handleConnectButtonClick()
         }
@@ -206,6 +211,11 @@ class MainActivity : AppCompatActivity() {
 
     private fun handleUpdateIntent(intent: Intent?) {
         if (intent == null) return
+        if (intent.getBooleanExtra(EXTRA_SHOW_SUBSCRIPTION, false)) {
+            intent.removeExtra(EXTRA_SHOW_SUBSCRIPTION)
+            showSubscriptionDialog()
+            return
+        }
         val apkPath = intent.getStringExtra(EXTRA_INSTALL_APK_PATH)
         if (!apkPath.isNullOrEmpty()) {
             val file = java.io.File(apkPath)
@@ -3599,6 +3609,7 @@ class MainActivity : AppCompatActivity() {
     companion object {
         const val ACTION_QUICK_CONNECT = "com.naua_security_mirage.app.ACTION_QUICK_CONNECT"
         const val EXTRA_SHOW_UPDATE = "extra_show_update"
+    const val EXTRA_SHOW_SUBSCRIPTION = "extra_show_subscription"
         const val EXTRA_UPDATE_TAG = "extra_update_tag"
         const val EXTRA_INSTALL_APK_PATH = "extra_install_apk_path"
 

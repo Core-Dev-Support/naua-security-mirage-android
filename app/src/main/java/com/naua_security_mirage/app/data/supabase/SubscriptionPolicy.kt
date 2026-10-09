@@ -58,4 +58,11 @@ object SubscriptionPolicy {
             timeZone = TimeZone.getTimeZone("UTC")
         }.format(expiry)
     }
+
+    fun expiryReminderStep(daysRemaining: Int): Int? {
+        if (daysRemaining <= 0) return null
+        return REMINDER_DAYS.filter { it <= daysRemaining }.maxOrNull()
+    }
+
+    private val REMINDER_DAYS = intArrayOf(3, 1)
 }
