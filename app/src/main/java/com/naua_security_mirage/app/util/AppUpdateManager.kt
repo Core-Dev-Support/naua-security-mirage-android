@@ -69,6 +69,9 @@ object AppUpdateManager {
     @Volatile
     private var downloadCancelledByUser = false
 
+    @Volatile
+    private var updateDialogShowing = false
+
     private val updateListeners = mutableListOf<(Boolean, UpdateInfo?) -> Unit>()
 
     fun addUpdateListener(listener: (Boolean, UpdateInfo?) -> Unit) {
@@ -238,9 +241,7 @@ object AppUpdateManager {
                 )
                 latestUpdate = info
                 notifyListeners(true, info)
-                if (isManual) {
-                    showUpdateAvailableDialog(activity, info, settingsRepository)
-                }
+                showUpdateAvailableDialog(activity, info, settingsRepository)
             } else {
                 latestUpdate = null
                 notifyListeners(false, null)
@@ -294,6 +295,8 @@ object AppUpdateManager {
         updateInfo: UpdateInfo,
         settingsRepository: SettingsRepository? = null
     ) {
+        if (updateDialogShowing) return
+        updateDialogShowing = true
         val dialog = Dialog(activity)
         dialog.setContentView(R.layout.dialog_update_available)
         dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
@@ -386,7 +389,9 @@ object AppUpdateManager {
 
         btnLater.setOnClickListener {
             AnimationHelper.bounceClick(btnLater, minScale = 0.94f, durationMs = 150) {
+                val downloading = layoutProgress.visibility == View.VISIBLE
                 cancelDownload()
+                if (!downloading) dialog.dismiss()
             }
         }
 
@@ -411,6 +416,7 @@ object AppUpdateManager {
 
                     layoutProgress.visibility = View.VISIBLE
                     btnDownload.visibility = View.GONE
+                    btnBrowser.visibility = View.GONE
                     pbDownload.isIndeterminate = false
                     pbDownload.progress = 0
                     tvDownloadProgress.text = activity.getString(R.string.update_download_preparing)
@@ -419,6 +425,7 @@ object AppUpdateManager {
                         mainHandler.post {
                             layoutProgress.visibility = View.GONE
                             btnDownload.visibility = View.VISIBLE
+                            btnBrowser.visibility = View.VISIBLE
                             btnDownload.text = activity.getString(R.string.update_dialog_download)
                         }
                     }
@@ -456,6 +463,7 @@ object AppUpdateManager {
                             onDownloadCancelled = null
                             layoutProgress.visibility = View.GONE
                             btnDownload.visibility = View.VISIBLE
+                            btnBrowser.visibility = View.VISIBLE
                             btnDownload.text = activity.getString(R.string.update_dialog_download)
                             Toast.makeText(
                                 activity,
@@ -469,6 +477,7 @@ object AppUpdateManager {
         }
 
         dialog.setOnDismissListener {
+            updateDialogShowing = false
             onDownloadCancelled = null
             cancelDownload(activity)
         }

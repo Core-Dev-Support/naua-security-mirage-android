@@ -126,13 +126,14 @@
             android:background="@android:color/transparent"
             android:clickable="true"
             android:focusable="false"
-            android:paddingStart="12dp"
-            android:paddingEnd="12dp"
+            android:maxLines="1"
+            android:paddingStart="10dp"
+            android:paddingEnd="10dp"
             android:paddingTop="10dp"
             android:paddingBottom="10dp"
             android:text="@string/update_dialog_browser_btn"
             android:textColor="@color/ink_soft"
-            android:textSize="13sp"
+            android:textSize="12sp"
             android:textStyle="bold" />
 
         <TextView

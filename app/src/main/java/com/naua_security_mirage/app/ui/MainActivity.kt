@@ -1361,14 +1361,26 @@ class MainActivity : AppCompatActivity() {
                     }
                     val best = pingRepository.selectBestServer(measured)
                     val pingText = if (best.pingMs in 1..9998) "${best.pingMs} ms" else "Доступен"
-                    AppLogger.i("DataRefresh", "Обновление данных завершено. Выбран оптимальный узел: ${best.tag} (пинг: $pingText)")
+                    val isPaidPlan = settingsRepository.selectedServerPlan == SettingsRepository.PLAN_PREMIUM_FRANCE
+                    AppLogger.i(
+                        "DataRefresh",
+                        if (isPaidPlan) {
+                            "Обновление данных завершено. Выбран узел не менялся: Франция (платный), задержка бесплатных: ${best.tag} $pingText"
+                        } else {
+                            "Обновление данных завершено. Лучший из бесплатных: ${best.tag} ($pingText)"
+                        }
+                    )
                     withContext(Dispatchers.Main) {
                         isRefreshing = false
                         refreshAnimationJob?.cancel()
                         binding.ivRefreshIcon.rotation = 0f
                         if (MirageVpnService.vpnState.value == VpnState.DISCONNECTED) {
-                            lastMeasuredServerInfo = pingText
-                            binding.tvStatusSub.text = pingText
+                            lastMeasuredServerInfo = if (isPaidPlan) {
+                                getString(R.string.paid_node_label)
+                            } else {
+                                pingText
+                            }
+                            binding.tvStatusSub.text = lastMeasuredServerInfo
                         }
                     }
                 } catch (e: Throwable) {
