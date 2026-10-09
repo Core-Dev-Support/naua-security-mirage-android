@@ -7,34 +7,49 @@ object PrivateDnsInspector {
 
     enum class Mode { OFF, OPPORTUNISTIC, STRICT, UNKNOWN }
 
-    data class State(val mode: Mode, val specifier: String?)
+    data class State(
+        val mode: Mode,
+        val specifier: String?,
+        val rawMode: Int,
+        val readError: String?
+    )
 
     fun read(context: Context): State {
-        return try {
+        var rawMode = -1
+        var specifier: String? = null
+        var error: String? = null
+        try {
             val resolver = context.contentResolver
-            val rawMode = Settings.Global.getInt(resolver, KEY_MODE, -1)
-            val specifier = try {
-                Settings.Global.getString(resolver, KEY_SPECIFIER)
-            } catch (_: Throwable) {
-                null
-            }
-            val mode = when (rawMode) {
-                MODE_OFF -> Mode.OFF
-                MODE_OPPORTUNISTIC -> Mode.OPPORTUNISTIC
-                MODE_STRICT -> Mode.STRICT
-                else -> Mode.UNKNOWN
-            }
-            State(mode, specifier?.takeIf { it.isNotBlank() })
-        } catch (_: Throwable) {
-            State(Mode.UNKNOWN, null)
+            rawMode = Settings.Global.getInt(resolver, KEY_MODE, -1)
+        } catch (t: Throwable) {
+            error = t.javaClass.simpleName + ": " + t.message
         }
+        try {
+            specifier = Settings.Global.getString(context.contentResolver, KEY_SPECIFIER)
+                ?.takeIf { it.isNotBlank() }
+        } catch (_: Throwable) {
+        }
+
+        val mode = when (rawMode) {
+            MODE_OFF -> Mode.OFF
+            MODE_OPPORTUNISTIC -> Mode.OPPORTUNISTIC
+            MODE_STRICT -> Mode.STRICT
+            else -> Mode.UNKNOWN
+        }
+        return State(mode, specifier, rawMode, error)
     }
 
-    fun describe(state: State): String = when (state.mode) {
-        Mode.OFF -> "выключен"
-        Mode.OPPORTUNISTIC -> "автоматически"
-        Mode.STRICT -> "строгий, провайдер=${state.specifier ?: "не указан"}"
-        Mode.UNKNOWN -> "не удалось прочитать"
+    fun describe(state: State): String {
+        val base = when (state.mode) {
+            Mode.OFF -> "выключен"
+            Mode.OPPORTUNISTIC -> "автоматически"
+            Mode.STRICT -> "строгий, провайдер=${state.specifier ?: "не указан"}"
+            Mode.UNKNOWN -> "не удалось прочитать"
+        }
+        val raw = "raw=${state.rawMode}"
+        val err = state.readError?.let { " ошибка=$it" } ?: ""
+        val spec = state.specifier?.let { " specifier=$it" } ?: ""
+        return "$base ($raw$spec$err)"
     }
 
     private const val KEY_MODE = "private_dns_mode"

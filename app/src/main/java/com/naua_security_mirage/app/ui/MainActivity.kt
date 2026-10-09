@@ -1477,20 +1477,24 @@ class MainActivity : AppCompatActivity() {
             if (risky) Color.parseColor("#${Integer.toHexString(ContextCompat.getColor(this, R.color.danger))}")
             else Color.parseColor("#${Integer.toHexString(ContextCompat.getColor(this, R.color.ink_faint))}")
         )
-        binding.tvPrivateDnsAction.visibility = if (risky) View.VISIBLE else View.GONE
+        binding.tvPrivateDnsAction.visibility = View.VISIBLE
+        AppLogger.i("PrivateDns", "Настройки приложения: ${PrivateDnsInspector.describe(state)}")
     }
 
     private fun openPrivateDnsSettings() {
-        val intent = Intent(Settings.ACTION_PRIVATE_DNS_SETTINGS)
-        try {
-            startActivity(intent)
-        } catch (_: Throwable) {
+        val attempts = listOf(
+            Intent("android.settings.PRIVATE_DNS_SETTINGS"),
+            Intent(Settings.ACTION_WIRELESS_SETTINGS),
+            Intent(Settings.ACTION_SETTINGS)
+        )
+        for (intent in attempts) {
             try {
-                startActivity(Intent(Settings.ACTION_SETTINGS))
+                startActivity(intent)
+                return
             } catch (_: Throwable) {
-                AppLogger.w("PrivateDns", "Не удалось открыть настройки Android")
             }
         }
+        AppLogger.w("PrivateDns", "Не удалось открыть настройки Android")
     }
 
     private fun closeSettings() {
