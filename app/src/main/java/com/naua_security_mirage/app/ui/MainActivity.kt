@@ -79,6 +79,7 @@ import java.util.Locale
 import java.io.File
 import java.io.FileOutputStream
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.combine
@@ -1352,6 +1353,21 @@ class MainActivity : AppCompatActivity() {
                     } else {
                         AppLogger.d("DataRefresh", "Нет активной подписки, платный узел пропущен")
                     }
+                    val isPaidPlan = settingsRepository.selectedServerPlan == SettingsRepository.PLAN_PREMIUM_FRANCE
+                    val francePingJob = if (isPaidPlan) {
+                        async {
+                            runCatching {
+                                val manager = com.naua_security_mirage.app.data.supabase.SupabaseManager.instance
+                                val uuid = manager.getActiveClientUuid()
+                                val france = com.naua_security_mirage.app.data.supabase.SupabaseConfig
+                                    .getFranceServer(uuid, manager.getActiveClientFlow(uuid))
+                                val p = pingRepository.measurePing(france, timeoutMs = 1800)
+                                if (p in 1..9998) "$p ms" else "таймаут"
+                            }.getOrNull() ?: "таймаут"
+                        }
+                    } else {
+                        null
+                    }
                     val servers = vlessKeyRepository.getVlessServers()
                     AppLogger.d("DataRefresh", "Получено конфигураций: ${servers.size}. Измерение пинга...")
                     val measured = pingRepository.measureAllPings(servers)
@@ -1361,20 +1377,7 @@ class MainActivity : AppCompatActivity() {
                     }
                     val best = pingRepository.selectBestServer(measured)
                     val pingText = if (best.pingMs in 1..9998) "${best.pingMs} ms" else "таймаут"
-                    val isPaidPlan = settingsRepository.selectedServerPlan == SettingsRepository.PLAN_PREMIUM_FRANCE
-
-                    val francePingText = if (isPaidPlan) {
-                        runCatching {
-                            val manager = com.naua_security_mirage.app.data.supabase.SupabaseManager.instance
-                            val uuid = manager.getActiveClientUuid()
-                            val france = com.naua_security_mirage.app.data.supabase.SupabaseConfig
-                                .getFranceServer(uuid, manager.getActiveClientFlow(uuid))
-                            val p = pingRepository.measurePing(france, timeoutMs = 2500)
-                            if (p in 1..9998) "$p ms" else "таймаут"
-                        }.getOrNull() ?: "таймаут"
-                    } else {
-                        null
-                    }
+                    val francePingText = francePingJob?.await()
 
                     val statusText = if (francePingText != null) francePingText else pingText
                     AppLogger.i(

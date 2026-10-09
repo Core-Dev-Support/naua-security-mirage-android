@@ -384,8 +384,12 @@ object AppUpdateManager {
 
         if (localApkFile.exists() && localApkFile.length() > 5_000_000L) {
             btnDownload.text = activity.getString(R.string.update_dialog_install)
+            btnLater.text = activity.getString(R.string.update_dialog_close)
+            btnBrowser.visibility = View.GONE
         } else {
             btnDownload.text = activity.getString(R.string.update_dialog_download)
+            btnLater.text = activity.getString(R.string.update_dialog_later)
+            btnBrowser.visibility = View.VISIBLE
         }
 
         btnLater.setOnClickListener {
