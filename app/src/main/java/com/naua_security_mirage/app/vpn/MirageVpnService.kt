@@ -343,7 +343,13 @@ class MirageVpnService : VpnService() {
                 }
                 val (workingServer, _) = tunnelAttempt
                 if (workingServer == null) {
-                    AppLogger.e(TAG, "Ни один узел не подтвердил передачу трафика — VPN отключается.")
+                    if (isFrancePlan) {
+                        AppLogger.e(TAG, "Платный узел не подтвердил передачу трафика — VPN отключается.")
+                        AppLogger.onUserMessage("Платный узел недоступен. Попробуйте ещё раз.")
+                    } else {
+                        AppLogger.e(TAG, "Ни один узел не подтвердил передачу трафика — VPN отключается.")
+                        AppLogger.onUserMessage("Узлы не отвечают. Попробуйте ещё раз.")
+                    }
                     stopVpn(cancelConnectionJob = false)
                     return@launch
                 }
@@ -420,7 +426,7 @@ class MirageVpnService : VpnService() {
         }
 
 
-        if (premeasuredFree.isNotEmpty()) {
+        if (!isPaidPlan && premeasuredFree.isNotEmpty()) {
             appendFreeCandidates(candidates, premeasuredFree)
         }
 
@@ -439,22 +445,14 @@ class MirageVpnService : VpnService() {
 
             if (result.trafficFlows) {
                 if (index > 0) {
-                    if (isPaidPlan) {
-                        AppLogger.w(
-                            TAG,
-                            "Платный узел не подтвердил трафик, соединение переведено на резервный: ${server.tag}"
-                        )
-                        AppLogger.onUserMessage("Платный узел недоступен. Работа через резервный узел.")
-                    } else {
-                        AppLogger.i(TAG, "Автоматическое переключение на рабочий узел: ${server.tag}")
-                    }
+                    AppLogger.i(TAG, "Автоматическое переключение на рабочий узел: ${server.tag}")
                 }
                 return server to true
             }
             AppLogger.w(TAG, "Узел ${server.tag}: трафик не подтверждён, пробуем следующий узел...")
         }
 
-        if (premeasuredFree.isEmpty()) {
+        if (!isPaidPlan && premeasuredFree.isEmpty()) {
             val freeServers = loadFreeCandidates()
             for (server in freeServers) {
                 if (candidates.any { it.address == server.address && it.port == server.port && it.uuid == server.uuid }) {
@@ -465,15 +463,7 @@ class MirageVpnService : VpnService() {
                 coreStarted = coreStarted || result.coreStarted
                 if (!isCurrentTunnel(pfd)) return null to coreStarted
                 if (result.trafficFlows) {
-                    if (isPaidPlan) {
-                        AppLogger.w(
-                            TAG,
-                            "Платный узел не подтвердил трафик, соединение переведено на резервный: ${server.tag}"
-                        )
-                        AppLogger.onUserMessage("Платный узел недоступен. Работа через резервный узел.")
-                    } else {
-                        AppLogger.i(TAG, "Автоматическое переключение на рабочий узел: ${server.tag}")
-                    }
+                    AppLogger.i(TAG, "Автоматическое переключение на рабочий узел: ${server.tag}")
                     return server to true
                 }
                 AppLogger.w(TAG, "Узел ${server.tag}: трафик не подтверждён, пробуем следующий узел...")
