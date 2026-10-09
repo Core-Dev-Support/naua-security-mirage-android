@@ -279,7 +279,11 @@ class MirageVpnService : VpnService() {
                     .setMtu(establishedTunMtu)
                     .setSession("Mirage VPN")
 
-                AppLogger.i(TAG, "Физическая сеть: ${describeUnderlyingNetwork()}, MTU туннеля: $establishedTunMtu")
+                AppLogger.i(
+            TAG,
+            "Физическая сеть: ${describeUnderlyingNetwork()}, " +
+                    "MTU туннеля: $establishedTunMtu (${mtuReason(currentNetworkCapabilities())})"
+        )
 
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                     builder.setMetered(false)
@@ -864,12 +868,35 @@ class MirageVpnService : VpnService() {
         }
     }
 
-
+    private fun currentNetworkCapabilities(): NetworkCapabilities? {
+        return try {
+            val cm = connectivityManager ?: return null
+            lastKnownNetwork?.let { cm.getNetworkCapabilities(it) }
+        } catch (_: Throwable) {
+            null
+        }
+    }
 
     private fun currentTunMtu(): Int {
         val frozen = establishedTunMtu
         if (frozen > 0) return frozen
-        return if (isCellularNetwork()) TUN_MTU_CELLULAR else TUN_MTU_WIFI
+        return tunMtuFor(currentNetworkCapabilities())
+    }
+
+    private fun tunMtuFor(caps: NetworkCapabilities?): Int {
+        if (caps == null) return TUN_MTU_WIFI
+        if (caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR)) return TUN_MTU_CELLULAR
+        val kbps = caps.linkDownstreamBandwidthKbps
+        if (kbps in 1 until WEAK_LINK_KBPS) return TUN_MTU_CELLULAR
+        return TUN_MTU_WIFI
+    }
+
+    private fun mtuReason(caps: NetworkCapabilities?): String {
+        if (caps == null) return "сеть не определена, базовое значение"
+        if (caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR)) return "мобильная сеть"
+        val kbps = caps.linkDownstreamBandwidthKbps
+        if (kbps in 1 until WEAK_LINK_KBPS) return "слабый канал ${kbps}kbps"
+        return "стабильный канал"
     }
 
      
@@ -1133,6 +1160,7 @@ class MirageVpnService : VpnService() {
 
         private const val TUN_MTU_WIFI = 1360
         private const val TUN_MTU_CELLULAR = 1280
+        private const val WEAK_LINK_KBPS = 5000
 
 
 

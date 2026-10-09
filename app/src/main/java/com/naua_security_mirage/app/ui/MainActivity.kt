@@ -12,9 +12,11 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Environment
 import android.provider.MediaStore
+import android.provider.Settings
 import androidx.core.content.FileProvider
 import com.naua_security_mirage.app.BuildConfig
 import com.naua_security_mirage.app.util.AppLogger
+import com.naua_security_mirage.app.vpn.PrivateDnsInspector
 import com.naua_security_mirage.app.util.AppShield
 import com.naua_security_mirage.app.util.AnimationHelper
 import com.naua_security_mirage.app.util.AppUpdateManager
@@ -430,6 +432,16 @@ class MainActivity : AppCompatActivity() {
         binding.btnSettings.setOnClickListener {
             AnimationHelper.bounceClick(binding.btnSettings, minScale = 0.88f, durationMs = 180)
             openSettings()
+        }
+
+        binding.rowPrivateDns.setOnClickListener {
+            AnimationHelper.bounceClick(binding.rowPrivateDns, minScale = 0.98f, durationMs = 150)
+            openPrivateDnsSettings()
+        }
+
+        binding.tvPrivateDnsAction.setOnClickListener {
+            AnimationHelper.bounceClick(binding.tvPrivateDnsAction, minScale = 0.93f, durationMs = 150)
+            openPrivateDnsSettings()
         }
 
         binding.btnBackFromSettings.setOnClickListener {
@@ -1448,6 +1460,37 @@ class MainActivity : AppCompatActivity() {
         AnimationHelper.fadeAndSlideOut(binding.viewMain, toX = -slideDist, durationMs = 210)
         AnimationHelper.fadeAndSlideIn(binding.viewSettings, fromX = slideDist, durationMs = 230)
         binding.hintCard.visibility = View.GONE
+        refreshPrivateDnsRow()
+    }
+
+    private fun refreshPrivateDnsRow() {
+        val state = PrivateDnsInspector.read(this)
+        binding.tvPrivateDnsState.text = when (state.mode) {
+            PrivateDnsInspector.Mode.OFF -> getString(R.string.private_dns_state_off)
+            PrivateDnsInspector.Mode.OPPORTUNISTIC -> getString(R.string.private_dns_state_auto)
+            PrivateDnsInspector.Mode.STRICT ->
+                getString(R.string.private_dns_state_strict, state.specifier ?: "?")
+            PrivateDnsInspector.Mode.UNKNOWN -> getString(R.string.private_dns_state_unknown)
+        }
+        val risky = state.mode == PrivateDnsInspector.Mode.STRICT
+        binding.tvPrivateDnsState.setTextColor(
+            if (risky) Color.parseColor("#${Integer.toHexString(ContextCompat.getColor(this, R.color.danger))}")
+            else Color.parseColor("#${Integer.toHexString(ContextCompat.getColor(this, R.color.ink_faint))}")
+        )
+        binding.tvPrivateDnsAction.visibility = if (risky) View.VISIBLE else View.GONE
+    }
+
+    private fun openPrivateDnsSettings() {
+        val intent = Intent(Settings.ACTION_PRIVATE_DNS_SETTINGS)
+        try {
+            startActivity(intent)
+        } catch (_: Throwable) {
+            try {
+                startActivity(Intent(Settings.ACTION_SETTINGS))
+            } catch (_: Throwable) {
+                AppLogger.w("PrivateDns", "Не удалось открыть настройки Android")
+            }
+        }
     }
 
     private fun closeSettings() {

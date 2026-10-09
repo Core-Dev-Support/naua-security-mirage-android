@@ -34,7 +34,7 @@ class XrayVpnController(private val vpnService: VpnService) {
         vpnService.getSharedPreferences(GEO_PREFS, android.content.Context.MODE_PRIVATE)
     }
 
-    fun startXray(server: VlessServer, tunFd: Int, mtu: Int = TUN_MTU_WIFI): Pair<Boolean, String?> {
+    fun startXray(server: VlessServer, tunFd: Int, mtu: Int = DEFAULT_TUN_MTU): Pair<Boolean, String?> {
         try {
 
             try {
@@ -1226,8 +1226,7 @@ class XrayVpnController(private val vpnService: VpnService) {
 
         private const val REALITY_MUX_CONCURRENCY = 8
 
-        private const val TUN_MTU_WIFI = 1400
-        private const val TUN_MTU_CELLULAR = 1280
+        private const val DEFAULT_TUN_MTU = 1360
 
         private const val HOST_RESOLVE_TTL_MS = 5 * 60 * 1000L
 

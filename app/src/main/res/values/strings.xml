@@ -102,6 +102,13 @@
     <string name="update_dialog_close">Закрыть</string>
     <string name="update_dialog_browser_btn">Скачать в браузере</string>
     <string name="private_dns_conflict">Включён «Частный DNS». Рекомендуем поставить «Выкл.» или «Автоматически» — иначе бывают проблемы с подключением.</string>
+    <string name="private_dns_title">Частный DNS Android</string>
+    <string name="private_dns_reading">Определяем состояние…</string>
+    <string name="private_dns_open_settings">Настроить</string>
+    <string name="private_dns_state_off">Выключен — VPN использует свой DNS</string>
+    <string name="private_dns_state_auto">Автоматически — обычно совместимо</string>
+    <string name="private_dns_state_strict">Провайдер %1$s — может мешать VPN</string>
+    <string name="private_dns_state_unknown">Не удалось определить</string>
     <string name="update_download_progress_format">Загрузка: %1$d%% (%2$s / %3$s)</string>
     <string name="update_download_preparing">Подготовка к загрузке…</string>
     <string name="update_download_failed">Не удалось скачать файл. Попробуйте через браузер.</string>
