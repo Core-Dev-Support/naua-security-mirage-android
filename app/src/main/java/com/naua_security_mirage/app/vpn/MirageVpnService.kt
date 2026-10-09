@@ -12,6 +12,7 @@ import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.ParcelFileDescriptor
 import android.util.Log
+import com.naua_security_mirage.app.R
 import com.naua_security_mirage.app.data.model.VlessServer
 import com.naua_security_mirage.app.data.model.VpnState
 import com.naua_security_mirage.app.data.repository.DeviceIdRepository
