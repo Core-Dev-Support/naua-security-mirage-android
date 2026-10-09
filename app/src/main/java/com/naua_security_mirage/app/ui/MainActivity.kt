@@ -1376,13 +1376,13 @@ class MainActivity : AppCompatActivity() {
                         null
                     }
 
-                    val statusText = if (francePingText != null) "$francePingText · $pingText" else pingText
+                    val statusText = if (francePingText != null) francePingText else pingText
                     AppLogger.i(
                         "DataRefresh",
                         if (isPaidPlan) {
-                            "Обновление завершено. Франция $francePingText, бесплатный ${best.tag} $pingText"
+                            "Обновление завершено. Показан пинг Франции $francePingText, бесплатные обновлены: ${best.tag} $pingText"
                         } else {
-                            "Обновление завершено. Лучший бесплатный ${best.tag} $pingText"
+                            "Обновление завершено. Показан пинг бесплатного ${best.tag} $pingText"
                         }
                     )
                     withContext(Dispatchers.Main) {
