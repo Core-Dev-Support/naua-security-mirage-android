@@ -1208,7 +1208,7 @@ class XrayVpnController(private val vpnService: VpnService) {
 
         private val resolvedHostCache = java.util.concurrent.ConcurrentHashMap<String, ResolvedHost>()
 
-        private const val XHTTP_POSTS_INTERVAL_MS = 5
+        private const val XHTTP_POSTS_INTERVAL_MS = 20
 
         private val PROBE_TARGETS = listOf(
             "1.1.1.1" to 80
