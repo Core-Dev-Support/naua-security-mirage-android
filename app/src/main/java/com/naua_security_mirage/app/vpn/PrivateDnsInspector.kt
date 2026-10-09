@@ -10,33 +10,47 @@ object PrivateDnsInspector {
     data class State(
         val mode: Mode,
         val specifier: String?,
-        val rawMode: Int,
-        val readError: String?
+        val rawModeText: String?,
+        val rawModeInt: Int
     )
 
     fun read(context: Context): State {
-        var rawMode = -1
-        var specifier: String? = null
-        var error: String? = null
+        val resolver = context.contentResolver
+
+        var rawModeText: String? = null
         try {
-            val resolver = context.contentResolver
-            rawMode = Settings.Global.getInt(resolver, KEY_MODE, -1)
-        } catch (t: Throwable) {
-            error = t.javaClass.simpleName + ": " + t.message
-        }
-        try {
-            specifier = Settings.Global.getString(context.contentResolver, KEY_SPECIFIER)
-                ?.takeIf { it.isNotBlank() }
+            rawModeText = Settings.Global.getString(resolver, KEY_MODE)?.trim()
         } catch (_: Throwable) {
         }
 
-        val mode = when (rawMode) {
-            MODE_OFF -> Mode.OFF
-            MODE_OPPORTUNISTIC -> Mode.OPPORTUNISTIC
-            MODE_STRICT -> Mode.STRICT
-            else -> Mode.UNKNOWN
+        var rawModeInt = -1
+        try {
+            rawModeInt = Settings.Global.getInt(resolver, KEY_MODE, -1)
+        } catch (_: Throwable) {
         }
-        return State(mode, specifier, rawMode, error)
+
+        var specifier: String? = null
+        try {
+            specifier = Settings.Global.getString(resolver, KEY_SPECIFIER)?.trim()
+        } catch (_: Throwable) {
+        }
+
+        val mode = when {
+            !rawModeText.isNullOrEmpty() -> when (rawModeText!!.lowercase()) {
+                TEXT_OFF -> Mode.OFF
+                TEXT_OPPORTUNISTIC -> Mode.OPPORTUNISTIC
+                TEXT_STRICT -> Mode.STRICT
+                else -> Mode.UNKNOWN
+            }
+            else -> when (rawModeInt) {
+                MODE_OFF -> Mode.OFF
+                MODE_OPPORTUNISTIC -> Mode.OPPORTUNISTIC
+                MODE_STRICT -> Mode.STRICT
+                else -> Mode.UNKNOWN
+            }
+        }
+
+        return State(mode, specifier?.takeIf { it.isNotEmpty() }, rawModeText, rawModeInt)
     }
 
     fun describe(state: State): String {
@@ -46,14 +60,18 @@ object PrivateDnsInspector {
             Mode.STRICT -> "строгий, провайдер=${state.specifier ?: "не указан"}"
             Mode.UNKNOWN -> "не удалось прочитать"
         }
-        val raw = "raw=${state.rawMode}"
-        val err = state.readError?.let { " ошибка=$it" } ?: ""
+        val raw = "text=${state.rawModeText ?: "-"} int=${state.rawModeInt}"
         val spec = state.specifier?.let { " specifier=$it" } ?: ""
-        return "$base ($raw$spec$err)"
+        return "$base ($raw$spec)"
     }
 
     private const val KEY_MODE = "private_dns_mode"
     private const val KEY_SPECIFIER = "private_dns_specifier"
+
+    private const val TEXT_OFF = "off"
+    private const val TEXT_OPPORTUNISTIC = "opportunistic"
+    private const val TEXT_STRICT = "strict"
+
     private const val MODE_OFF = 0
     private const val MODE_OPPORTUNISTIC = 1
     private const val MODE_STRICT = 2

@@ -56,7 +56,7 @@ object SubscriptionExpiryNotifier {
             }
 
             createChannel(context)
-            post(context, days, matched)
+            post(context, days)
 
             prefs.edit()
                 .putString(KEY_LAST_NOTIFIED_FOR, paidUntil)
@@ -77,7 +77,7 @@ object SubscriptionExpiryNotifier {
     }
 
     @android.annotation.SuppressLint("MissingPermission")
-    private fun post(context: Context, daysRemaining: Int, threshold: Int) {
+    private fun post(context: Context, daysRemaining: Int) {
         val intent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
             putExtra(MainActivity.EXTRA_SHOW_SUBSCRIPTION, true)
@@ -89,10 +89,11 @@ object SubscriptionExpiryNotifier {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
 
-        val title = if (threshold == 1) {
-            context.getString(R.string.subscription_expiring_tomorrow_title)
-        } else {
-            context.getString(R.string.subscription_expiring_days_title, threshold)
+        val title = when (daysRemaining) {
+            1 -> context.getString(R.string.subscription_expiring_tomorrow_title)
+            2 -> context.getString(R.string.subscription_expiring_two_days_title)
+            3 -> context.getString(R.string.subscription_expiring_three_days_title)
+            else -> context.getString(R.string.subscription_expiring_days_title, daysRemaining)
         }
         val body = context.getString(R.string.subscription_expiring_body, daysRemaining)
 

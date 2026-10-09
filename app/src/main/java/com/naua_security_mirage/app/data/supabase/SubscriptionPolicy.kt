@@ -61,7 +61,7 @@ object SubscriptionPolicy {
 
     fun expiryReminderStep(daysRemaining: Int): Int? {
         if (daysRemaining <= 0) return null
-        return REMINDER_DAYS.filter { it <= daysRemaining }.maxOrNull()
+        return REMINDER_DAYS.filter { daysRemaining <= it }.minOrNull()
     }
 
     private val REMINDER_DAYS = intArrayOf(3, 1)

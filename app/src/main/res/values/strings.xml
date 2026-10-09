@@ -111,8 +111,10 @@
     <string name="private_dns_state_unknown">Не удалось определить</string>
     <string name="subscription_channel_name">Подписка</string>
     <string name="subscription_channel_description">Напоминания %1$s об окончании подписки</string>
-    <string name="subscription_expiring_days_title">Подписка истекает через %1$d дня</string>
+    <string name="subscription_expiring_days_title">Подписка истекает через %1$d дн.</string>
     <string name="subscription_expiring_tomorrow_title">Подписка истекает завтра</string>
+    <string name="subscription_expiring_two_days_title">Подписка истекает через 2 дня</string>
+    <string name="subscription_expiring_three_days_title">Подписка истекает через 3 дня</string>
     <string name="subscription_expiring_body">Осталось %1$d дн. Продлите, чтобы не потерять платный узел.</string>
     <string name="update_download_progress_format">Загрузка: %1$d%% (%2$s / %3$s)</string>
     <string name="update_download_preparing">Подготовка к загрузке…</string>
