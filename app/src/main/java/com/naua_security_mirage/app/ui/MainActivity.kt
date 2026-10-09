@@ -728,14 +728,14 @@ class MainActivity : AppCompatActivity() {
         lifecycleScope.launch {
             com.naua_security_mirage.app.data.supabase.SupabaseManager.instance.subscription.collect { sub ->
                 updateAccountCardUI()
-                if (sub != null) {
-                    val hasSub = com.naua_security_mirage.app.data.supabase.SupabaseManager.instance.hasActiveSubscription()
-                    if (!hasSub && settingsRepository.selectedServerPlan == SettingsRepository.PLAN_PREMIUM_FRANCE) {
-                        settingsRepository.selectedServerPlan = SettingsRepository.PLAN_FREE
-                        updateServerPlanSelectorUI()
-                        if (MirageVpnService.vpnState.value == VpnState.CONNECTED) {
-                            handleServerPlanChanged()
-                        }
+                if (sub != null &&
+                    !sub.isActive &&
+                    settingsRepository.selectedServerPlan == SettingsRepository.PLAN_PREMIUM_FRANCE
+                ) {
+                    settingsRepository.selectedServerPlan = SettingsRepository.PLAN_FREE
+                    updateServerPlanSelectorUI()
+                    if (MirageVpnService.vpnState.value == VpnState.CONNECTED) {
+                        handleServerPlanChanged()
                     }
                 }
             }

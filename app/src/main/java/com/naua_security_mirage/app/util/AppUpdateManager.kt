@@ -387,7 +387,6 @@ object AppUpdateManager {
         btnLater.setOnClickListener {
             AnimationHelper.bounceClick(btnLater, minScale = 0.94f, durationMs = 150) {
                 cancelDownload()
-                dialog.dismiss()
             }
         }
 
