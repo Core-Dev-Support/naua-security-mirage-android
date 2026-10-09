@@ -60,6 +60,8 @@ class MirageVpnService : VpnService() {
     private var connectivityManager: ConnectivityManager? = null
     private var networkCallback: ConnectivityManager.NetworkCallback? = null
     private var lastKnownNetwork: Network? = null
+    @Volatile
+    private var lastPrivateDnsWarningAt = 0L
 
      
     private var establishedTunMtu: Int = 0
@@ -361,6 +363,8 @@ class MirageVpnService : VpnService() {
                 _vpnState.value = VpnState.CONNECTED
                 AppLogger.i(TAG, "VPN State changed to CONNECTED. Маршрутизация защищенного трафика через ${activeServer.tag} (Endpoint: Зашифрован)")
 
+                serviceScope.launch(Dispatchers.IO) { checkPrivateDnsCompatibility(pfd) }
+
 
                 if (activeServer.pingMs in 1..9998) {
                     _activePing.value = activeServer.pingMs
@@ -470,6 +474,37 @@ class MirageVpnService : VpnService() {
             }
         }
         return null to coreStarted
+    }
+
+    private suspend fun checkPrivateDnsCompatibility(pfd: ParcelFileDescriptor) {
+        delay(1500)
+        if (!isCurrentTunnel(pfd)) return
+
+        val state = PrivateDnsInspector.read(this)
+        AppLogger.i(TAG, "Частный DNS: ${PrivateDnsInspector.describe(state)}")
+
+        if (state.mode != PrivateDnsInspector.Mode.STRICT) return
+
+        val specifier = state.specifier?.trim().orEmpty()
+        if (specifier.isEmpty()) {
+            AppLogger.w(TAG, "Частный DNS строгий, но провайдер не указан — проверка пропущена")
+            return
+        }
+
+        val reachable = xrayController?.probeTcpViaSocks(specifier, 853, 4000) == true
+        if (reachable) {
+            AppLogger.i(TAG, "Частный DNS ($specifier:853) отвечает через туннель — конфликта нет")
+            return
+        }
+
+        AppLogger.w(
+            TAG,
+            "Частный DNS ($specifier:853) не отвечает через туннель, хотя трафик туннеля только что проверен"
+        )
+        val now = System.currentTimeMillis()
+        if (now - lastPrivateDnsWarningAt < PRIVATE_DNS_WARNING_COOLDOWN_MS) return
+        lastPrivateDnsWarningAt = now
+        AppLogger.onUserMessage(getString(R.string.private_dns_conflict))
     }
 
     private suspend fun loadFreeCandidates(): List<VlessServer> {
@@ -1098,6 +1133,7 @@ class MirageVpnService : VpnService() {
     companion object {
         private const val TAG = "MirageVpnService"
         private const val PAID_TAG_PREFIX = "Франция"
+        private const val PRIVATE_DNS_WARNING_COOLDOWN_MS = 30 * 60 * 1000L
 
          
         private const val CORE_SETTLE_MS = 1_500L

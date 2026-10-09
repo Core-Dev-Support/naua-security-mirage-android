@@ -387,6 +387,67 @@ class XrayVpnController(private val vpnService: VpnService) {
         }
     }
 
+    fun probeTcpViaSocks(host: String, port: Int, timeoutMs: Int = 4000): Boolean {
+        var socket: java.net.Socket? = null
+        return try {
+            val ip = java.net.InetAddress.getByName(host).address
+            if (ip.size != 4) return false
+
+            socket = java.net.Socket()
+            socket.connect(java.net.InetSocketAddress("127.0.0.1", SOCKS_PORT), timeoutMs)
+            socket.soTimeout = timeoutMs
+            val output = socket.getOutputStream()
+            val input = socket.getInputStream()
+
+            output.write(byteArrayOf(0x05, 0x01, 0x00))
+            output.flush()
+            val greeting = ByteArray(2)
+            readFully(input, greeting, 2)
+            if (greeting[0] != 0x05.toByte() || greeting[1] != 0x00.toByte()) {
+                AppLogger.w(TAG, "SOCKS ещё не отвечает при проверке $host:$port")
+                return false
+            }
+
+            val request = ByteArray(10)
+            request[0] = 0x05
+            request[1] = 0x01
+            request[2] = 0x00
+            request[3] = 0x01
+            System.arraycopy(ip, 0, request, 4, 4)
+            request[8] = ((port shr 8) and 0xFF).toByte()
+            request[9] = (port and 0xFF).toByte()
+            output.write(request)
+            output.flush()
+
+            val header = ByteArray(4)
+            readFully(input, header, 4)
+            val replyCode = header[1].toInt() and 0xFF
+            if (header[0] != 0x05.toByte() || replyCode != 0x00) {
+                AppLogger.w(TAG, "SOCKS5 проверка $host:$port отклонена, код $replyCode")
+                return false
+            }
+            val addrLen = when (header[3].toInt()) {
+                0x01 -> 4
+                0x04 -> 16
+                0x03 -> {
+                    val len = ByteArray(1)
+                    readFully(input, len, 1)
+                    len[0].toInt() and 0xFF
+                }
+                else -> return false
+            }
+            readFully(input, ByteArray(addrLen + 2), addrLen + 2)
+            true
+        } catch (t: Throwable) {
+            AppLogger.w(TAG, "Проверка $host:$port не пройдена: ${t.javaClass.simpleName}: ${t.message}")
+            false
+        } finally {
+            try {
+                socket?.close()
+            } catch (_: Throwable) {}
+        }
+    }
+
     private fun probeHttpsDomain(host: String, port: Int, timeoutMs: Int): Boolean {
         var socket: Socket? = null
         var tlsSocket: SSLSocket? = null

@@ -101,6 +101,7 @@
     <string name="update_dialog_download_browser">Скачать через браузер</string>
     <string name="update_dialog_close">Закрыть</string>
     <string name="update_dialog_browser_btn">Скачать в браузере</string>
+    <string name="private_dns_conflict">Частный DNS в настройках Android недоступен через туннель. Поставьте «Частный DNS» → Выкл. или Автоматически.</string>
     <string name="update_download_progress_format">Загрузка: %1$d%% (%2$s / %3$s)</string>
     <string name="update_download_preparing">Подготовка к загрузке…</string>
     <string name="update_download_failed">Не удалось скачать файл. Попробуйте через браузер.</string>
