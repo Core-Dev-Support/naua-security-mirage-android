@@ -268,6 +268,8 @@ class XrayVpnController(private val vpnService: VpnService) {
         } finally {
             if (protectCalls > 0 || protectFailures > 0) {
                 AppLogger.w(TAG, "Socket protection calls=$protectCalls failures=$protectFailures")
+                protectCalls = 0
+                protectFailures = 0
             }
             isStarted = false
         }

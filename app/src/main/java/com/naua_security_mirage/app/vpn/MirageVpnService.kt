@@ -50,6 +50,7 @@ class MirageVpnService : VpnService() {
     private var pingJob: Job? = null
     private var timerJob: Job? = null
     private var speedJob: Job? = null
+    private var watchdogJob: Job? = null
 
     private var vpnInterface: ParcelFileDescriptor? = null
     private lateinit var notificationManager: VpnNotificationManager
@@ -396,6 +397,8 @@ class MirageVpnService : VpnService() {
 
                 startSpeedMonitoring()
 
+                startTunnelWatchdog(activeServer)
+
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
             } catch (e: Throwable) {
@@ -502,8 +505,12 @@ class MirageVpnService : VpnService() {
     private suspend fun loadFreeCandidates(): List<VlessServer> {
         return try {
             val freeServers = vlessKeyRepository.getVlessServers()
-            val measured = pingRepository.measureAllPings(freeServers)
-            val ordered = measured.sortedBy { if (it.pingMs in 1..9998) it.pingMs else Long.MAX_VALUE }
+            val ordered = if (freeServers.size > 1) {
+                pingRepository.measureAllPings(freeServers)
+                    .sortedBy { if (it.pingMs in 1..9998) it.pingMs else Long.MAX_VALUE }
+            } else {
+                freeServers
+            }
             AppLogger.i(TAG, "Подготовлено резервных бесплатных узлов: ${ordered.size}")
             ordered
         } catch (e: Throwable) {
@@ -697,15 +704,13 @@ class MirageVpnService : VpnService() {
         pingJob = serviceScope.launch {
             while (isActive && _vpnState.value == VpnState.CONNECTED) {
                 val intervalSec = settingsRepository.autoPingIntervalSeconds
-                if (intervalSec <= 0) {
+                if (intervalSec <= 0) break
 
-                    delay(15_000)
-                    continue
-                }
                 delay(intervalSec * 1000L)
                 if (!isActive || _vpnState.value != VpnState.CONNECTED) break
 
-                val ping = pingRepository.measurePing(server, timeoutMs = 2000) { socket ->
+                val target = _activeServer.value ?: server
+                val ping = pingRepository.measurePing(target, timeoutMs = 2000) { socket ->
                     try {
                         protect(socket)
                     } catch (t: Throwable) {
@@ -719,6 +724,8 @@ class MirageVpnService : VpnService() {
                     } else {
                         _activePing.value = ping
                     }
+                } else {
+                    AppLogger.w(TAG, "Автопинг узла ${target.tag} не ответил")
                 }
             }
         }
@@ -742,11 +749,7 @@ class MirageVpnService : VpnService() {
                 val intervalSec = settingsRepository.speedIntervalSeconds
                 if (intervalSec <= 0) {
                     _activeSpeed.value = SpeedInfo(0L, 0L, isEnabled = false)
-                    delay(1000)
-                    lastRx = if (useTotal) TrafficStats.getTotalRxBytes() else TrafficStats.getUidRxBytes(myUid)
-                    lastTx = if (useTotal) TrafficStats.getTotalTxBytes() else TrafficStats.getUidTxBytes(myUid)
-                    lastTime = System.currentTimeMillis()
-                    continue
+                    break
                 }
 
                 delay(intervalSec * 1000L)
@@ -770,13 +773,58 @@ class MirageVpnService : VpnService() {
         }
     }
 
+    private fun startTunnelWatchdog(server: VlessServer) {
+        watchdogJob?.cancel()
+        watchdogJob = serviceScope.launch {
+            var failures = 0
+            while (isActive && _vpnState.value == VpnState.CONNECTED) {
+                delay(WATCHDOG_INTERVAL_MS)
+                if (!isActive || _vpnState.value != VpnState.CONNECTED) break
+
+                val alive = withContext(Dispatchers.IO) {
+                    xrayController?.verifyDataPlane(WATCHDOG_PROBE_MS) == true
+                }
+                if (alive) {
+                    if (failures > 0) {
+                        AppLogger.i(TAG, "Туннель ожил после $failures неудачных проверок")
+                    }
+                    failures = 0
+                    continue
+                }
+
+                failures++
+                AppLogger.w(
+                    TAG,
+                    "Сторож: узел ${server.tag} не передаёт трафик, неудачных проверок подряд: $failures"
+                )
+                if (failures >= WATCHDOG_MAX_FAILURES) {
+                    AppLogger.e(
+                        TAG,
+                        "Сторож: туннель признан нерабочим после $failures проверок — отключаю"
+                    )
+                    AppLogger.onUserMessage("Соединение зависло. Отключаю, попробуйте подключиться снова.")
+                    _tunnelHealthy.value = false
+                    stopVpn(cancelConnectionJob = false)
+                    return@launch
+                }
+            }
+        }
+    }
+
     private fun stopVpn(cancelConnectionJob: Boolean = true, stopService: Boolean = true) {
+        if (_vpnState.value == VpnState.DISCONNECTED && vpnInterface == null) {
+            AppLogger.d(TAG, "Повторная остановка пропущена: туннель уже закрыт")
+            if (stopService) stopSelf()
+            return
+        }
+
         _vpnState.value = VpnState.DISCONNECTING
         unregisterNetworkMonitoring()
         if (cancelConnectionJob) connectionJob?.cancel()
         pingJob?.cancel()
         timerJob?.cancel()
         speedJob?.cancel()
+        watchdogJob?.cancel()
 
         try {
             xrayController?.stopXray()
@@ -1161,6 +1209,9 @@ class MirageVpnService : VpnService() {
         private const val TUN_MTU_WIFI = 1360
         private const val TUN_MTU_CELLULAR = 1280
         private const val WEAK_LINK_KBPS = 5000
+        private const val WATCHDOG_INTERVAL_MS = 60_000L
+        private const val WATCHDOG_PROBE_MS = 6000
+        private const val WATCHDOG_MAX_FAILURES = 3
 
 
 
