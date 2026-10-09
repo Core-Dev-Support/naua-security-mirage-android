@@ -355,12 +355,13 @@ object AppUpdateManager {
         tvChangelog.text = updateInfo.changelog
         tvChangelog.setTextColor(subtitleTextColor)
         ivIcon.imageTintList = ColorStateList.valueOf(accentColor)
-        btnLater.setTextColor(subtitleTextColor)
+        val dangerColor = ContextCompat.getColor(activity, R.color.danger)
+        btnLater.setTextColor(dangerColor)
         btnLater.background = GradientDrawable().apply {
             shape = GradientDrawable.RECTANGLE
             cornerRadius = 14f * density
-            setColor(cardBgColor)
-            setStroke((1f * density).toInt(), strokeColor)
+            setColor(ColorUtils.setAlphaComponent(dangerColor, 28))
+            setStroke((1f * density).toInt(), ColorUtils.setAlphaComponent(dangerColor, 140))
         }
         btnBrowser.background = GradientDrawable().apply {
             shape = GradientDrawable.RECTANGLE

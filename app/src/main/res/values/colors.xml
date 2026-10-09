@@ -11,6 +11,7 @@
     <color name="accent">#E8A33D</color>
     <color name="amber_deep">#C9722A</color>
     <color name="amber_light">#F3B65C</color>
+  <color name="danger">#E06B72</color>
     <color name="power_icon_color">#2A1706</color>
     <color name="power_icon_connected">#2A1706</color>
     <color name="power_icon_disconnected">#E8A33D</color>

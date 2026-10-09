@@ -1360,14 +1360,29 @@ class MainActivity : AppCompatActivity() {
                         AppLogger.d("DataRefresh", "Узел ${s.tag} -> пинг: $pingStr")
                     }
                     val best = pingRepository.selectBestServer(measured)
-                    val pingText = if (best.pingMs in 1..9998) "${best.pingMs} ms" else "Доступен"
+                    val pingText = if (best.pingMs in 1..9998) "${best.pingMs} ms" else "таймаут"
                     val isPaidPlan = settingsRepository.selectedServerPlan == SettingsRepository.PLAN_PREMIUM_FRANCE
+
+                    val francePingText = if (isPaidPlan) {
+                        runCatching {
+                            val manager = com.naua_security_mirage.app.data.supabase.SupabaseManager.instance
+                            val uuid = manager.getActiveClientUuid()
+                            val france = com.naua_security_mirage.app.data.supabase.SupabaseConfig
+                                .getFranceServer(uuid, manager.getActiveClientFlow(uuid))
+                            val p = pingRepository.measurePing(france, timeoutMs = 2500)
+                            if (p in 1..9998) "$p ms" else "таймаут"
+                        }.getOrNull() ?: "таймаут"
+                    } else {
+                        null
+                    }
+
+                    val statusText = if (francePingText != null) "$francePingText · $pingText" else pingText
                     AppLogger.i(
                         "DataRefresh",
                         if (isPaidPlan) {
-                            "Обновление данных завершено. Выбран узел не менялся: Франция (платный), задержка бесплатных: ${best.tag} $pingText"
+                            "Обновление завершено. Франция $francePingText, бесплатный ${best.tag} $pingText"
                         } else {
-                            "Обновление данных завершено. Лучший из бесплатных: ${best.tag} ($pingText)"
+                            "Обновление завершено. Лучший бесплатный ${best.tag} $pingText"
                         }
                     )
                     withContext(Dispatchers.Main) {
@@ -1375,12 +1390,8 @@ class MainActivity : AppCompatActivity() {
                         refreshAnimationJob?.cancel()
                         binding.ivRefreshIcon.rotation = 0f
                         if (MirageVpnService.vpnState.value == VpnState.DISCONNECTED) {
-                            lastMeasuredServerInfo = if (isPaidPlan) {
-                                getString(R.string.paid_node_label)
-                            } else {
-                                pingText
-                            }
-                            binding.tvStatusSub.text = lastMeasuredServerInfo
+                            lastMeasuredServerInfo = statusText
+                            binding.tvStatusSub.text = statusText
                         }
                     }
                 } catch (e: Throwable) {
