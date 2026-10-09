@@ -483,27 +483,14 @@ class MirageVpnService : VpnService() {
         val state = PrivateDnsInspector.read(this)
         AppLogger.i(TAG, "Частный DNS: ${PrivateDnsInspector.describe(state)}")
 
-        if (state.mode != PrivateDnsInspector.Mode.STRICT) return
+        val enabled = state.mode == PrivateDnsInspector.Mode.STRICT ||
+                state.mode == PrivateDnsInspector.Mode.OPPORTUNISTIC
+        if (!enabled) return
 
-        val specifier = state.specifier?.trim().orEmpty()
-        if (specifier.isEmpty()) {
-            AppLogger.w(TAG, "Частный DNS строгий, но провайдер не указан — проверка пропущена")
-            return
-        }
-
-        val reachable = xrayController?.probeTcpViaSocks(specifier, 853, 4000) == true
-        if (reachable) {
-            AppLogger.i(TAG, "Частный DNS ($specifier:853) отвечает через туннель — конфликта нет")
-            return
-        }
-
-        AppLogger.w(
-            TAG,
-            "Частный DNS ($specifier:853) не отвечает через туннель, хотя трафик туннеля только что проверен"
-        )
         val now = System.currentTimeMillis()
         if (now - lastPrivateDnsWarningAt < PRIVATE_DNS_WARNING_COOLDOWN_MS) return
         lastPrivateDnsWarningAt = now
+        AppLogger.w(TAG, "Частный DNS включён — рекомендуем Выкл. или Автоматически")
         AppLogger.onUserMessage(getString(R.string.private_dns_conflict))
     }
 
