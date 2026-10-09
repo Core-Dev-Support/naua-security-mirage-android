@@ -220,6 +220,14 @@ class XrayVpnController(private val vpnService: VpnService) {
                     "mtu=$tunMtu " +
                     "outboundTag=${proxy.get("tag")?.asString}"
             )
+            val dnsBlock = root.getAsJsonObject("dns")
+            AppLogger.i(
+                TAG,
+                "DNS shape: upstreams=${summariseDnsServers(dnsBlock?.get("servers"))} " +
+                    "queryStrategy=${dnsBlock?.get("queryStrategy")?.asString ?: "absent"} " +
+                    "parallel=${dnsBlock?.get("enableParallelQuery")?.asBoolean ?: false} " +
+                    "cacheEnabled=${!(dnsBlock?.get("disableCache")?.asBoolean ?: true)}"
+            )
         } catch (e: Throwable) {
             AppLogger.w(TAG, "Не удалось снять форму конфига: ${e.message}")
         }
@@ -228,6 +236,18 @@ class XrayVpnController(private val vpnService: VpnService) {
     private fun sha(value: String): String {
         val digest = java.security.MessageDigest.getInstance("SHA-256").digest(value.toByteArray())
         return digest.joinToString("") { "%02x".format(it) }
+    }
+
+    private fun summariseDnsServers(servers: com.google.gson.JsonElement?): String {
+        val arr = servers?.takeIf { it.isJsonArray }?.asJsonArray ?: return "absent"
+        val out = ArrayList<String>(arr.size())
+        for (i in 0 until arr.size()) {
+            val el = arr.get(i)
+            out += if (el.isJsonPrimitive) el.asString else {
+                el.asJsonObject.get("address")?.asString ?: "?"
+            }
+        }
+        return "${out.size}:${out.joinToString(",")}"
     }
 
     private fun explicitResultContainsSuccess(value: String): Boolean {
@@ -674,6 +694,14 @@ class XrayVpnController(private val vpnService: VpnService) {
             add("hosts", hosts)
 
             val servers = JsonArray().apply {
+
+                add(JsonObject().apply {
+                    addProperty("address", "https://cloudflare-dns.com/dns-query")
+                })
+
+                add(JsonObject().apply {
+                    addProperty("address", "https://dns.google/dns-query")
+                })
 
                 add("tcp://1.1.1.1:53")
                 add("tcp://8.8.8.8:53")
