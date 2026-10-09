@@ -420,7 +420,7 @@ class MirageVpnService : VpnService() {
         }
 
 
-        if (!isPaidPlan && premeasuredFree.isNotEmpty()) {
+        if (premeasuredFree.isNotEmpty()) {
             appendFreeCandidates(candidates, premeasuredFree)
         }
 
@@ -439,14 +439,22 @@ class MirageVpnService : VpnService() {
 
             if (result.trafficFlows) {
                 if (index > 0) {
-                    AppLogger.i(TAG, "Автоматическое переключение на рабочий узел: ${server.tag}")
+                    if (isPaidPlan) {
+                        AppLogger.w(
+                            TAG,
+                            "Платный узел не подтвердил трафик, соединение переведено на резервный: ${server.tag}"
+                        )
+                        AppLogger.onUserMessage("Платный узел недоступен. Работа через резервный узел.")
+                    } else {
+                        AppLogger.i(TAG, "Автоматическое переключение на рабочий узел: ${server.tag}")
+                    }
                 }
                 return server to true
             }
             AppLogger.w(TAG, "Узел ${server.tag}: трафик не подтверждён, пробуем следующий узел...")
         }
 
-        if (!isPaidPlan && premeasuredFree.isEmpty()) {
+        if (premeasuredFree.isEmpty()) {
             val freeServers = loadFreeCandidates()
             for (server in freeServers) {
                 if (candidates.any { it.address == server.address && it.port == server.port && it.uuid == server.uuid }) {
@@ -457,7 +465,15 @@ class MirageVpnService : VpnService() {
                 coreStarted = coreStarted || result.coreStarted
                 if (!isCurrentTunnel(pfd)) return null to coreStarted
                 if (result.trafficFlows) {
-                    AppLogger.i(TAG, "Автоматическое переключение на рабочий узел: ${server.tag}")
+                    if (isPaidPlan) {
+                        AppLogger.w(
+                            TAG,
+                            "Платный узел не подтвердил трафик, соединение переведено на резервный: ${server.tag}"
+                        )
+                        AppLogger.onUserMessage("Платный узел недоступен. Работа через резервный узел.")
+                    } else {
+                        AppLogger.i(TAG, "Автоматическое переключение на рабочий узел: ${server.tag}")
+                    }
                     return server to true
                 }
                 AppLogger.w(TAG, "Узел ${server.tag}: трафик не подтверждён, пробуем следующий узел...")
