@@ -30,6 +30,10 @@ class XrayVpnController(private val vpnService: VpnService) {
     private var protectFailures = 0
     private var protectCalls = 0
 
+    private val geoDataFlag: android.content.SharedPreferences by lazy {
+        vpnService.getSharedPreferences(GEO_PREFS, android.content.Context.MODE_PRIVATE)
+    }
+
     fun startXray(server: VlessServer, tunFd: Int, mtu: Int = TUN_MTU_WIFI): Pair<Boolean, String?> {
         try {
 
@@ -94,6 +98,11 @@ class XrayVpnController(private val vpnService: VpnService) {
             } catch (_: Throwable) {}
 
             val geoRoutingRepo = GeoRoutingRepository(vpnService)
+            if (geoDataFlag.getBoolean(KEY_GEO_BROKEN, false)) {
+                geoDataFlag.edit().putBoolean(KEY_GEO_BROKEN, false).apply()
+                AppLogger.w(TAG, "Предыдущий запуск падал на гео-базах, файлы удаляются перед новой попыткой")
+                geoRoutingRepo.purgeAll()
+            }
             geoRoutingRepo.cleanupInvalidFiles()
             val geoDir = geoRoutingRepo.geoDir
             if (!geoDir.exists()) {
@@ -158,6 +167,12 @@ class XrayVpnController(private val vpnService: VpnService) {
             if (!error.isNullOrEmpty()) {
                 AppLogger.e(TAG, "Xray core start error: $error")
                 Log.e(TAG, "Xray core start error: $error")
+                if (error.contains("geodata") || error.contains("illegal ip rule") ||
+                    error.contains("failed to check code")
+                ) {
+                    geoDataFlag.edit().putBoolean(KEY_GEO_BROKEN, true).apply()
+                    AppLogger.w(TAG, "Ошибка связана с гео-базами, они будут удалены при следующем запуске")
+                }
             }
 
             isStarted = isSuccess
@@ -1187,6 +1202,9 @@ class XrayVpnController(private val vpnService: VpnService) {
         private const val TUN_MTU_CELLULAR = 1280
 
         private const val HOST_RESOLVE_TTL_MS = 5 * 60 * 1000L
+
+        private const val GEO_PREFS = "mirage_xray_geo"
+        private const val KEY_GEO_BROKEN = "geo_broken"
 
         private val resolvedHostCache = java.util.concurrent.ConcurrentHashMap<String, ResolvedHost>()
 

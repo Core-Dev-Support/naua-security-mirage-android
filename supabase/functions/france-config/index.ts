@@ -16,7 +16,9 @@ const FRANCE_SID = Deno.env.get("FRANCE_SID") || "";
 const FRANCE_SPX = Deno.env.get("FRANCE_SPX") || "/";
 const FRANCE_FINGERPRINT = Deno.env.get("FRANCE_FINGERPRINT") || "chrome";
 
-const DEFAULT_FLOW = Deno.env.get("THREE_X_UI_DEFAULT_FLOW") || "";
+const XHTTP_MODE = "packet-up";
+const XHTTP_PATH = "/api/v1/collect";
+const XHTTP_FINGERPRINT = "edge";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -116,17 +118,16 @@ async function getInboundClient(
   return matching[0] || null;
 }
 
-function vlessUrl(uuid: string, flow: string): string {
-
+function vlessUrl(uuid: string): string {
   const query = new URLSearchParams({
-    type: "tcp",
+    type: "xhttp",
     security: "reality",
     pbk: FRANCE_PBK,
-    fp: FRANCE_FINGERPRINT,
+    fp: XHTTP_FINGERPRINT,
     sni: FRANCE_SNI,
-    sid: FRANCE_SID,
-    spx: FRANCE_SPX,
-    flow,
+    host: FRANCE_SNI,
+    mode: XHTTP_MODE,
+    path: XHTTP_PATH,
   });
   return `vless://${uuid}@${FRANCE_HOST}:${FRANCE_PORT}?${query.toString()}#NAUA%20Mirage%20France%20(Premium)`;
 }
@@ -140,14 +141,14 @@ async function ensureClient(
 ): Promise<{ uuid: string; flow: string }> {
   const found = await getInboundClient(cookie, userId, email, existing?.client_uuid || null);
   if (found) {
-    return { uuid: found.id, flow: found.flow ?? DEFAULT_FLOW };
+    return { uuid: found.id, flow: found.flow ?? "" };
   }
 
   const uuid = crypto.randomUUID();
   const client = {
     id: uuid,
     email,
-    flow: DEFAULT_FLOW,
+    flow: "",
     limitIp: 0,
     totalGB: 0,
     expiryTime: expiryMs,
@@ -169,7 +170,7 @@ async function ensureClient(
   if (!verified || verified.id.toLowerCase() !== uuid.toLowerCase()) {
     throw new Error("3X-UI addClient was not verified in the inbound");
   }
-  return { uuid: verified.id, flow: verified.flow ?? DEFAULT_FLOW };
+  return { uuid: verified.id, flow: verified.flow ?? "" };
 }
 
 serve(async (req) => {
@@ -219,7 +220,7 @@ serve(async (req) => {
     const cookie = await loginTo3xUi();
     const expiryMs = paidUntil ? paidUntil.getTime() : Date.now() + 30 * 24 * 60 * 60 * 1000;
     const { uuid, flow } = await ensureClient(cookie, userId, email, row, expiryMs);
-    const key = vlessUrl(uuid, flow);
+    const key = vlessUrl(uuid);
 
     if (row.client_uuid !== uuid || row.vless_key !== key || row.flow !== flow) {
       await service

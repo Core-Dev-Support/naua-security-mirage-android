@@ -43,6 +43,18 @@ class GeoRoutingRepository(private val context: Context) {
         }
     }
 
+    fun purgeAll() {
+        try {
+            if (geoipFile.exists()) geoipFile.delete()
+            if (geositeFile.exists()) geositeFile.delete()
+            settingsRepository.geoLastUpdateTime = 0L
+            initFromAssetsIfNeeded()
+            AppLogger.w(TAG, "Гео-базы удалены, geosite восстановлен из встроенных ресурсов")
+        } catch (e: Throwable) {
+            AppLogger.w(TAG, "Не удалось удалить гео-базы: ${e.message}")
+        }
+    }
+
     fun cleanupInvalidFiles() {
         try {
             if (geositeFile.exists() && !hasCategoryRu(geositeFile)) {
