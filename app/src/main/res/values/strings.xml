@@ -99,6 +99,7 @@
     <string name="update_dialog_later">Отмена</string>
     <string name="update_dialog_install">Установить</string>
     <string name="update_dialog_download_browser">Скачать через браузер</string>
+    <string name="update_dialog_browser_btn">В браузере</string>
     <string name="update_download_progress_format">Загрузка: %1$d%% (%2$s / %3$s)</string>
     <string name="update_download_preparing">Подготовка к загрузке…</string>
     <string name="update_download_failed">Не удалось скачать файл. Попробуйте через браузер.</string>

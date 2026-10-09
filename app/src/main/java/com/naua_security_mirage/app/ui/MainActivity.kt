@@ -1337,6 +1337,21 @@ class MainActivity : AppCompatActivity() {
             binding.tvStatusSub.text = getString(R.string.refreshing_servers)
             lifecycleScope.launch(Dispatchers.IO) {
                 try {
+                    val hasPaid = com.naua_security_mirage.app.data.supabase.SupabaseManager.instance
+                        .hasActiveSubscription()
+                    if (hasPaid) {
+                        val freshKey = runCatching {
+                            com.naua_security_mirage.app.data.supabase.SupabaseManager.instance
+                                .ensureFranceVlessKey()
+                        }.getOrNull()
+                        AppLogger.i(
+                            "DataRefresh",
+                            if (freshKey != null) "Ключ платного узла обновлён"
+                            else "Ключ платного узла не обновлён, используется кэш"
+                        )
+                    } else {
+                        AppLogger.d("DataRefresh", "Нет активной подписки, платный узел пропущен")
+                    }
                     val servers = vlessKeyRepository.getVlessServers()
                     AppLogger.d("DataRefresh", "Получено конфигураций: ${servers.size}. Измерение пинга...")
                     val measured = pingRepository.measureAllPings(servers)

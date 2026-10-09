@@ -66,6 +66,9 @@ object AppUpdateManager {
     private var activeDownloadCall: Call? = null
     var onDownloadCancelled: (() -> Unit)? = null
 
+    @Volatile
+    private var downloadCancelledByUser = false
+
     private val updateListeners = mutableListOf<(Boolean, UpdateInfo?) -> Unit>()
 
     fun addUpdateListener(listener: (Boolean, UpdateInfo?) -> Unit) {
@@ -356,6 +359,12 @@ object AppUpdateManager {
             setColor(cardBgColor)
             setStroke((1f * density).toInt(), strokeColor)
         }
+        btnBrowser.background = GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            cornerRadius = 14f * density
+            setColor(cardBgColor)
+            setStroke((1f * density).toInt(), strokeColor)
+        }
         btnBrowser.setTextColor(subtitleTextColor)
 
         val updateDir = File(activity.cacheDir, "updates")
@@ -476,6 +485,7 @@ object AppUpdateManager {
         onComplete: (File) -> Unit,
         onError: (String) -> Unit
     ) {
+        downloadCancelledByUser = false
         Thread {
             val updateDir = File(activity.cacheDir, "updates")
             if (!updateDir.exists()) {
@@ -566,7 +576,10 @@ object AppUpdateManager {
                 activeDownloadCall = null
                 UpdateNotifier.cancelDownloadNotification(appContext)
 
-                val isCanceled = e is java.io.InterruptedIOException ||
+                val isCanceled = downloadCancelledByUser ||
+                        e is java.io.InterruptedIOException ||
+                        e is java.net.SocketException ||
+                        e is java.net.SocketTimeoutException ||
                         e.message?.contains("Canceled", ignoreCase = true) == true ||
                         e.message?.contains("Socket closed", ignoreCase = true) == true
 
@@ -587,6 +600,7 @@ object AppUpdateManager {
 
     fun cancelDownload(context: Context? = null) {
         try {
+            downloadCancelledByUser = true
             activeDownloadCall?.cancel()
             activeDownloadCall = null
             val ctx = context ?: MirageApp.appContextOrNull
