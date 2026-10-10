@@ -67,11 +67,12 @@
         android:textStyle="bold" />
 
     <ScrollView
+        android:id="@+id/scrollUpdateChangelog"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
         android:layout_marginBottom="14dp"
-        android:maxHeight="200dp">
+        android:fillViewport="false">
 
         <TextView
             android:id="@+id/tvUpdateChangelog"

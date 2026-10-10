@@ -19,6 +19,7 @@ import android.view.View
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ProgressBar
+import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.core.content.ContextCompat
@@ -488,7 +489,22 @@ object AppUpdateManager {
         }
 
         dialog.show()
+        clampChangelogScroll(dialog, root)
         AnimationHelper.popIn(root, durationMs = 240)
+    }
+
+    private fun clampChangelogScroll(dialog: Dialog, root: View) {
+        val scroll = dialog.findViewById<ScrollView>(R.id.scrollUpdateChangelog) ?: return
+        root.post {
+            val fixedParts = root.height - scroll.height
+            val ceiling = (dialog.context.resources.displayMetrics.heightPixels * 0.82f).toInt()
+            val allowed = ceiling - fixedParts
+            if (allowed > 0 && scroll.height > allowed) {
+                scroll.layoutParams = scroll.layoutParams.apply { height = allowed }
+                scroll.requestLayout()
+                scroll.post { scroll.scrollTo(0, 0) }
+            }
+        }
     }
 
     fun downloadAndInstallApk(
@@ -890,6 +906,7 @@ object AppUpdateManager {
         }
 
         dialog.show()
+        clampChangelogScroll(dialog, root)
         AnimationHelper.popIn(root, durationMs = 240)
     }
 
