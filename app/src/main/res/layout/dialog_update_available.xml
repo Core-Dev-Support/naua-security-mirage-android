@@ -136,7 +136,7 @@
             android:textColor="@color/ink_soft"
             android:textSize="12sp"
             android:textStyle="bold"
-            app:autoSizeTextType="uniformWithConfiguration"
+            app:autoSizeTextType="uniform"
             app:autoSizeMinTextSize="9sp"
             app:autoSizeMaxTextSize="12sp"
             app:autoSizeStepGranularity="1sp" />
@@ -158,7 +158,7 @@
             android:textSize="13sp"
             android:textStyle="bold"
             android:maxLines="1"
-            app:autoSizeTextType="uniformWithConfiguration"
+            app:autoSizeTextType="uniform"
             app:autoSizeMinTextSize="10sp"
             app:autoSizeMaxTextSize="13sp"
             app:autoSizeStepGranularity="1sp" />
@@ -180,7 +180,7 @@
             android:textColor="@color/accent"
             android:textSize="14sp"
             android:textStyle="bold"
-            app:autoSizeTextType="uniformWithConfiguration"
+            app:autoSizeTextType="uniform"
             app:autoSizeMinTextSize="10sp"
             app:autoSizeMaxTextSize="14sp"
             app:autoSizeStepGranularity="1sp" />
