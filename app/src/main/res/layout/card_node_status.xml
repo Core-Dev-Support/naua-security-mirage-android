@@ -17,6 +17,7 @@
         android:padding="16dp">
 
         <ImageView
+            android:id="@+id/ivNodeStatusIcon"
             android:layout_width="20dp"
             android:layout_height="20dp"
             android:layout_marginEnd="14dp"
@@ -30,6 +31,7 @@
             android:orientation="vertical">
 
             <TextView
+                android:id="@+id/tvNodeStatusTitle"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="@string/node_status_title"
@@ -80,11 +82,12 @@
         android:padding="16dp">
 
         <ImageView
+            android:id="@+id/ivFreeNodesIcon"
             android:layout_width="20dp"
             android:layout_height="20dp"
             android:layout_marginEnd="14dp"
             android:contentDescription="@null"
-            android:src="@drawable/ic_apps" />
+            android:src="@drawable/ic_tile" />
 
         <LinearLayout
             android:layout_width="0dp"
@@ -93,6 +96,7 @@
             android:orientation="vertical">
 
             <TextView
+                android:id="@+id/tvFreeNodesTitle"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="@string/free_nodes_title"
@@ -128,6 +132,13 @@
             android:textStyle="bold" />
     </LinearLayout>
 
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        android:background="@color/card_stroke" />
+
     <LinearLayout
         android:id="@+id/rowNodeHistory"
         android:layout_width="match_parent"
@@ -140,6 +151,7 @@
         android:padding="16dp">
 
         <ImageView
+            android:id="@+id/ivNodeHistoryIcon"
             android:layout_width="20dp"
             android:layout_height="20dp"
             android:layout_marginEnd="14dp"
@@ -153,6 +165,7 @@
             android:orientation="vertical">
 
             <TextView
+                android:id="@+id/tvNodeHistoryTitle"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="@string/node_history_title"

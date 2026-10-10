@@ -695,16 +695,30 @@ class MainActivity : AppCompatActivity() {
 
     private fun updateServerPlanSelectorUI() {
         val isFrance = settingsRepository.selectedServerPlan == SettingsRepository.PLAN_PREMIUM_FRANCE
+        val customText = settingsRepository.customTextColor
+        val hasWallpaper = !settingsRepository.customBgImagePath.isNullOrEmpty() &&
+            java.io.File(settingsRepository.customBgImagePath ?: "").exists()
+        val isLightNow = !hasWallpaper && (settingsRepository.themePreset == SettingsRepository.THEME_LIGHT ||
+            (settingsRepository.customBgColor != 0 &&
+                ColorUtils.calculateLuminance(settingsRepository.customBgColor) > 0.5))
+        val inactiveText = if (customText != 0) {
+            customText
+        } else if (isLightNow) {
+            Color.parseColor("#0F172A")
+        } else {
+            ContextCompat.getColor(this, R.color.ink_soft)
+        }
+        binding.containerServerPlan.background = getCardDrawable(isLightNow, 30f)
         if (isFrance) {
             binding.containerServerPlan.btnPlanFrance.background = ContextCompat.getDrawable(this, R.drawable.bg_pill_active)
             binding.containerServerPlan.btnPlanFrance.setTextColor(Color.WHITE)
             binding.containerServerPlan.btnPlanFree.background = ColorDrawable(Color.TRANSPARENT)
-            binding.containerServerPlan.btnPlanFree.setTextColor(ContextCompat.getColor(this, R.color.ink_soft))
+            binding.containerServerPlan.btnPlanFree.setTextColor(inactiveText)
         } else {
             binding.containerServerPlan.btnPlanFree.background = ContextCompat.getDrawable(this, R.drawable.bg_pill_active)
             binding.containerServerPlan.btnPlanFree.setTextColor(Color.WHITE)
             binding.containerServerPlan.btnPlanFrance.background = ColorDrawable(Color.TRANSPARENT)
-            binding.containerServerPlan.btnPlanFrance.setTextColor(ContextCompat.getColor(this, R.color.ink_soft))
+            binding.containerServerPlan.btnPlanFrance.setTextColor(inactiveText)
         }
     }
 
@@ -1487,6 +1501,10 @@ class MainActivity : AppCompatActivity() {
     private var privateDnsCard: View? = null
     private var nodeStatusCard: View? = null
     private var nodeStatusJob: Job? = null
+    private var themedSubtitleColor: Int = 0
+
+    private fun themedSubtitle(): Int =
+        themedSubtitleColor.takeIf { it != 0 } ?: ContextCompat.getColor(this, R.color.ink_faint)
 
     private fun installPrivateDnsCard() {
         if (privateDnsCard != null) return
@@ -1534,6 +1552,36 @@ class MainActivity : AppCompatActivity() {
         if (!force && nodeStatusJob?.isActive == true) return
 
         nodeStatusJob = lifecycleScope.launch {
+            if (!com.naua_security_mirage.app.data.supabase.SupabaseManager.instance.hasActiveSubscription()) {
+                stateView.text = getString(R.string.node_status_no_subscription)
+                stateView.setTextColor(themedSubtitle())
+            } else {
+                refreshFranceState(stateView)
+            }
+
+            val events = com.naua_security_mirage.app.vpn.NodeStatusReporter.history(limit = 5)
+            if (historyView != null) {
+                historyView.text = when {
+                    events == null -> getString(R.string.node_history_failed)
+                    events.isEmpty() -> getString(R.string.node_history_empty)
+                    else -> events.joinToString("\n") { ev ->
+                        getString(
+                            R.string.node_history_entry,
+                            ev.changedAt?.let { formatNodeSince(it) } ?: "?",
+                            nodeStateLabel(ev.state)
+                        )
+                    }
+                }
+                AppLogger.i(
+                    "NodeStatus",
+                    if (events == null) "История сбоев: загрузить не удалось"
+                    else "История сбоев: записей ${events.size}"
+                )
+            }
+        }
+    }
+
+    private suspend fun refreshFranceState(stateView: TextView) {
             val status = com.naua_security_mirage.app.vpn.NodeStatusReporter.fetch()
             if (status == null) {
                 stateView.text = getString(R.string.node_status_fetch_failed)
@@ -1564,22 +1612,6 @@ class MainActivity : AppCompatActivity() {
                     status
                 )
             }
-
-            val events = com.naua_security_mirage.app.vpn.NodeStatusReporter.history(limit = 5)
-            if (historyView != null) {
-                historyView.text = when {
-                    events == null -> getString(R.string.node_history_failed)
-                    events.isEmpty() -> getString(R.string.node_history_empty)
-                    else -> events.joinToString("\n") { ev ->
-                        getString(
-                            R.string.node_history_entry,
-                            ev.changedAt?.let { formatNodeSince(it) } ?: "?",
-                            nodeStateLabel(ev.state)
-                        )
-                    }
-                }
-            }
-        }
     }
 
     private fun nodeStateLabel(state: String): String = when (state) {
@@ -1621,13 +1653,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun nodeColor(bad: Boolean): Int {
+        if (!bad) return themedSubtitle()
         return Color.parseColor(
-            "#" + Integer.toHexString(
-                ContextCompat.getColor(
-                    this,
-                    if (bad) R.color.danger else R.color.ink_faint
-                )
-            )
+            "#" + Integer.toHexString(ContextCompat.getColor(this, R.color.danger))
         )
     }
 
@@ -1655,7 +1683,7 @@ class MainActivity : AppCompatActivity() {
         val risky = state.mode == PrivateDnsInspector.Mode.STRICT
         stateView.setTextColor(
             if (risky) Color.parseColor("#${Integer.toHexString(ContextCompat.getColor(this, R.color.danger))}")
-            else Color.parseColor("#${Integer.toHexString(ContextCompat.getColor(this, R.color.ink_faint))}")
+            else themedSubtitle()
         )
         actionView?.visibility = View.VISIBLE
         AppLogger.i("PrivateDns", "Настройки приложения: ${PrivateDnsInspector.describe(state)}")
@@ -2156,7 +2184,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun performDownloadLogs() {
         val level = settingsRepository.logLevel
-        val timeStamp = java.text.SimpleDateFormat("yyyy-MM-dd_HH-mm-ss", java.util.Locale.getDefault()).format(java.util.Date())
+        val timeStamp = java.text.SimpleDateFormat("dd-MM-yyyy_HH-mm-ss", java.util.Locale.getDefault()).format(java.util.Date())
         val fileName = "Log-NAUA-Security-Mirage-${timeStamp}-$level.txt"
         val content = AppLogger.getAllLogsFormatted() + "\n\n" + com.naua_security_mirage.app.util.LogHelper.collectLogs(this).readText()
 
@@ -3397,6 +3425,7 @@ class MainActivity : AppCompatActivity() {
         } else {
             ContextCompat.getColor(this, R.color.ink_soft)
         }
+        themedSubtitleColor = subtitleTextColor
 
         val sectionHeaderColor = if (customText != 0) {
             ColorUtils.setAlphaComponent(customText, 220)
@@ -3684,11 +3713,68 @@ class MainActivity : AppCompatActivity() {
             binding.switchTelemetry.resetColors()
         }
 
+        binding.btnBackFromCustomWebsites.background = getButtonChipDrawable(isLightContext, 12f)
+        (binding.btnAddWebsite.getChildAt(0) as? TextView)?.setTextColor(titleTextColor)
+        binding.cardAccount.tvAccountCacheAge.setTextColor(subtitleTextColor)
+
+        updateServerPlanSelectorUI()
+        styleRuntimeCards(isLightContext, titleTextColor, subtitleTextColor, finalActionColor, baseConnectColor)
+
         updateThemeChipsState()
         updateLogLevelChipsState()
         updateConnectStyleChipsState()
         updatePerAppFilterChips()
         updateWebsiteFilterChips()
+    }
+
+    private fun styleRuntimeCards(
+        isLightContext: Boolean,
+        titleTextColor: Int,
+        subtitleTextColor: Int,
+        finalActionColor: Int,
+        accentColor: Int
+    ) {
+        val density = resources.displayMetrics.density
+        val actionPillBg = GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            cornerRadius = 8f * density
+            setColor(ColorUtils.setAlphaComponent(accentColor, 35))
+            setStroke((1f * density).toInt(), ColorUtils.setAlphaComponent(accentColor, 120))
+        }
+        privateDnsCard?.let { card ->
+            card.background = getCardDrawable(isLightContext, 18f)
+            card.findViewById<ImageView>(R.id.ivPrivateDnsIcon)?.imageTintList =
+                ColorStateList.valueOf(finalActionColor)
+            card.findViewById<TextView>(R.id.tvPrivateDnsTitle)?.setTextColor(titleTextColor)
+            card.findViewById<TextView>(R.id.tvPrivateDnsState)?.setTextColor(subtitleTextColor)
+            card.findViewById<TextView>(R.id.tvPrivateDnsAction)?.let {
+                it.background = actionPillBg
+                it.setTextColor(accentColor)
+            }
+        }
+        nodeStatusCard?.let { card ->
+            card.background = getCardDrawable(isLightContext, 18f)
+            card.findViewById<ImageView>(R.id.ivNodeStatusIcon)?.imageTintList =
+                ColorStateList.valueOf(finalActionColor)
+            card.findViewById<ImageView>(R.id.ivFreeNodesIcon)?.imageTintList =
+                ColorStateList.valueOf(finalActionColor)
+            card.findViewById<ImageView>(R.id.ivNodeHistoryIcon)?.imageTintList =
+                ColorStateList.valueOf(finalActionColor)
+            card.findViewById<TextView>(R.id.tvNodeStatusTitle)?.setTextColor(titleTextColor)
+            card.findViewById<TextView>(R.id.tvNodeStatusState)?.setTextColor(subtitleTextColor)
+            card.findViewById<TextView>(R.id.tvFreeNodesTitle)?.setTextColor(titleTextColor)
+            card.findViewById<TextView>(R.id.tvFreeNodesState)?.setTextColor(subtitleTextColor)
+            card.findViewById<TextView>(R.id.tvNodeHistoryTitle)?.setTextColor(titleTextColor)
+            card.findViewById<TextView>(R.id.tvNodeHistory)?.setTextColor(subtitleTextColor)
+            card.findViewById<TextView>(R.id.tvNodeStatusAction)?.let {
+                it.background = actionPillBg
+                it.setTextColor(accentColor)
+            }
+            card.findViewById<TextView>(R.id.tvFreeNodesAction)?.let {
+                it.background = actionPillBg
+                it.setTextColor(accentColor)
+            }
+        }
     }
 
     private fun saveAndApplyCustomBackground(uri: Uri) {

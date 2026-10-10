@@ -2,7 +2,9 @@ package com.naua_security_mirage.app.vpn
 
 import android.util.Log
 import com.naua_security_mirage.app.data.supabase.SupabaseConfig
+import com.naua_security_mirage.app.util.AppLogger
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -25,12 +27,19 @@ object NodeStatusReporter {
     )
 
     private val client = OkHttpClient.Builder()
-        .connectTimeout(6, java.util.concurrent.TimeUnit.SECONDS)
-        .readTimeout(6, java.util.concurrent.TimeUnit.SECONDS)
+        .connectTimeout(12, java.util.concurrent.TimeUnit.SECONDS)
+        .readTimeout(12, java.util.concurrent.TimeUnit.SECONDS)
         .build()
 
     suspend fun fetch(node: String = "france"): Status? = withContext(Dispatchers.IO) {
-        val json = get(node, "") ?: return@withContext null
+        val json = get(node, "") ?: run {
+            delay(800)
+            get(node, "")
+        }
+        if (json == null) {
+            AppLogger.w(TAG, "Состояние узла не получено после двух попыток")
+            return@withContext null
+        }
         Status(
             state = json.optString("state", "unknown"),
             detail = json.optString("detail").takeIf { it.isNotBlank() && it != "null" },
@@ -43,7 +52,14 @@ object NodeStatusReporter {
     data class Event(val state: String, val changedAt: Long?)
 
     suspend fun history(node: String = "france", limit: Int = 5): List<Event>? = withContext(Dispatchers.IO) {
-        val json = get(node, "history=1&limit=$limit") ?: return@withContext null
+        val json = get(node, "history=1&limit=$limit") ?: run {
+            delay(800)
+            get(node, "history=1&limit=$limit")
+        }
+        if (json == null) {
+            AppLogger.w(TAG, "История сбоев не получена после двух попыток")
+            return@withContext null
+        }
         val arr = json.optJSONArray("events") ?: return@withContext emptyList()
         val out = ArrayList<Event>(arr.length())
         for (i in 0 until arr.length()) {
