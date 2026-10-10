@@ -3671,11 +3671,15 @@ class MainActivity : AppCompatActivity() {
         binding.ivBackCustomWebsitesIcon.imageTintList = ColorStateList.valueOf(titleTextColor)
 
         binding.containerAddWebsite.background = getCardDrawable(isLightContext, 14f)
+        (binding.containerAddWebsite.getChildAt(0) as? ImageView)?.imageTintList =
+            ColorStateList.valueOf(subtitleTextColor)
         binding.etAddWebsite.setTextColor(titleTextColor)
         binding.etAddWebsite.setHintTextColor(subtitleTextColor)
         binding.btnAddWebsite.background = getButtonChipDrawable(isLightContext, 12f)
 
         binding.containerSearchWebsites.background = getCardDrawable(isLightContext, 14f)
+        (binding.containerSearchWebsites.getChildAt(0) as? ImageView)?.imageTintList =
+            ColorStateList.valueOf(subtitleTextColor)
         binding.etSearchWebsites.setTextColor(titleTextColor)
         binding.etSearchWebsites.setHintTextColor(subtitleTextColor)
         binding.ivClearSearchWebsites.imageTintList = ColorStateList.valueOf(subtitleTextColor)

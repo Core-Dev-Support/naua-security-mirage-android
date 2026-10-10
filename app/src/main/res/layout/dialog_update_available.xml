@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/dialogUpdateAvailableRoot"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
@@ -134,7 +135,11 @@
             android:text="@string/update_dialog_browser_btn"
             android:textColor="@color/ink_soft"
             android:textSize="12sp"
-            android:textStyle="bold" />
+            android:textStyle="bold"
+            app:autoSizeTextType="uniformWithConfiguration"
+            app:autoSizeMinTextSize="9sp"
+            app:autoSizeMaxTextSize="12sp"
+            app:autoSizeStepGranularity="1sp" />
 
         <TextView
             android:id="@+id/btnUpdateLater"
@@ -151,7 +156,12 @@
             android:text="@string/update_dialog_later"
             android:textColor="@color/ink_soft"
             android:textSize="13sp"
-            android:textStyle="bold" />
+            android:textStyle="bold"
+            android:maxLines="1"
+            app:autoSizeTextType="uniformWithConfiguration"
+            app:autoSizeMinTextSize="10sp"
+            app:autoSizeMaxTextSize="13sp"
+            app:autoSizeStepGranularity="1sp" />
 
         <TextView
             android:id="@+id/btnUpdateDownload"
@@ -169,7 +179,11 @@
             android:text="@string/update_dialog_download"
             android:textColor="@color/accent"
             android:textSize="14sp"
-            android:textStyle="bold" />
+            android:textStyle="bold"
+            app:autoSizeTextType="uniformWithConfiguration"
+            app:autoSizeMinTextSize="10sp"
+            app:autoSizeMaxTextSize="14sp"
+            app:autoSizeStepGranularity="1sp" />
     </LinearLayout>
 
 </LinearLayout>
