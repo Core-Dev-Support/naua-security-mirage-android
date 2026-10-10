@@ -72,6 +72,10 @@ class SupabaseManager private constructor() {
 
         private const val KEY_OAUTH_VERIFIER = "oauth_code_verifier"
 
+        private const val KEY_SUB_CONFIRMED_AT = "sub_confirmed_at"
+
+        private const val CACHE_FRESH_MS = 10 * 60 * 1000L
+
         private const val OAUTH_STATE_TTL_MS = 10 * 60 * 1000L
 
         private const val PKCE_VERIFIER_BYTES = 64
@@ -107,6 +111,7 @@ class SupabaseManager private constructor() {
             ?.remove(KEY_SUB_VLESS_KEY)
             ?.remove(KEY_SUB_CLIENT_UUID)
             ?.remove(KEY_SUB_FLOW)
+              ?.remove(KEY_SUB_CONFIRMED_AT)
             ?.apply()
     }
 
@@ -781,7 +786,8 @@ class SupabaseManager private constructor() {
                     ?.putString(KEY_SUB_VLESS_KEY, fullSub.vlessKey)
                     ?.putString(KEY_SUB_CLIENT_UUID, realClientUuid)
                     ?.apply()
-                AppLogger.info(TAG, "Subscription confirmed by server: until=${fullSub.paidUntil}")
+                markConfirmedAt()
+                      AppLogger.info(TAG, "Subscription confirmed by server: until=${fullSub.paidUntil}")
                 return@withContext
             }
 
@@ -814,7 +820,8 @@ class SupabaseManager private constructor() {
                                 ?.putString(KEY_SUB_VLESS_KEY, fullSub.vlessKey)
                                 ?.putString(KEY_SUB_CLIENT_UUID, clientUuid)
                                 ?.apply()
-                            AppLogger.info(TAG, "Subscription loaded from Supabase: until=${fullSub.paidUntil}")
+                            markConfirmedAt()
+                              AppLogger.info(TAG, "Subscription loaded from Supabase: until=${fullSub.paidUntil}")
                             return@withContext
                         }
                     }
@@ -832,7 +839,12 @@ class SupabaseManager private constructor() {
                 )
             ) {
 
-                AppLogger.info(TAG, "Supabase confirmed no active subscription for ${user.email}")
+                AppLogger.w(
+                      TAG,
+                      "Подписка отозвана сервером, кэш очищен для ${user.email}" +
+                              (if (cacheAgeMinutes() >= 0) ", кэш был протух ${cacheAgeMinutes()} мин" else "")
+                  )
+                  AppLogger.info(TAG, "Supabase confirmed no active subscription for ${user.email}")
                 clearEmailCache(user.email)
                 clearSubscriptionPrefs()
                 _subscription.value = SubscriptionDto(
@@ -878,6 +890,22 @@ class SupabaseManager private constructor() {
         val knownUuid = sub?.clientUuid?.takeIf { it.isNotBlank() }
             ?: extractUuidFromVless(sub?.vlessKey)
 
+        if (isCacheFresh()) {
+            val cached = getActiveVlessKey()
+            if (!cached.isNullOrBlank()) {
+                AppLogger.i(
+                    TAG,
+                    "Ключ платного узла из кэша, возраст ${cacheAgeMinutes()} мин, панель не опрашивается"
+                )
+                return@withContext cached
+            }
+        } else {
+            AppLogger.w(
+                TAG,
+                "Кэш подписки протух (${cacheAgeMinutes()} мин), ключ обновляется у панели"
+            )
+        }
+
         fun persistVerifiedKey(key: String, source: SubscriptionDto? = null): SubscriptionDto {
             val clientUuid = source?.clientUuid?.takeIf { it.isNotBlank() }
                 ?: extractUuidFromVless(key)
@@ -914,7 +942,8 @@ class SupabaseManager private constructor() {
         val serverKey = fetchFranceConfigFromServer()
         if (!serverKey.isNullOrBlank()) {
             persistVerifiedKey(serverKey)
-            AppLogger.i(TAG, "France key issued by france-config")
+            markConfirmedAt()
+                      AppLogger.i(TAG, "France key issued by france-config")
             return@withContext serverKey
         }
 
@@ -985,5 +1014,22 @@ class SupabaseManager private constructor() {
             return false
         }
         return SubscriptionPolicy.isActive(sub.isActive, sub.paidUntil)
+    }
+
+    fun confirmedAt(): Long = prefs?.getLong(KEY_SUB_CONFIRMED_AT, 0L) ?: 0L
+
+    fun isCacheFresh(now: Long = System.currentTimeMillis()): Boolean {
+        val at = confirmedAt()
+        return at > 0L && now - at < CACHE_FRESH_MS
+    }
+
+    fun cacheAgeMinutes(now: Long = System.currentTimeMillis()): Long {
+        val at = confirmedAt()
+        if (at <= 0L) return -1L
+        return (now - at) / 60_000L
+    }
+
+    private fun markConfirmedAt(now: Long = System.currentTimeMillis()) {
+        prefs?.edit()?.putLong(KEY_SUB_CONFIRMED_AT, now)?.apply()
     }
 }

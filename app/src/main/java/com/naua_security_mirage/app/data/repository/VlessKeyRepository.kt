@@ -87,6 +87,19 @@ class VlessKeyRepository(
 
     suspend fun getVlessServers(): List<VlessServer> = withContext(Dispatchers.IO) {
         val servers = mutableListOf<VlessServer>()
+
+        val freshFromCache = mutableListOf<VlessServer>()
+        if (isCacheFresh()) {
+            parseCachedLiveConfig(freshFromCache)
+        }
+        if (freshFromCache.isNotEmpty()) {
+            AppLogger.i(
+                TAG,
+                "Список бесплатных узлов из кэша, возраст ${cacheAgeMinutes()} мин, панель не опрашивается"
+            )
+            return@withContext freshFromCache.take(3)
+        }
+
         val deviceId = deviceIdRepository.getOrCreateDeviceId()
 
         kotlinx.coroutines.withTimeoutOrNull(4000) {
@@ -321,6 +334,17 @@ class VlessKeyRepository(
 
     private fun cacheFile(): File = File(context.filesDir, CACHE_FILE_NAME)
 
+    private fun isCacheFresh(now: Long = System.currentTimeMillis()): Boolean {
+        val file = cacheFile()
+        return file.exists() && now - file.lastModified() < FRESH_CACHE_AGE_MS
+    }
+
+    private fun cacheAgeMinutes(now: Long = System.currentTimeMillis()): Long {
+        val file = cacheFile()
+        if (!file.exists()) return -1L
+        return (now - file.lastModified()) / 60_000L
+    }
+
     private fun extractUuid(value: String?): String? {
         if (value.isNullOrBlank()) return null
         val trimmed = value.trim()
@@ -385,6 +409,7 @@ class VlessKeyRepository(
         private const val CACHE_FILE_NAME = "free_panel_cache.json"
         private const val MAX_CACHE_CHARS = 256 * 1024
         private const val MAX_CACHE_AGE_MS = 7L * 24 * 60 * 60 * 1000
+    private const val FRESH_CACHE_AGE_MS = 10 * 60 * 1000L
 
         private val BASE_SEED = byteArrayOf(
             0x3E.toByte(), 0x71.toByte(), 0x95.toByte(), 0x2A.toByte(), 0x5D.toByte(), 0x8B.toByte(), 0x47.toByte(), 0x1C.toByte(),
