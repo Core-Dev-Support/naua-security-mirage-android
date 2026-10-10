@@ -121,6 +121,15 @@
                     android:text="Базовый план (Бесплатный)"
                     android:textColor="@color/ink_soft"
                     android:textSize="12sp" />
+
+                <TextView
+                    android:id="@+id/tvAccountCacheAge"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:textColor="@color/ink_faint"
+                    android:textSize="11sp"
+                    android:visibility="gone" />
             </LinearLayout>
 
             <TextView

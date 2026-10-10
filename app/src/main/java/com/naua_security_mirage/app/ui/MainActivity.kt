@@ -216,6 +216,11 @@ class MainActivity : AppCompatActivity() {
             showSubscriptionDialog()
             return
         }
+        if (intent.getBooleanExtra(EXTRA_SHOW_SETTINGS, false)) {
+            intent.removeExtra(EXTRA_SHOW_SETTINGS)
+            openSettings()
+            return
+        }
         val apkPath = intent.getStringExtra(EXTRA_INSTALL_APK_PATH)
         if (!apkPath.isNullOrEmpty()) {
             val file = java.io.File(apkPath)
@@ -782,11 +787,24 @@ class MainActivity : AppCompatActivity() {
                 binding.cardAccount.tvAccountSubscriptionStatus.setTextColor(Color.parseColor("#10B981"))
                 binding.cardAccount.tvAccountSubscribeLabel.text = getString(R.string.sub_renew_short)
                 binding.cardAccount.btnAccountSubscribe.visibility = View.VISIBLE
+
+                val ageMin = com.naua_security_mirage.app.data.supabase.SupabaseManager.instance.cacheAgeMinutes()
+                if (ageMin < 0) {
+                    binding.cardAccount.tvAccountCacheAge.visibility = View.GONE
+                } else {
+                    binding.cardAccount.tvAccountCacheAge.visibility = View.VISIBLE
+                    binding.cardAccount.tvAccountCacheAge.text = when {
+                        ageMin < 1 -> getString(R.string.sub_cache_just_now)
+                        ageMin < 60 -> getString(R.string.sub_cache_minutes, ageMin.toInt())
+                        else -> getString(R.string.sub_cache_hours, (ageMin / 60).toInt())
+                    }
+                }
             } else {
                 binding.cardAccount.tvAccountSubscriptionStatus.text = getString(R.string.sub_free_status)
                 binding.cardAccount.tvAccountSubscriptionStatus.setTextColor(Color.parseColor("#F59E0B"))
                 binding.cardAccount.tvAccountSubscribeLabel.text = getString(R.string.sub_buy_button)
                 binding.cardAccount.btnAccountSubscribe.visibility = View.VISIBLE
+                binding.cardAccount.tvAccountCacheAge.visibility = View.GONE
             }
         }
     }
@@ -1512,7 +1530,6 @@ class MainActivity : AppCompatActivity() {
     private fun refreshNodeStatus(force: Boolean = false) {
         val card = nodeStatusCard ?: return
         val stateView = card.findViewById<TextView>(R.id.tvNodeStatusState) ?: return
-        val freeView = card.findViewById<TextView>(R.id.tvFreeNodesState)
         val historyView = card.findViewById<TextView>(R.id.tvNodeHistory)
         if (!force && nodeStatusJob?.isActive == true) return
 
@@ -1542,6 +1559,10 @@ class MainActivity : AppCompatActivity() {
                 stateView.setTextColor(
                     nodeColor(stale || status.state == "down" || status.state == "wedged")
                 )
+                com.naua_security_mirage.app.work.NodeStatusAlertNotifier.onStatus(
+                    this@MainActivity,
+                    status
+                )
             }
 
             val events = com.naua_security_mirage.app.vpn.NodeStatusReporter.history(limit = 5)
@@ -1558,8 +1579,6 @@ class MainActivity : AppCompatActivity() {
                     }
                 }
             }
-
-            freeView?.let { view -> measureFreeNodes(view) }
         }
     }
 
@@ -1572,21 +1591,32 @@ class MainActivity : AppCompatActivity() {
 
     private fun measureFreeNodes(view: TextView) {
         lifecycleScope.launch(Dispatchers.IO) {
-            val result = runCatching {
+            val measured = runCatching {
                 val servers = vlessKeyRepository.getVlessServers()
-                val measured = pingRepository.measureAllPings(servers)
-                measured.count { it.pingMs in 1..9998 } to measured.size
+                pingRepository.measureAllPings(servers)
             }.getOrNull()
 
-            val alive = result?.first ?: -1
-            val total = result?.second ?: -1
-            view.text = when {
-                result == null -> getString(R.string.free_nodes_failed)
+            val total = measured?.size ?: -1
+            val dead = measured?.filter { it.pingMs !in 1..9998 }?.map { it.tag } ?: emptyList()
+            val alive = if (measured == null) -1 else total - dead.size
+
+            val text = when {
+                measured == null -> getString(R.string.free_nodes_failed)
                 total == 0 -> getString(R.string.free_nodes_none)
-                else -> getString(R.string.free_nodes_alive, alive, total)
+                dead.isEmpty() -> getString(R.string.free_nodes_alive, alive, total)
+                else -> getString(R.string.free_nodes_alive, alive, total) + "\n" +
+                    getString(R.string.free_nodes_dead, dead.joinToString(", "))
             }
-            view.setTextColor(nodeColor(alive == 0))
-            AppLogger.i("NodeStatus", "Бесплатные узлы: отвечают $alive из $total")
+            withContext(Dispatchers.Main) {
+                view.text = text
+                view.setTextColor(nodeColor(measured != null && alive == 0))
+            }
+            AppLogger.i(
+                "NodeStatus",
+                if (measured == null) "Бесплатные узлы: проверка не удалась"
+                else "Бесплатные узлы: отвечают $alive из $total" +
+                    (if (dead.isNotEmpty()) ", нет ответа: ${dead.joinToString(", ")}" else "")
+            )
         }
     }
 
@@ -3736,6 +3766,7 @@ class MainActivity : AppCompatActivity() {
         const val ACTION_QUICK_CONNECT = "com.naua_security_mirage.app.ACTION_QUICK_CONNECT"
         const val EXTRA_SHOW_UPDATE = "extra_show_update"
     const val EXTRA_SHOW_SUBSCRIPTION = "extra_show_subscription"
+    const val EXTRA_SHOW_SETTINGS = "extra_show_settings"
         const val EXTRA_UPDATE_TAG = "extra_update_tag"
         const val EXTRA_INSTALL_APK_PATH = "extra_install_apk_path"
 

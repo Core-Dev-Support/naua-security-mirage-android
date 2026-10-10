@@ -121,6 +121,8 @@
     <string name="free_nodes_title">Бесплатные узлы</string>
     <string name="free_nodes_checking">Проверяем…</string>
     <string name="free_nodes_alive">Отвечают %1$d из %2$d</string>
+    <string name="free_nodes_dead">Нет ответа: %1$s</string>
+    <string name="free_nodes_tap_to_check">Нажмите «Обновить» для проверки</string>
     <string name="free_nodes_none">Узлы не получены</string>
     <string name="free_nodes_failed">Не удалось проверить</string>
     <string name="node_history_title">История сбоев</string>
@@ -131,6 +133,17 @@
     <string name="node_history_state_up">отвечал</string>
     <string name="node_history_state_down">не отвечал</string>
     <string name="node_history_state_wedged">поднят, трафик не идёт</string>
+    <string name="sub_cache_just_now">Данные подписки обновлены только что</string>
+    <string name="sub_cache_minutes">Данные подписки обновлены %1$d мин назад</string>
+    <string name="sub_cache_hours">Данные подписки обновлены %1$d ч назад</string>
+    <string name="node_alert_channel_name">Состояние узлов</string>
+    <string name="node_alert_channel_description">Уведомления %1$s о недоступности платного узла</string>
+    <string name="node_alert_down_title">Платный узел недоступен</string>
+    <string name="node_alert_down_body">Франция не отвечает с %1$s. Откройте настройки, чтобы проверить состояние.</string>
+    <string name="node_alert_wedged_title">Платный узел не передаёт трафик</string>
+    <string name="node_alert_wedged_body">Франция поднята, но трафик не идёт с %1$s. Откройте настройки, чтобы проверить состояние.</string>
+    <string name="node_alert_recovered_title">Платный узел снова отвечает</string>
+    <string name="node_alert_recovered_body">Франция отвечает · ядро %1$s</string>
     <string name="subscription_channel_name">Подписка</string>
     <string name="subscription_channel_description">Напоминания %1$s об окончании подписки</string>
     <string name="subscription_expiring_days_title">Подписка истекает через %1$d дн.</string>
