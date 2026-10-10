@@ -348,6 +348,7 @@ class MainActivity : AppCompatActivity() {
         }
         updateAccountCardUI()
         refreshPrivateDnsRow()
+        refreshNodeStatus()
     }
 
     private fun setupEdgeToEdge() {
@@ -1466,6 +1467,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private var privateDnsCard: View? = null
+    private var nodeStatusCard: View? = null
+    private var nodeStatusJob: Job? = null
 
     private fun installPrivateDnsCard() {
         if (privateDnsCard != null) return
@@ -1476,6 +1479,14 @@ class MainActivity : AppCompatActivity() {
         parent.addView(card, index)
         privateDnsCard = card
 
+        val nodeCard = layoutInflater.inflate(R.layout.card_node_status, parent, false)
+        parent.addView(nodeCard, index + 1)
+        nodeStatusCard = nodeCard
+        nodeCard.findViewById<View>(R.id.tvNodeStatusAction)?.setOnClickListener {
+            AnimationHelper.bounceClick(it, minScale = 0.93f, durationMs = 150)
+            refreshNodeStatus(force = true)
+        }
+
         card.findViewById<View>(R.id.rowPrivateDns)?.setOnClickListener {
             AnimationHelper.bounceClick(it, minScale = 0.98f, durationMs = 150)
             openPrivateDnsSettings()
@@ -1483,6 +1494,49 @@ class MainActivity : AppCompatActivity() {
         card.findViewById<View>(R.id.tvPrivateDnsAction)?.setOnClickListener {
             AnimationHelper.bounceClick(it, minScale = 0.93f, durationMs = 150)
             openPrivateDnsSettings()
+        }
+    }
+
+    private fun refreshNodeStatus(force: Boolean = false) {
+        val card = nodeStatusCard ?: return
+        val stateView = card.findViewById<TextView>(R.id.tvNodeStatusState) ?: return
+        if (!force && nodeStatusJob?.isActive == true) return
+
+        nodeStatusJob = lifecycleScope.launch {
+            val status = com.naua_security_mirage.app.vpn.NodeStatusReporter.fetch()
+            if (status == null) {
+                stateView.text = getString(R.string.node_status_fetch_failed)
+                return@launch
+            }
+            AppLogger.i("NodeStatus", "Франция: state=${status.state} core=${status.core} since=${status.changedAt}")
+            val since = status.changedAt?.let { formatNodeSince(it) }
+            val text = when (status.state) {
+                "up" -> getString(R.string.node_status_up, status.core ?: "?")
+                "down" -> getString(R.string.node_status_down, since ?: "?")
+                "wedged" -> getString(R.string.node_status_wedged, since ?: "?")
+                else -> getString(R.string.node_status_unknown)
+            }
+            stateView.text = text
+            val bad = status.state == "down" || status.state == "wedged"
+            stateView.setTextColor(
+                Color.parseColor(
+                    "#" + Integer.toHexString(
+                        ContextCompat.getColor(
+                            this@MainActivity,
+                            if (bad) R.color.danger else R.color.ink_faint
+                        )
+                    )
+                )
+            )
+        }
+    }
+
+    private fun formatNodeSince(epochMs: Long): String {
+        return try {
+            java.text.SimpleDateFormat("dd.MM HH:mm", java.util.Locale.US).format(java.util.Date(epochMs))
+        } catch (t: Throwable) {
+            AppLogger.w("NodeStatus", "Не удалось отформатировать время: ${t.message}")
+            ""
         }
     }
 

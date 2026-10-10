@@ -109,6 +109,14 @@
     <string name="private_dns_state_auto">Автоматически — обычно совместимо</string>
     <string name="private_dns_state_strict">Провайдер %1$s — может мешать VPN</string>
     <string name="private_dns_state_unknown">Не удалось определить</string>
+    <string name="node_status_title">Состояние платного узла</string>
+    <string name="node_status_checking">Проверяем…</string>
+    <string name="node_status_refresh">Обновить</string>
+    <string name="node_status_up">Франция отвечает · ядро %1$s</string>
+    <string name="node_status_down">Франция не отвечает с %1$s</string>
+    <string name="node_status_wedged">Франция поднята, но трафик не идёт с %1$s</string>
+    <string name="node_status_unknown">Нет данных о состоянии</string>
+    <string name="node_status_fetch_failed">Не удалось получить состояние</string>
     <string name="subscription_channel_name">Подписка</string>
     <string name="subscription_channel_description">Напоминания %1$s об окончании подписки</string>
     <string name="subscription_expiring_days_title">Подписка истекает через %1$d дн.</string>
