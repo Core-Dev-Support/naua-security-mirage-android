@@ -35,22 +35,30 @@ object PrivateDnsInspector {
         } catch (_: Throwable) {
         }
 
-        val mode = when {
-            !rawModeText.isNullOrEmpty() -> when (rawModeText!!.lowercase()) {
+        return State(
+            modeFrom(rawModeText, rawModeInt),
+            specifier?.takeIf { it.isNotEmpty() },
+            rawModeText,
+            rawModeInt
+        )
+    }
+
+    fun modeFrom(rawModeText: String?, rawModeInt: Int): Mode {
+        val text = rawModeText?.trim()?.lowercase()
+        if (!text.isNullOrEmpty()) {
+            return when (text) {
                 TEXT_OFF -> Mode.OFF
                 TEXT_OPPORTUNISTIC -> Mode.OPPORTUNISTIC
-                TEXT_STRICT -> Mode.STRICT
-                else -> Mode.UNKNOWN
-            }
-            else -> when (rawModeInt) {
-                MODE_OFF -> Mode.OFF
-                MODE_OPPORTUNISTIC -> Mode.OPPORTUNISTIC
-                MODE_STRICT -> Mode.STRICT
+                TEXT_HOSTNAME, TEXT_STRICT -> Mode.STRICT
                 else -> Mode.UNKNOWN
             }
         }
-
-        return State(mode, specifier?.takeIf { it.isNotEmpty() }, rawModeText, rawModeInt)
+        return when (rawModeInt) {
+            MODE_OFF -> Mode.OFF
+            MODE_OPPORTUNISTIC -> Mode.OPPORTUNISTIC
+            MODE_STRICT -> Mode.STRICT
+            else -> Mode.UNKNOWN
+        }
     }
 
     fun describe(state: State): String {
@@ -70,6 +78,7 @@ object PrivateDnsInspector {
 
     private const val TEXT_OFF = "off"
     private const val TEXT_OPPORTUNISTIC = "opportunistic"
+    private const val TEXT_HOSTNAME = "hostname"
     private const val TEXT_STRICT = "strict"
 
     private const val MODE_OFF = 0

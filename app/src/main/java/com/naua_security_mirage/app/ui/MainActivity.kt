@@ -347,6 +347,7 @@ class MainActivity : AppCompatActivity() {
             handlePaymentReturn()
         }
         updateAccountCardUI()
+        refreshPrivateDnsRow()
     }
 
     private fun setupEdgeToEdge() {
