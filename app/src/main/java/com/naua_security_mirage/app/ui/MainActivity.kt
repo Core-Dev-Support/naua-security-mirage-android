@@ -708,7 +708,7 @@ class MainActivity : AppCompatActivity() {
         } else {
             ContextCompat.getColor(this, R.color.ink_soft)
         }
-        binding.containerServerPlan.background = getCardDrawable(isLightNow, 30f)
+        binding.containerServerPlan.root.background = getCardDrawable(isLightNow, 30f)
         if (isFrance) {
             binding.containerServerPlan.btnPlanFrance.background = ContextCompat.getDrawable(this, R.drawable.bg_pill_active)
             binding.containerServerPlan.btnPlanFrance.setTextColor(Color.WHITE)
