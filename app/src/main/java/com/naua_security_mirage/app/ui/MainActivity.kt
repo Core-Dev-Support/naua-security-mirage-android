@@ -1487,6 +1487,17 @@ class MainActivity : AppCompatActivity() {
             AnimationHelper.bounceClick(it, minScale = 0.93f, durationMs = 150)
             refreshNodeStatus(force = true)
         }
+        nodeCard.findViewById<View>(R.id.tvFreeNodesAction)?.setOnClickListener {
+            AnimationHelper.bounceClick(it, minScale = 0.93f, durationMs = 150)
+            nodeStatusCard?.findViewById<TextView>(R.id.tvFreeNodesState)?.let { view ->
+                view.text = getString(R.string.free_nodes_checking)
+                measureFreeNodes(view)
+            }
+        }
+        nodeCard.findViewById<View>(R.id.rowNodeHistory)?.setOnClickListener {
+            AnimationHelper.bounceClick(it, minScale = 0.98f, durationMs = 150)
+            refreshNodeStatus(force = true)
+        }
 
         card.findViewById<View>(R.id.rowPrivateDns)?.setOnClickListener {
             AnimationHelper.bounceClick(it, minScale = 0.98f, durationMs = 150)
@@ -1501,35 +1512,93 @@ class MainActivity : AppCompatActivity() {
     private fun refreshNodeStatus(force: Boolean = false) {
         val card = nodeStatusCard ?: return
         val stateView = card.findViewById<TextView>(R.id.tvNodeStatusState) ?: return
+        val freeView = card.findViewById<TextView>(R.id.tvFreeNodesState)
+        val historyView = card.findViewById<TextView>(R.id.tvNodeHistory)
         if (!force && nodeStatusJob?.isActive == true) return
 
         nodeStatusJob = lifecycleScope.launch {
             val status = com.naua_security_mirage.app.vpn.NodeStatusReporter.fetch()
             if (status == null) {
                 stateView.text = getString(R.string.node_status_fetch_failed)
-                return@launch
-            }
-            AppLogger.i("NodeStatus", "Франция: state=${status.state} core=${status.core} since=${status.changedAt}")
-            val since = status.changedAt?.let { formatNodeSince(it) }
-            val text = when (status.state) {
-                "up" -> getString(R.string.node_status_up, status.core ?: "?")
-                "down" -> getString(R.string.node_status_down, since ?: "?")
-                "wedged" -> getString(R.string.node_status_wedged, since ?: "?")
-                else -> getString(R.string.node_status_unknown)
-            }
-            stateView.text = text
-            val bad = status.state == "down" || status.state == "wedged"
-            stateView.setTextColor(
-                Color.parseColor(
-                    "#" + Integer.toHexString(
-                        ContextCompat.getColor(
-                            this@MainActivity,
-                            if (bad) R.color.danger else R.color.ink_faint
-                        )
+            } else {
+                AppLogger.i(
+                    "NodeStatus",
+                    "Франция: state=${status.state} core=${status.core} reported=${status.reportedAt}"
+                )
+                val reported = status.reportedAt
+                val stale = reported == null ||
+                        System.currentTimeMillis() - reported > STATUS_STALE_MS
+                val since = status.changedAt?.let { formatNodeSince(it) }
+                stateView.text = when {
+                    stale -> getString(
+                        R.string.node_status_stale,
+                        reported?.let { formatNodeSince(it) } ?: "?"
                     )
+                    status.state == "up" -> getString(R.string.node_status_up, status.core ?: "?")
+                    status.state == "down" -> getString(R.string.node_status_down, since ?: "?")
+                    status.state == "wedged" -> getString(R.string.node_status_wedged, since ?: "?")
+                    else -> getString(R.string.node_status_unknown)
+                }
+                stateView.setTextColor(
+                    nodeColor(stale || status.state == "down" || status.state == "wedged")
+                )
+            }
+
+            val events = com.naua_security_mirage.app.vpn.NodeStatusReporter.history(limit = 5)
+            if (historyView != null) {
+                historyView.text = when {
+                    events == null -> getString(R.string.node_history_failed)
+                    events.isEmpty() -> getString(R.string.node_history_empty)
+                    else -> events.joinToString("\n") { ev ->
+                        getString(
+                            R.string.node_history_entry,
+                            ev.changedAt?.let { formatNodeSince(it) } ?: "?",
+                            nodeStateLabel(ev.state)
+                        )
+                    }
+                }
+            }
+
+            freeView?.let { view -> measureFreeNodes(view) }
+        }
+    }
+
+    private fun nodeStateLabel(state: String): String = when (state) {
+        "up" -> getString(R.string.node_history_state_up)
+        "down" -> getString(R.string.node_history_state_down)
+        "wedged" -> getString(R.string.node_history_state_wedged)
+        else -> state
+    }
+
+    private fun measureFreeNodes(view: TextView) {
+        lifecycleScope.launch(Dispatchers.IO) {
+            val result = runCatching {
+                val servers = vlessKeyRepository.getVlessServers()
+                val measured = pingRepository.measureAllPings(servers)
+                measured.count { it.pingMs in 1..9998 } to measured.size
+            }.getOrNull()
+
+            val alive = result?.first ?: -1
+            val total = result?.second ?: -1
+            view.text = when {
+                result == null -> getString(R.string.free_nodes_failed)
+                total == 0 -> getString(R.string.free_nodes_none)
+                else -> getString(R.string.free_nodes_alive, alive, total)
+            }
+            view.setTextColor(nodeColor(alive == 0))
+            AppLogger.i("NodeStatus", "Бесплатные узлы: отвечают $alive из $total")
+        }
+    }
+
+    private fun nodeColor(bad: Boolean): Int {
+        return Color.parseColor(
+            "#" + Integer.toHexString(
+                ContextCompat.getColor(
+                    this,
+                    if (bad) R.color.danger else R.color.ink_faint
                 )
             )
-        }
+        )
     }
 
     private fun formatNodeSince(epochMs: Long): String {
@@ -3663,6 +3732,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     companion object {
+        private const val STATUS_STALE_MS = 10 * 60 * 1000L
         const val ACTION_QUICK_CONNECT = "com.naua_security_mirage.app.ACTION_QUICK_CONNECT"
         const val EXTRA_SHOW_UPDATE = "extra_show_update"
     const val EXTRA_SHOW_SUBSCRIPTION = "extra_show_subscription"

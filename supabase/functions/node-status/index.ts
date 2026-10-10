@@ -19,6 +19,8 @@ const CORS = {
   "Cache-Control": "no-store",
 };
 
+const MAX_EVENTS = 200;
+
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
@@ -84,19 +86,47 @@ async function writeState(req: Request) {
     : new Date().toISOString();
 
   const db = client();
-  const { error } = await db.from("node_status").upsert(
-    {
+  const record = {
+    node,
+    state,
+    detail,
+    core,
+    changed_at: changedAt,
+    reported_at: new Date().toISOString(),
+  };
+  const { error } = await db.from("node_status").upsert(record, { onConflict: "node" });
+  if (error) return json({ error: error.message }, 500);
+
+  // An event is only recorded when the state actually moved, so the history stays a list of
+  // incidents rather than a duplicate of the current row every minute.
+  let eventSaved = false;
+  if (payload.record_event === true) {
+    const { error: evErr } = await db.from("node_events").insert({
       node,
       state,
       detail,
       core,
       changed_at: changedAt,
-      reported_at: new Date().toISOString(),
-    },
-    { onConflict: "node" },
-  );
-  if (error) return json({ error: error.message }, 500);
-  return json({ ok: true, node, state, changed_at: changedAt });
+    });
+    if (evErr) return json({ error: evErr.message }, 500);
+    eventSaved = true;
+    await trimEvents(db, node);
+  }
+
+  return json({ ok: true, node, state, changed_at: changedAt, event: eventSaved });
+}
+
+async function trimEvents(db: ReturnType<typeof client>, node: string) {
+  const { data } = await db
+    .from("node_events")
+    .select("id")
+    .eq("node", node)
+    .order("created_at", { ascending: false })
+    .range(MAX_EVENTS, MAX_EVENTS + 200);
+  const ids = Array.isArray(data) ? data.map((r) => r.id as number) : [];
+  if (ids.length > 0) {
+    await db.from("node_events").delete().in("id", ids);
+  }
 }
 
 serve(async (req: Request) => {
@@ -113,6 +143,20 @@ serve(async (req: Request) => {
   try {
     const url = new URL(req.url);
     const node = url.searchParams.get("node")?.trim() || "france";
+    const db = client();
+
+    if (url.searchParams.get("history") === "1") {
+      const limit = Math.min(Number(url.searchParams.get("limit") || "10") || 10, 50);
+      const { data, error } = await db
+        .from("node_events")
+        .select("node,state,detail,core,changed_at,created_at")
+        .eq("node", node)
+        .order("created_at", { ascending: false })
+        .limit(limit);
+      if (error) throw new Error(error.message);
+      return json({ node, events: Array.isArray(data) ? data : [] });
+    }
+
     return json(await readState(node));
   } catch (e) {
     return json({ error: String((e as Error).message ?? e) }, 500);

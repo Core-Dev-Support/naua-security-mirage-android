@@ -30,8 +30,43 @@ object NodeStatusReporter {
         .build()
 
     suspend fun fetch(node: String = "france"): Status? = withContext(Dispatchers.IO) {
-        try {
-            val url = "${SupabaseConfig.SUPABASE_URL}/functions/v1/node-status?node=$node"
+        val json = get(node, "") ?: return@withContext null
+        Status(
+            state = json.optString("state", "unknown"),
+            detail = json.optString("detail").takeIf { it.isNotBlank() && it != "null" },
+            core = json.optString("core").takeIf { it.isNotBlank() && it != "null" },
+            changedAt = parseIso(json.optString("changed_at")),
+            reportedAt = parseIso(json.optString("reported_at")),
+        )
+    }
+
+    data class Event(val state: String, val changedAt: Long?)
+
+    suspend fun history(node: String = "france", limit: Int = 5): List<Event>? = withContext(Dispatchers.IO) {
+        val json = get(node, "history=1&limit=$limit") ?: return@withContext null
+        val arr = json.optJSONArray("events") ?: return@withContext emptyList()
+        val out = ArrayList<Event>(arr.length())
+        for (i in 0 until arr.length()) {
+            val o = arr.optJSONObject(i) ?: continue
+            out += Event(
+                state = o.optString("state", "unknown"),
+                changedAt = parseIso(o.optString("changed_at")),
+            )
+        }
+        out
+    }
+
+    private fun get(node: String, query: String): JSONObject? {
+        return try {
+            val url = buildString {
+                append(SupabaseConfig.SUPABASE_URL)
+                append("/functions/v1/node-status?node=")
+                append(node)
+                if (query.isNotEmpty()) {
+                    append('&')
+                    append(query)
+                }
+            }
             val key = SupabaseConfig.getAnonKey()
             val request = Request.Builder()
                 .url(url)
@@ -46,14 +81,7 @@ object NodeStatusReporter {
                     return@use null
                 }
                 val body = response.body?.string() ?: return@use null
-                val json = JSONObject(body)
-                Status(
-                    state = json.optString("state", "unknown"),
-                    detail = json.optString("detail").takeIf { it.isNotBlank() && it != "null" },
-                    core = json.optString("core").takeIf { it.isNotBlank() && it != "null" },
-                    changedAt = parseIso(json.optString("changed_at")),
-                    reportedAt = parseIso(json.optString("reported_at")),
-                )
+                JSONObject(body)
             }
         } catch (t: Throwable) {
             Log.w(TAG, "node-status fetch failed: ${t.message}")
