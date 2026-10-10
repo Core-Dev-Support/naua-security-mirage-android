@@ -316,7 +316,7 @@ class VlessKeyRepository(
         try {
             val file = cacheFile()
             if (!file.exists()) return
-            if (System.currentTimeMillis() - file.lastModified() > MAX_CACHE_AGE_MS) {
+            if (System.currentTimeMillis() - file.lastModified() > CACHE_AGE_MS) {
                 AppLogger.w(TAG, "Кэш панели устарел, используются встроенные fallback-узлы")
                 return
             }
@@ -336,7 +336,7 @@ class VlessKeyRepository(
 
     private fun isCacheFresh(now: Long = System.currentTimeMillis()): Boolean {
         val file = cacheFile()
-        return file.exists() && now - file.lastModified() < FRESH_CACHE_AGE_MS
+        return file.exists() && now - file.lastModified() < CACHE_AGE_MS
     }
 
     private fun cacheAgeMinutes(now: Long = System.currentTimeMillis()): Long {
@@ -408,8 +408,7 @@ class VlessKeyRepository(
         private const val TAG = "VlessKeyRepository"
         private const val CACHE_FILE_NAME = "free_panel_cache.json"
         private const val MAX_CACHE_CHARS = 256 * 1024
-        private const val MAX_CACHE_AGE_MS = 7L * 24 * 60 * 60 * 1000
-    private const val FRESH_CACHE_AGE_MS = 10 * 60 * 1000L
+        private const val CACHE_AGE_MS = 10 * 60 * 1000L
 
         private val BASE_SEED = byteArrayOf(
             0x3E.toByte(), 0x71.toByte(), 0x95.toByte(), 0x2A.toByte(), 0x5D.toByte(), 0x8B.toByte(), 0x47.toByte(), 0x1C.toByte(),

@@ -1480,7 +1480,8 @@ class MainActivity : AppCompatActivity() {
         privateDnsCard = card
 
         val nodeCard = layoutInflater.inflate(R.layout.card_node_status, parent, false)
-        parent.addView(nodeCard, index + 1)
+        val diagIndex = parent.indexOfChild(binding.cardSpeed)
+        if (diagIndex >= 0) parent.addView(nodeCard, diagIndex) else parent.addView(nodeCard)
         nodeStatusCard = nodeCard
         nodeCard.findViewById<View>(R.id.tvNodeStatusAction)?.setOnClickListener {
             AnimationHelper.bounceClick(it, minScale = 0.93f, durationMs = 150)

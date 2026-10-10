@@ -102,7 +102,7 @@
     <string name="update_dialog_close">Закрыть</string>
     <string name="update_dialog_browser_btn">Скачать в браузере</string>
     <string name="private_dns_conflict">Включён «Частный DNS». Рекомендуем поставить «Выкл.» или «Автоматически» — иначе бывают проблемы с подключением.</string>
-    <string name="private_dns_title">Частный DNS Android</string>
+    <string name="private_dns_title">Частный DNS-сервер Android</string>
     <string name="private_dns_reading">Определяем состояние…</string>
     <string name="private_dns_open_settings">Настроить</string>
     <string name="private_dns_state_off">Выключен — VPN использует свой DNS</string>
