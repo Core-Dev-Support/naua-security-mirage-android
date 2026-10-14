@@ -30,8 +30,8 @@
     <string name="way_tribute_web_title">Tribute в браузере</string>
     <string name="way_tribute_web_desc">Тот же Tribute, но через сайт. Подойдёт, если нет Telegram или ссылка не открывается.</string>
     <string name="action_go">Перейти</string>
-    <string name="setting_screenshots">Разрешить скриншоты</string>
-    <string name="setting_screenshots_desc">Выключено — скриншоты и запись экрана запрещены.</string>
+    <string name="setting_screenshots">Блокировать скриншоты</string>
+    <string name="setting_screenshots_desc">Скриншоты и запись экрана запрещены.</string>
     <string name="setting_animations">Анимации</string>
     <string name="section_animations">Анимации интерфейса</string>
     <string name="setting_animations_desc">Выключите, если интерфейс кажется тормозным или раздражает.</string>
@@ -56,7 +56,7 @@
     <string name="vpn_error_no_traffic">Узлы отвечают, но данные не проходят. Подождите минуту и попробуйте ещё раз.</string>
     <string name="vpn_error_ai_no_nodes">Ни один узел не подошёл для ИИ: Google отклоняет их адреса. Попробуйте позже.</string>
     <string name="vpn_error_panel_empty">Сервер не выдал бесплатные узлы, а запасные не работают. Попробуйте позже.</string>
-    <string name="setting_screenshots_allowed">Снимки экрана и запись экрана в приложении теперь разрешены.</string>
+    <string name="setting_screenshots_allowed">Снимки экрана и запись экрана разрешены.</string>
     <string name="setting_animations_off">Выключены — интерфейс без анимаций.</string>
     <string name="screenshot_warning_allowed_toast">Скриншоты разрешены</string>
     <string name="quick_tile_notify_label">Напоминания об оплате</string>

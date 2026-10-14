@@ -3767,25 +3767,26 @@ class MainActivity : AppCompatActivity() {
             R.string.setting_screenshots_desc,
             anchor = binding.rowSystemVpn
         ).also { holder ->
-            holder.switch.isChecked = !settingsRepository.isScreenshotBlockingEnabled
-            holder.switch.setOnCheckedChangeListener { _, allowed ->
-                if (allowed) {
+            holder.switch.isChecked = settingsRepository.isScreenshotBlockingEnabled
+            holder.switch.setOnCheckedChangeListener { _, blocked ->
+                if (blocked) {
+                    settingsRepository.isScreenshotBlockingEnabled = true
+                    applyScreenshotBlocking()
+                    holder.desc.setText(R.string.setting_screenshots_desc)
+                } else {
                     showScreenshotWarningDialog(onAllow = {
                         settingsRepository.isScreenshotBlockingEnabled = false
                         applyScreenshotBlocking()
-                        holder.switch.isChecked = true
+                        holder.switch.isChecked = false
                         holder.desc.setText(R.string.setting_screenshots_allowed)
                         Toast.makeText(this, R.string.screenshot_warning_allowed_toast, Toast.LENGTH_LONG).show()
                     }, onKeep = {
                         settingsRepository.isScreenshotBlockingEnabled = true
-                        holder.switch.isChecked = false
+                        applyScreenshotBlocking()
+                        holder.switch.isChecked = true
                         holder.desc.setText(R.string.setting_screenshots_desc)
                     })
-                    holder.switch.isChecked = false
-                    holder.desc.setText(R.string.setting_screenshots_desc)
-                } else {
-                    settingsRepository.isScreenshotBlockingEnabled = true
-                    applyScreenshotBlocking()
+                    holder.switch.isChecked = true
                     holder.desc.setText(R.string.setting_screenshots_desc)
                 }
             }

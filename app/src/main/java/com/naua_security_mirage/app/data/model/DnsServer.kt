@@ -14,7 +14,8 @@ data class DnsServer(
             DnsServer(
                 id = "cloudflare",
                 url = "https://cloudflare-dns.com/dns-query",
-                bootstrapIps = listOf("1.1.1.1", "1.0.0.1")
+                bootstrapIps = listOf("1.1.1.1", "1.0.0.1"),
+                jsonUrl = "https://cloudflare-dns.com/dns-query"
             ),
             DnsServer(
                 id = "google",

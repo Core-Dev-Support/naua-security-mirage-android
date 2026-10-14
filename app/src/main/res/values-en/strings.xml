@@ -30,8 +30,8 @@
     <string name="way_tribute_web_title">Tribute in the browser</string>
     <string name="way_tribute_web_desc">The same Tribute, but via the website. Handy if you have no Telegram or the link won’t open.</string>
     <string name="action_go">Open</string>
-    <string name="setting_screenshots">Allow screenshots</string>
-    <string name="setting_screenshots_desc">Off — screenshots and screen recording are blocked.</string>
+    <string name="setting_screenshots">Block screenshots</string>
+    <string name="setting_screenshots_desc">Screenshots and screen recording are blocked.</string>
     <string name="setting_animations">Animations</string>
     <string name="section_animations">Interface animations</string>
     <string name="setting_animations_desc">Turn off if the interface feels sluggish or annoying.</string>
@@ -56,7 +56,7 @@
     <string name="vpn_error_no_traffic">Nodes respond but no data flows. Wait a minute and try again.</string>
     <string name="vpn_error_ai_no_nodes">No node worked for AI: Google rejects their addresses. Try again later.</string>
     <string name="vpn_error_panel_empty">The server returned no free nodes and the backups are down. Try again later.</string>
-    <string name="setting_screenshots_allowed">Screenshots and screen recording are now allowed in the app.</string>
+    <string name="setting_screenshots_allowed">Screenshots and screen recording are allowed.</string>
     <string name="setting_animations_off">Off — the interface has no animations.</string>
     <string name="screenshot_warning_allowed_toast">Screenshots allowed</string>
     <string name="quick_tile_notify_label">Payment reminders</string>
