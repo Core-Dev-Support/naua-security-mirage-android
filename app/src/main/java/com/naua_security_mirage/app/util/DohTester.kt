@@ -12,6 +12,7 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.net.InetSocketAddress
 import java.net.Proxy
+import java.util.concurrent.ThreadLocalRandom
 import java.util.concurrent.TimeUnit
 
 data class DnsProbeResult(
@@ -48,7 +49,9 @@ object DohTester {
 
     private fun buildQuery(name: String, type: Int): ByteArray {
         val out = java.io.ByteArrayOutputStream()
-        out.write((System.nanoTime() and 0xFFFF).toInt())
+        val id = ThreadLocalRandom.current().nextInt(0x10000)
+        out.write(id shr 8)
+        out.write(id and 0xFF)
         out.write(0x01)
         out.write(0x00)
         out.write(0x00)
@@ -159,7 +162,7 @@ object DohTester {
                     httpStatus = response.code,
                     dnsStatus = "JSON",
                     answerCount = if (answered) 1 else 0,
-                    detail = ", JSON, тело ${body.length} байт"
+                    detail = ", тело ${body.length} байт"
                 )
             }
         } catch (t: Throwable) {
