@@ -2092,7 +2092,7 @@ class MainActivity : AppCompatActivity() {
                     AppLogger.i(
                         "TunnelDns",
                         "Проверка завершена: годных $reachable из ${outcomes.size}, " +
-                            "через туннель=$throughTunnel, имя пробы $PROBE_NAME"
+                            "через туннель=$throughTunnel, имя пробы ${DohTester.PROBE_NAME}"
                     )
                     for (result in outcomes) {
                         AppLogger.i("TunnelDns", DohTester.logLine(result))

@@ -23,7 +23,7 @@ data class DnsProbeResult(
 
 object DohTester {
 
-    private const val PROBE_NAME = "example.com"
+    const val PROBE_NAME = "example.com"
     private const val PROBE_TYPE_A = 1
     private const val PROBE_TIMEOUT_MS = 6000L
     private const val SOCKS_HOST = "127.0.0.1"
