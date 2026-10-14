@@ -116,7 +116,6 @@ jobs:
           THREE_X_UI_USERNAME: ${{ secrets.THREE_X_UI_USERNAME }}
           THREE_X_UI_PASSWORD: ${{ secrets.THREE_X_UI_PASSWORD }}
           THREE_X_UI_INBOUND_ID: ${{ secrets.THREE_X_UI_INBOUND_ID }}
-          THREE_X_UI_CERT_SHA256: ${{ secrets.THREE_X_UI_CERT_SHA256 }}
           FRANCE_HOST: ${{ secrets.FRANCE_HOST }}
           FRANCE_PORT: ${{ secrets.FRANCE_PORT }}
           FRANCE_PBK: ${{ secrets.FRANCE_PBK }}
