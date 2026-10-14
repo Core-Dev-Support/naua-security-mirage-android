@@ -97,6 +97,14 @@ class SettingsRepository(context: Context) {
         get() = prefs.getLong(KEY_PRIVATE_DNS_DIALOG_TIME, 0L)
         set(value) = prefs.edit().putLong(KEY_PRIVATE_DNS_DIALOG_TIME, value).apply()
 
+    var selectedDnsId: String
+        get() = prefs.getString(KEY_SELECTED_DNS_ID, "") ?: ""
+        set(value) = prefs.edit().putString(KEY_SELECTED_DNS_ID, value).apply()
+
+    var customDnsUrl: String
+        get() = prefs.getString(KEY_CUSTOM_DNS_URL, "") ?: ""
+        set(value) = prefs.edit().putString(KEY_CUSTOM_DNS_URL, value).apply()
+
     var isScreenshotBlockingEnabled: Boolean
         get() = prefs.getBoolean(KEY_SCREENSHOT_BLOCK, true)
         set(value) = prefs.edit().putBoolean(KEY_SCREENSHOT_BLOCK, value).apply()
@@ -315,6 +323,8 @@ class SettingsRepository(context: Context) {
         private const val KEY_DIRECT_RU = "key_direct_ru"
         private const val KEY_AI_MODE = "key_ai_mode"
         private const val KEY_PRIVATE_DNS_DIALOG_TIME = "key_private_dns_dialog_time"
+    private const val KEY_SELECTED_DNS_ID = "key_selected_dns_id"
+    private const val KEY_CUSTOM_DNS_URL = "key_custom_dns_url"
         private const val KEY_SCREENSHOT_BLOCK = "key_screenshot_block"
         private const val KEY_EMAIL_MASKED = "key_email_masked"
         private const val KEY_HIDDEN_SECTIONS = "key_hidden_sections"

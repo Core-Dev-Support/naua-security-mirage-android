@@ -20,6 +20,9 @@ import com.naua_security_mirage.app.vpn.PrivateDnsInspector
 import com.naua_security_mirage.app.util.AppShield
 import com.naua_security_mirage.app.util.AnimationHelper
 import com.naua_security_mirage.app.util.AppUpdateManager
+import com.naua_security_mirage.app.data.model.DnsServer
+import com.naua_security_mirage.app.util.DohTester
+import com.naua_security_mirage.app.vpn.XrayVpnController
 import android.widget.RadioButton
 import android.text.SpannableStringBuilder
 import android.text.Spanned
@@ -83,6 +86,7 @@ import java.io.File
 import java.io.FileOutputStream
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.combine
@@ -1636,6 +1640,7 @@ class MainActivity : AppCompatActivity() {
         AnimationHelper.fadeAndSlideIn(binding.viewSettings, fromX = slideDist, durationMs = 230)
         binding.hintCard.visibility = View.GONE
         refreshPrivateDnsRow()
+        refreshTunnelDnsRow()
     }
 
     private var privateDnsCard: View? = null
@@ -1654,6 +1659,11 @@ class MainActivity : AppCompatActivity() {
         val index = parent.indexOfChild(anchor) + 1
         parent.addView(card, index)
         privateDnsCard = card
+        card.findViewById<View>(R.id.rowTunnelDns)?.setOnClickListener {
+            AnimationHelper.bounceClick(it, minScale = 0.98f, durationMs = 140)
+            showTunnelDnsDialog()
+        }
+        refreshTunnelDnsRow()
 
         val nodeCard = layoutInflater.inflate(R.layout.card_node_status, parent, false)
         val diagIndex = parent.indexOfChild(binding.cardSpeed)
@@ -1887,6 +1897,234 @@ class MainActivity : AppCompatActivity() {
             }
         }
         AppLogger.w("PrivateDns", "Не удалось открыть настройки Android")
+    }
+
+    private var privateDnsDialog: Dialog? = null
+
+    private data class DnsChoice(
+        val server: DnsServer,
+        val nameRes: Int,
+        val url: String
+    )
+
+    private fun dnsChoices(): List<DnsChoice> {
+        val builtIn = DnsServer.BUILT_IN.map { candidate ->
+            DnsChoice(candidate, dnsNameRes(candidate.id), candidate.url)
+        }
+        val customUrl = settingsRepository.customDnsUrl.trim()
+        if (customUrl.isBlank()) return builtIn
+        return builtIn + DnsChoice(
+            DnsServer(id = XrayVpnController.CUSTOM_DNS_ID, url = customUrl),
+            R.string.dns_server_custom,
+            customUrl
+        )
+    }
+
+    private fun dnsNameRes(id: String): Int = when (id) {
+        "cloudflare" -> R.string.dns_server_cloudflare
+        "google" -> R.string.dns_server_google
+        "quad9" -> R.string.dns_server_quad9
+        "adguard" -> R.string.dns_server_adguard
+        "mullvad" -> R.string.dns_server_mullvad
+        "yandex" -> R.string.dns_server_yandex
+        else -> R.string.dns_server_custom
+    }
+
+    private fun currentDnsName(): String {
+        val id = settingsRepository.selectedDnsId
+        if (id.isBlank()) return getString(R.string.dns_server_cloudflare)
+        return getString(dnsNameRes(id))
+    }
+
+    private fun refreshTunnelDnsRow() {
+        val card = privateDnsCard ?: return
+        val state = card.findViewById<TextView>(R.id.tvTunnelDnsState) ?: return
+        val selected = settingsRepository.selectedDnsId
+        state.text = if (selected.isBlank()) {
+            getString(R.string.tunnel_dns_default)
+        } else {
+            getString(R.string.tunnel_dns_selected_fmt, currentDnsName())
+        }
+        AppLogger.i("TunnelDns", "Выбран DNS-резолвер: ${selected.ifBlank { "cloudflare (по умолчанию)" }}")
+    }
+
+    private fun showTunnelDnsDialog() {
+        val dialog = Dialog(this)
+        dialog.setContentView(R.layout.dialog_tunnel_dns)
+        dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+        val density = resources.displayMetrics.density
+        val maxHeight = (resources.displayMetrics.heightPixels * 0.78f).toInt()
+        dialog.window?.setLayout(
+            (resources.displayMetrics.widthPixels * 0.92f).toInt(),
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        )
+
+        val hasWallpaper = !settingsRepository.customBgImagePath.isNullOrEmpty() &&
+                java.io.File(settingsRepository.customBgImagePath ?: "").exists()
+        val isLightContext = !hasWallpaper && (
+                settingsRepository.themePreset == SettingsRepository.THEME_LIGHT ||
+                        (settingsRepository.customBgColor != 0 &&
+                                ColorUtils.calculateLuminance(settingsRepository.customBgColor) > 0.5)
+                )
+        val customText = settingsRepository.customTextColor
+        val cardBg = if (isLightContext) Color.WHITE else ContextCompat.getColor(this, R.color.card)
+        val stroke = if (isLightContext) Color.parseColor("#E2E8F0")
+        else ContextCompat.getColor(this, R.color.card_stroke)
+        val titleColor = if (customText != 0) customText
+        else if (isLightContext) Color.parseColor("#0F172A")
+        else ContextCompat.getColor(this, R.color.ink)
+        val bodyColor = if (customText != 0) ColorUtils.setAlphaComponent(customText, 190)
+        else if (isLightContext) Color.parseColor("#475569")
+        else ContextCompat.getColor(this, R.color.ink_soft)
+        val accentColor = ContextCompat.getColor(this, R.color.accent)
+
+        val root = dialog.findViewById<LinearLayout>(R.id.dialogTunnelDnsRoot)
+        root.background = GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            cornerRadius = 24f * density
+            setColor(cardBg)
+            setStroke((1.2f * density).toInt(), stroke)
+        }
+        dialog.findViewById<TextView>(R.id.tvTunnelDnsTitle).setTextColor(titleColor)
+        dialog.findViewById<TextView>(R.id.tvTunnelDnsSubtitle).setTextColor(bodyColor)
+        dialog.findViewById<TextView>(R.id.tvTunnelDnsProgress).setTextColor(bodyColor)
+        val testBtn = dialog.findViewById<TextView>(R.id.btnTunnelDnsTest)
+        val customBtn = dialog.findViewById<TextView>(R.id.btnTunnelDnsCustom)
+        testBtn.setTextColor(bodyColor)
+        customBtn.setTextColor(accentColor)
+        testBtn.background = GradientDrawable().apply {
+            cornerRadius = 14f * density
+            setColor(ColorUtils.setAlphaComponent(bodyColor, 26))
+            setStroke((1.2f * density).toInt(), stroke)
+        }
+        customBtn.background = GradientDrawable().apply {
+            cornerRadius = 14f * density
+            setColor(ColorUtils.setAlphaComponent(accentColor, 34))
+            setStroke((1.2f * density).toInt(), ColorUtils.setAlphaComponent(accentColor, 170))
+        }
+
+        val container = dialog.findViewById<LinearLayout>(R.id.containerTunnelDns)
+        val progress = dialog.findViewById<TextView>(R.id.tvTunnelDnsProgress)
+        val scroll = dialog.findViewById<ScrollView>(R.id.scrollTunnelDns)
+        val rows = mutableMapOf<String, TextView>()
+        val choices = dnsChoices()
+
+        dialog.show()
+        AnimationHelper.popIn(root, durationMs = 220)
+        AnimationHelper.attachPressAnimations(root)
+        scroll.post {
+            val params = scroll.layoutParams
+            if (scroll.height > maxHeight) {
+                params.height = maxHeight
+                scroll.layoutParams = params
+            }
+        }
+
+        fun buildRows() {
+            container.removeAllViews()
+            rows.clear()
+            val selectedId = settingsRepository.selectedDnsId
+            for (choice in choices) {
+                val row = layoutInflater.inflate(R.layout.row_dns_server, container, false)
+                val nameView = row.findViewById<TextView>(R.id.tvDnsServerName)
+                val urlView = row.findViewById<TextView>(R.id.tvDnsServerUrl)
+                val latencyView = row.findViewById<TextView>(R.id.tvDnsServerLatency)
+                nameView.text = getString(choice.nameRes) +
+                        if (choice.server.id == selectedId) "  ✓" else ""
+                nameView.setTextColor(
+                    if (choice.server.id == selectedId) accentColor else titleColor
+                )
+                urlView.text = choice.url
+                urlView.setTextColor(bodyColor)
+                latencyView.text = ""
+                latencyView.setTextColor(bodyColor)
+                row.setOnClickListener {
+                    AnimationHelper.bounceClick(row, minScale = 0.98f, durationMs = 140)
+                    settingsRepository.selectedDnsId = choice.server.id
+                    Toast.makeText(this, R.string.tunnel_dns_applied, Toast.LENGTH_SHORT).show()
+                    refreshTunnelDnsRow()
+                    buildRows()
+                }
+                rows[choice.server.id] = latencyView
+                container.addView(row)
+                if (container.childCount > 1) {
+                    val divider = View(this).apply {
+                        layoutParams = LinearLayout.LayoutParams(
+                            LinearLayout.LayoutParams.MATCH_PARENT,
+                            (1f * density).toInt().coerceAtLeast(1)
+                        ).apply {
+                            marginStart = (16f * density).toInt()
+                            marginEnd = (16f * density).toInt()
+                        }
+                        setBackgroundColor(stroke)
+                    }
+                    container.addView(divider)
+                }
+            }
+        }
+        buildRows()
+
+        testBtn.setOnClickListener {
+            AnimationHelper.bounceClick(it, minScale = 0.94f, durationMs = 140)
+            progress.visibility = View.VISIBLE
+            progress.text = getString(R.string.tunnel_dns_testing)
+            testBtn.isEnabled = false
+            val throughTunnel = MirageVpnService.vpnState.value == VpnState.CONNECTED
+            lifecycleScope.launch(Dispatchers.IO) {
+                val outcomes = choices.map { choice ->
+                    async { DohTester.probe(choice.server, throughTunnel) }
+                }.awaitAll()
+                withContext(Dispatchers.Main) {
+                    progress.visibility = View.GONE
+                    testBtn.isEnabled = true
+                    for (result in outcomes) {
+                        val view = rows[result.server.id] ?: continue
+                        view.text = when {
+                            !result.reachable -> getString(R.string.tunnel_dns_failed)
+                            !result.answered -> getString(R.string.tunnel_dns_no_answer)
+                            else -> getString(R.string.tunnel_dns_latency_fmt, result.latencyMs)
+                        }
+                        view.setTextColor(
+                            if (result.reachable && result.answered) accentColor else bodyColor
+                        )
+                    }
+                    val reachable = outcomes.count { it.reachable && it.answered }
+                    AppLogger.i(
+                        "TunnelDns",
+                        "Проверка завершена: отвечают $reachable из ${outcomes.size}, " +
+                            "через туннель=$throughTunnel"
+                    )
+                }
+            }
+        }
+
+        customBtn.setOnClickListener {
+            AnimationHelper.bounceClick(it, minScale = 0.94f, durationMs = 140)
+            val input = EditText(this).apply {
+                setText(settingsRepository.customDnsUrl)
+                hint = getString(R.string.tunnel_dns_custom_hint)
+                setSingleLine()
+                setTextColor(titleColor)
+                setHintTextColor(bodyColor)
+            }
+            AlertDialog.Builder(this)
+                .setTitle(R.string.tunnel_dns_custom_title)
+                .setView(input)
+                .setPositiveButton(android.R.string.ok) { _, _ ->
+                    val value = input.text.toString().trim()
+                    if (!value.startsWith("https://")) {
+                        Toast.makeText(this, R.string.tunnel_dns_custom_bad, Toast.LENGTH_LONG).show()
+                        return@setPositiveButton
+                    }
+                    settingsRepository.customDnsUrl = value
+                    settingsRepository.selectedDnsId = XrayVpnController.CUSTOM_DNS_ID
+                    Toast.makeText(this, R.string.tunnel_dns_custom_saved, Toast.LENGTH_SHORT).show()
+                    refreshTunnelDnsRow()
+                    buildRows()
+                }
+                .setNegativeButton(android.R.string.cancel, null)
+                .show()
+        }
     }
 
     private var privateDnsDialog: Dialog? = null
@@ -3687,6 +3925,7 @@ class MainActivity : AppCompatActivity() {
         cleanupDividers(binding.cardSpeed)
         cleanupDividers(binding.cardAppearance)
         cardBackup?.let(::cleanupDividers)
+        (privateDnsCard as? ViewGroup)?.let(::cleanupDividers)
         (nodeStatusCard as? ViewGroup)?.let(::cleanupDividers)
     }
 
@@ -3697,6 +3936,7 @@ class MainActivity : AppCompatActivity() {
         cleanupDividers(binding.cardSpeed)
         cleanupDividers(binding.cardAppearance)
         cardBackup?.let(::cleanupDividers)
+        (privateDnsCard as? ViewGroup)?.let(::cleanupDividers)
         (nodeStatusCard as? ViewGroup)?.let(::cleanupDividers)
         cleanupDividers(binding.cardAccount.root)
     }
@@ -5575,6 +5815,10 @@ class MainActivity : AppCompatActivity() {
                 it.background = actionPillBg
                 it.setTextColor(accentColor)
             }
+            card.findViewById<ImageView>(R.id.ivTunnelDnsIcon)?.imageTintList =
+                ColorStateList.valueOf(finalActionColor)
+            card.findViewById<TextView>(R.id.tvTunnelDnsTitle)?.setTextColor(titleTextColor)
+            card.findViewById<TextView>(R.id.tvTunnelDnsState)?.setTextColor(subtitleTextColor)
         }
         nodeStatusCard?.let { card ->
             card.background = getCardDrawable(isLightContext, 18f)

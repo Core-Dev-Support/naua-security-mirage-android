@@ -7,6 +7,7 @@ import com.google.gson.JsonArray
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
 import com.naua_security_mirage.app.BuildConfig
+import com.naua_security_mirage.app.data.model.DnsServer
 import com.naua_security_mirage.app.data.model.VlessServer
 import com.naua_security_mirage.app.data.repository.GeoRoutingRepository
 import com.naua_security_mirage.app.data.repository.SettingsRepository
@@ -716,6 +717,23 @@ class XrayVpnController(private val vpnService: VpnService) {
         return "domain:$normalized"
     }
 
+    private fun chosenDnsHost(url: String): String? = try {
+        java.net.URI(url).host?.lowercase()?.takeIf { it.isNotBlank() && it.none { ch -> ch == ':' } }
+    } catch (_: Throwable) {
+        null
+    }
+
+    private fun resolveChosenDns(settingsRepo: SettingsRepository): DnsServer? {
+        val selectedId = settingsRepo.selectedDnsId
+        if (selectedId == CUSTOM_DNS_ID) {
+            val url = settingsRepo.customDnsUrl.trim()
+            if (!url.startsWith("https://")) return null
+            return DnsServer(id = CUSTOM_DNS_ID, url = url)
+        }
+        if (selectedId.isBlank()) return null
+        return DnsServer.byId(selectedId)
+    }
+
     private fun buildManualConfig(server: VlessServer, mtu: Int): String {
         val xrayServer = resolveProxyEndpoint(server)
 
@@ -779,6 +797,7 @@ class XrayVpnController(private val vpnService: VpnService) {
             }
         }
 
+        val chosenDns = resolveChosenDns(settingsRepo)
         val dns = JsonObject().apply {
             val hosts = JsonObject().apply {
                 val cfIps = JsonArray().apply { add("1.1.1.1"); add("1.0.0.1") }
@@ -791,10 +810,22 @@ class XrayVpnController(private val vpnService: VpnService) {
                 add("dns.google", googleIps)
                 val yandexIps = JsonArray().apply { add("77.88.8.8"); add("77.88.8.1") }
                 add("common.dot.dns.yandex.net", yandexIps)
+                chosenDns?.bootstrapIps?.forEach { ip ->
+                    val host = chosenDnsHost(chosenDns.url)
+                    if (host != null && !hosts.has(host)) {
+                        hosts.add(host, JsonArray().apply { add(ip) })
+                    }
+                }
             }
             add("hosts", hosts)
 
             val servers = JsonArray().apply {
+
+                chosenDns?.let { chosen ->
+                    add(JsonObject().apply {
+                        addProperty("address", chosen.url)
+                    })
+                }
 
                 add(JsonObject().apply {
                     addProperty("address", "https://cloudflare-dns.com/dns-query")
@@ -1347,6 +1378,7 @@ class XrayVpnController(private val vpnService: VpnService) {
         private const val HOST_RESOLVE_TTL_MS = 5 * 60 * 1000L
 
         private const val GEO_PREFS = "mirage_xray_geo"
+    const val CUSTOM_DNS_ID = "custom"
         private const val KEY_GEO_BROKEN = "geo_broken"
 
         private val resolvedHostCache = java.util.concurrent.ConcurrentHashMap<String, ResolvedHost>()

@@ -446,4 +446,27 @@
     <string name="log_file_none">(Log collection is off in the settings)</string>
     <string name="log_file_empty">(No log records)</string>
     <string name="log_file_paused">[SYSTEM] Log collection is paused (None level).</string>
+  <string name="tunnel_dns_title">Encrypted DNS in the tunnel</string>
+  <string name="tunnel_dns_default">Cloudflare, pick another and test it</string>
+  <string name="tunnel_dns_dialog_title">Encrypted DNS</string>
+  <string name="tunnel_dns_dialog_body">The resolver the tunnel uses for DNS. The rest stay as fallbacks, so switching breaks nothing. The test sends a real query.</string>
+  <string name="tunnel_dns_test">Test all</string>
+  <string name="tunnel_dns_custom">Custom address</string>
+  <string name="tunnel_dns_testing">Testing, through the tunnel…</string>
+  <string name="tunnel_dns_failed">no answer</string>
+  <string name="tunnel_dns_no_answer">answered, no record</string>
+  <string name="tunnel_dns_selected_fmt">Selected: %1$s</string>
+  <string name="tunnel_dns_applied">Takes effect on the next connection</string>
+  <string name="tunnel_dns_custom_title">Custom DoH address</string>
+  <string name="tunnel_dns_custom_hint">https://example.com/dns-query</string>
+  <string name="tunnel_dns_custom_saved">Saved</string>
+  <string name="tunnel_dns_custom_bad">Needs an address starting with https://</string>
+  <string name="dns_server_cloudflare">Cloudflare</string>
+  <string name="dns_server_google">Google</string>
+  <string name="dns_server_quad9">Quad9</string>
+  <string name="dns_server_adguard">AdGuard</string>
+  <string name="dns_server_mullvad">Mullvad</string>
+  <string name="dns_server_yandex">Yandex</string>
+  <string name="dns_server_custom">Custom address</string>
+  <string name="tunnel_dns_latency_fmt">%1$d ms</string>
 </resources>

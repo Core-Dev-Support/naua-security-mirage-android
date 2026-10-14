@@ -446,4 +446,27 @@
     <string name="log_file_none">(Сбор логов отключен в настройках)</string>
     <string name="log_file_empty">(Записи логов отсутствуют)</string>
     <string name="log_file_paused">[SYSTEM] Сбор логов приостановлен (уровень None).</string>
+  <string name="tunnel_dns_title">Шифрованный DNS в туннеле</string>
+  <string name="tunnel_dns_default">Cloudflare, можно выбрать другой и проверить</string>
+  <string name="tunnel_dns_dialog_title">Шифрованный DNS</string>
+  <string name="tunnel_dns_dialog_body">Резолвер, которым туннель спрашивает DNS. Остальные остаются запасными, поэтому смена ничего не ломает. Проверка идёт реальным запросом.</string>
+  <string name="tunnel_dns_test">Проверить все</string>
+  <string name="tunnel_dns_custom">Свой адрес</string>
+  <string name="tunnel_dns_testing">Проверяем, идёт через туннель…</string>
+  <string name="tunnel_dns_failed">не отвечает</string>
+  <string name="tunnel_dns_no_answer">ответил, но без записи</string>
+  <string name="tunnel_dns_selected_fmt">Выбрано: %1$s</string>
+  <string name="tunnel_dns_applied">Применится при следующем подключении</string>
+  <string name="tunnel_dns_custom_title">Свой DoH-адрес</string>
+  <string name="tunnel_dns_custom_hint">https://example.com/dns-query</string>
+  <string name="tunnel_dns_custom_saved">Сохранено</string>
+  <string name="tunnel_dns_custom_bad">Нужен адрес, начинающийся с https://</string>
+  <string name="dns_server_cloudflare">Cloudflare</string>
+  <string name="dns_server_google">Google</string>
+  <string name="dns_server_quad9">Quad9</string>
+  <string name="dns_server_adguard">AdGuard</string>
+  <string name="dns_server_mullvad">Mullvad</string>
+  <string name="dns_server_yandex">Яндекс</string>
+  <string name="dns_server_custom">Свой адрес</string>
+  <string name="tunnel_dns_latency_fmt">%1$d мс</string>
 </resources>
