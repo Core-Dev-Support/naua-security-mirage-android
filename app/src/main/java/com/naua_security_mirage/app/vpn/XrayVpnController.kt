@@ -810,11 +810,14 @@ class XrayVpnController(private val vpnService: VpnService) {
                 add("dns.google", googleIps)
                 val yandexIps = JsonArray().apply { add("77.88.8.8"); add("77.88.8.1") }
                 add("common.dot.dns.yandex.net", yandexIps)
-                chosenDns?.bootstrapIps?.forEach { ip ->
-                    val host = chosenDnsHost(chosenDns.url)
-                    if (host != null && !hosts.has(host)) {
-                        hosts.add(host, JsonArray().apply { add(ip) })
-                    }
+            }
+            chosenDns?.let { chosen ->
+                val host = chosenDnsHost(chosen.url)
+                if (host != null && !hosts.has(host) && chosen.bootstrapIps.isNotEmpty()) {
+                    hosts.add(
+                        host,
+                        JsonArray().apply { chosen.bootstrapIps.forEach { add(it) } }
+                    )
                 }
             }
             add("hosts", hosts)
