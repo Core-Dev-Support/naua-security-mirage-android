@@ -30,8 +30,8 @@
     <string name="way_tribute_web_title">Tribute в браузере</string>
     <string name="way_tribute_web_desc">Тот же Tribute, но через сайт. Подойдёт, если нет Telegram или ссылка не открывается.</string>
     <string name="action_go">Перейти</string>
-    <string name="setting_screenshots">Блокировать скриншоты</string>
-    <string name="setting_screenshots_desc">Скриншоты и запись экрана запрещены.</string>
+    <string name="setting_screenshots">Снимки экрана и запись экрана</string>
+    <string name="setting_screenshots_desc">Снимки экрана и запись экрана запрещены.</string>
     <string name="setting_animations">Анимации</string>
     <string name="section_animations">Анимации интерфейса</string>
     <string name="setting_animations_desc">Выключите, если интерфейс кажется тормозным или раздражает.</string>

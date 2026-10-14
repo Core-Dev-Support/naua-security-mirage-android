@@ -30,7 +30,7 @@
     <string name="way_tribute_web_title">Tribute in the browser</string>
     <string name="way_tribute_web_desc">The same Tribute, but via the website. Handy if you have no Telegram or the link won’t open.</string>
     <string name="action_go">Open</string>
-    <string name="setting_screenshots">Block screenshots</string>
+    <string name="setting_screenshots">Screenshots and screen recording</string>
     <string name="setting_screenshots_desc">Screenshots and screen recording are blocked.</string>
     <string name="setting_animations">Animations</string>
     <string name="section_animations">Interface animations</string>

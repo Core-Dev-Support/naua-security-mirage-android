@@ -2119,12 +2119,7 @@ class MainActivity : AppCompatActivity() {
                 }
                 rows[choice.server.id] = latencyView
                 container.addView(row)
-                kept[choice.server.id]?.let {
-                    latencyView.text = getString(R.string.tunnel_dns_latency_fmt, it.latencyMs)
-                    latencyView.setTextColor(
-                        if (it.reachable && it.answered) accentColor else bodyColor
-                    )
-                }
+                kept[choice.server.id]?.let { renderLatency(it) }
                 AnimationHelper.popIn(row, durationMs = 140)
             }
         }
@@ -3864,30 +3859,43 @@ class MainActivity : AppCompatActivity() {
             binding.cardKillSwitch,
             R.drawable.ic_image,
             R.string.setting_screenshots,
-            R.string.setting_screenshots_desc,
+            R.string.setting_screenshots_allowed,
             anchor = binding.rowSystemVpn
         ).also { holder ->
-            holder.switch.isChecked = settingsRepository.isScreenshotBlockingEnabled
-            holder.switch.setOnCheckedChangeListener { _, blocked ->
-                if (blocked) {
-                    settingsRepository.isScreenshotBlockingEnabled = true
-                    applyScreenshotBlocking()
-                    holder.desc.setText(R.string.setting_screenshots_desc)
-                } else {
+            var syncing = false
+            fun render() {
+                val blocking = settingsRepository.isScreenshotBlockingEnabled
+                syncing = true
+                holder.switch.isChecked = !blocking
+                syncing = false
+                holder.desc.setText(
+                    if (blocking) R.string.setting_screenshots_desc
+                    else R.string.setting_screenshots_allowed
+                )
+            }
+            render()
+            holder.switch.setOnCheckedChangeListener { _, allowed ->
+                if (syncing) return@setOnCheckedChangeListener
+                if (allowed) {
                     showScreenshotWarningDialog(onAllow = {
                         settingsRepository.isScreenshotBlockingEnabled = false
                         applyScreenshotBlocking()
-                        holder.switch.isChecked = false
-                        holder.desc.setText(R.string.setting_screenshots_allowed)
-                        Toast.makeText(this, R.string.screenshot_warning_allowed_toast, Toast.LENGTH_LONG).show()
+                        render()
+                        Toast.makeText(
+                            this,
+                            R.string.screenshot_warning_allowed_toast,
+                            Toast.LENGTH_LONG
+                        ).show()
                     }, onKeep = {
                         settingsRepository.isScreenshotBlockingEnabled = true
                         applyScreenshotBlocking()
-                        holder.switch.isChecked = true
-                        holder.desc.setText(R.string.setting_screenshots_desc)
+                        render()
                     })
-                    holder.switch.isChecked = true
-                    holder.desc.setText(R.string.setting_screenshots_desc)
+                    render()
+                } else {
+                    settingsRepository.isScreenshotBlockingEnabled = true
+                    applyScreenshotBlocking()
+                    render()
                 }
             }
             holder.row.setOnClickListener {
@@ -6106,8 +6114,9 @@ class MainActivity : AppCompatActivity() {
 
     private fun shrinkWallpaper(uri: Uri, destFile: File): Boolean {
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-        contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) }
-            ?: return false
+        val opened = contentResolver.openInputStream(uri) ?: return false
+        opened.use { BitmapFactory.decodeStream(it, null, bounds) }
+        if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return false
         val width = resources.displayMetrics.widthPixels.coerceAtLeast(1080)
         val height = resources.displayMetrics.heightPixels.coerceAtLeast(1920)
         val sample = calculateInSampleSize(bounds, width, height)
