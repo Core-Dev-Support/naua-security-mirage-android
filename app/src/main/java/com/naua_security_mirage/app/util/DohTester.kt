@@ -26,9 +26,9 @@ object DohTester {
 
     fun buildClient(throughTunnel: Boolean): OkHttpClient {
         val builder = OkHttpClient.Builder()
-            .connectTimeout(PROBE_TIMEOUT_MS.toInt(), TimeUnit.MILLISECONDS)
-            .readTimeout(PROBE_TIMEOUT_MS.toInt(), TimeUnit.MILLISECONDS)
-            .callTimeout(PROBE_TIMEOUT_MS.toInt() + 1500, TimeUnit.MILLISECONDS)
+            .connectTimeout(PROBE_TIMEOUT_MS, TimeUnit.MILLISECONDS)
+            .readTimeout(PROBE_TIMEOUT_MS, TimeUnit.MILLISECONDS)
+            .callTimeout(PROBE_TIMEOUT_MS + 2000, TimeUnit.MILLISECONDS)
             .retryOnConnectionFailure(false)
         if (throughTunnel) {
             builder.proxy(Proxy(Proxy.Type.SOCKS, InetSocketAddress(SOCKS_HOST, SOCKS_PORT)))

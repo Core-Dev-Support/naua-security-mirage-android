@@ -2127,8 +2127,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private var privateDnsDialog: Dialog? = null
-
     private fun maybeShowPrivateDnsDialog() {
         if (PrivateDnsInspector.read(this).mode != PrivateDnsInspector.Mode.STRICT) return
         if (privateDnsDialog?.isShowing == true) return
