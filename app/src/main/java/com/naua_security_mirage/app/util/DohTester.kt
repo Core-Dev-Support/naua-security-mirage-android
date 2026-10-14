@@ -1,14 +1,15 @@
 package com.naua_security_mirage.app.util
 
-import android.util.Base64
 import com.naua_security_mirage.app.data.model.DnsServer
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
+import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
 import java.net.InetSocketAddress
 import java.net.Proxy
 import java.util.concurrent.TimeUnit
@@ -72,14 +73,6 @@ object DohTester {
         return out.toByteArray()
     }
 
-    private fun base64Url(bytes: ByteArray): String =
-        Base64.encodeToString(bytes, Base64.URL_SAFE or Base64.NO_PADDING or Base64.NO_WRAP)
-
-    private fun decodeBase64Url(value: String): ByteArray = Base64.decode(
-        value,
-        Base64.URL_SAFE or Base64.NO_PADDING or Base64.NO_WRAP
-    )
-
     private fun parseResponse(bytes: ByteArray): Pair<String, Int> {
         if (bytes.size < 12) return "короткий ответ" to -1
         val flags = ((bytes[2].toInt() and 0xFF) shl 8) or (bytes[3].toInt() and 0xFF)
@@ -101,6 +94,9 @@ object DohTester {
         val verdict = when {
             !result.reachable -> "не отвечает"
             result.httpStatus != 200 -> "HTTP ${result.httpStatus}, это не DNS-ответ"
+            result.dnsStatus == "REFUSED" -> "отказал (REFUSED)"
+            result.dnsStatus == "SERVFAIL" -> "не смог ответить (SERVFAIL)"
+            result.dnsStatus == "NXDOMAIN" -> "NXDOMAIN"
             !result.answered -> "ответил, записей нет (${result.dnsStatus})"
             else -> "${result.latencyMs} мс, ${result.dnsStatus}, записей ${result.answerCount}"
         }
@@ -126,10 +122,11 @@ object DohTester {
             val started = System.currentTimeMillis()
             val client = buildClient(throughTunnel)
             try {
-                val query = base64Url(buildQuery(PROBE_NAME, PROBE_TYPE_A))
-                val separator = if (server.url.contains('?')) "&" else "?"
+                val query = buildQuery(PROBE_NAME, PROBE_TYPE_A)
+                val body = query.toRequestBody("application/dns-message".toMediaType())
                 val request = Request.Builder()
-                    .url(server.url + separator + "dns=" + query)
+                    .url(server.url)
+                    .post(body)
                     .header("Accept", "application/dns-message")
                     .header("User-Agent", "MirageVPN")
                     .build()

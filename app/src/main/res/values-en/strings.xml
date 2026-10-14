@@ -475,4 +475,8 @@
   <string name="dns_server_auto">Automatic</string>
   <string name="tunnel_dns_auto_desc">The app picks the fastest one on connect</string>
   <string name="tunnel_dns_auto_chosen_fmt">Automatic, currently %1$s</string>
+  <string name="tunnel_dns_auto_hint">picked on connect</string>
+  <string name="tunnel_dns_auto_short">Auto pick</string>
+  <string name="tunnel_dns_refused">refused</string>
+  <string name="tunnel_dns_servfail">no answer</string>
 </resources>

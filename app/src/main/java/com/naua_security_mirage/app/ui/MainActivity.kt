@@ -1906,7 +1906,7 @@ class MainActivity : AppCompatActivity() {
         val url: String
     ) {
         fun urlLine(host: android.content.Context): String = when (server.id) {
-            DnsServer.AUTO_ID -> host.getString(R.string.tunnel_dns_auto_desc)
+            DnsServer.AUTO_ID -> host.getString(R.string.tunnel_dns_auto_hint)
             else -> url
         }
     }
@@ -2109,8 +2109,9 @@ class MainActivity : AppCompatActivity() {
             progress.text = getString(R.string.tunnel_dns_testing)
             testBtn.isEnabled = false
             val throughTunnel = MirageVpnService.vpnState.value == VpnState.CONNECTED
+            val measurable = choices.filter { it.server.url.isNotBlank() }
             lifecycleScope.launch(Dispatchers.IO) {
-                val outcomes = choices.map { choice ->
+                val outcomes = measurable.map { choice ->
                     async { DohTester.probe(choice.server, throughTunnel) }
                 }.awaitAll()
                 withContext(Dispatchers.Main) {
@@ -2120,13 +2121,19 @@ class MainActivity : AppCompatActivity() {
                         val view = rows[result.server.id] ?: continue
                         view.text = when {
                             !result.reachable -> getString(R.string.tunnel_dns_failed)
+                            result.dnsStatus == "REFUSED" -> getString(R.string.tunnel_dns_refused)
+                            result.dnsStatus == "SERVFAIL" -> getString(R.string.tunnel_dns_servfail)
                             !result.answered -> getString(R.string.tunnel_dns_not_dns)
                             else -> getString(R.string.tunnel_dns_latency_fmt, result.latencyMs)
                         }
                         view.setTextColor(
                             if (result.reachable && result.answered) accentColor else bodyColor
                         )
-                        AnimationHelper.popIn(view, durationMs = 160)
+                        if (result.server.id == DnsServer.AUTO_ID) {
+                            view.text = ""
+                        } else {
+                            AnimationHelper.popIn(view, durationMs = 160)
+                        }
                     }
                     val reachable = outcomes.count { it.reachable && it.answered }
                     AppLogger.i(
@@ -3933,7 +3940,8 @@ class MainActivity : AppCompatActivity() {
             SectionSub("sub_direct", R.string.setting_direct_ru),
             SectionSub("sub_perapp", R.string.setting_per_app_proxy),
             SectionSub("sub_sites", R.string.setting_custom_websites_proxy),
-            SectionSub("sub_dns", R.string.private_dns_title)
+            SectionSub("sub_dns", R.string.private_dns_title),
+            SectionSub("sub_tunnel_dns", R.string.tunnel_dns_title)
         )
         "diagnostics" -> listOf(
             SectionSub("sub_free", R.string.free_nodes_title),
@@ -3968,7 +3976,8 @@ class MainActivity : AppCompatActivity() {
         "sub_direct" -> listOfNotNull(binding.rowDirectRu)
         "sub_perapp" -> listOfNotNull(binding.cardPerAppProxy)
         "sub_sites" -> listOfNotNull(binding.cardCustomWebsites)
-        "sub_dns" -> listOfNotNull(privateDnsCard)
+        "sub_dns" -> listOfNotNull(privateDnsCard?.findViewById(R.id.rowPrivateDns))
+        "sub_tunnel_dns" -> listOfNotNull(privateDnsCard?.findViewById(R.id.rowTunnelDns))
         "sub_free" -> listOfNotNull(nodeStatusCard?.findViewById(R.id.rowFreeNodes))
         "sub_paid" -> listOfNotNull(nodeStatusCard?.findViewById(R.id.rowPaidNode))
         "sub_hist" -> listOfNotNull(nodeStatusCard?.findViewById(R.id.rowNodeHistory))

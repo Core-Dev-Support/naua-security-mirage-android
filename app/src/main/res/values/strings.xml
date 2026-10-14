@@ -475,4 +475,8 @@
   <string name="dns_server_auto">Автоматически</string>
   <string name="tunnel_dns_auto_desc">Приложение само выберет самый быстрый при подключении</string>
   <string name="tunnel_dns_auto_chosen_fmt">Автоматически, сейчас %1$s</string>
+  <string name="tunnel_dns_auto_hint">выбирается при подключении</string>
+  <string name="tunnel_dns_auto_short">Автовыбор</string>
+  <string name="tunnel_dns_refused">отказал</string>
+  <string name="tunnel_dns_servfail">не ответил</string>
 </resources>
