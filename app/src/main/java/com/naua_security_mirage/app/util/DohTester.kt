@@ -117,47 +117,67 @@ object DohTester {
         results.filter { it.answered }.minByOrNull { it.latencyMs }
     }
 
-    suspend fun probe(server: DnsServer, throughTunnel: Boolean): DnsProbeResult =
-        withContext(Dispatchers.IO) {
-            val started = System.currentTimeMillis()
-            val client = buildClient(throughTunnel)
-            try {
-                val query = buildQuery(PROBE_NAME, PROBE_TYPE_A)
-                val body = query.toRequestBody("application/dns-message".toMediaType())
-                val request = Request.Builder()
-                    .url(server.url)
-                    .post(body)
-                    .header("Accept", "application/dns-message")
-                    .header("User-Agent", "MirageVPN")
-                    .build()
-                client.newCall(request).execute().use { response ->
-                    val raw = response.body?.bytes() ?: ByteArray(0)
-                    val elapsed = System.currentTimeMillis() - started
-                    val (dnsStatus, answers) = parseResponse(raw)
-                    val answered = response.isSuccessful && raw.size >= 12 && answers > 0
-                    DnsProbeResult(
-                        server = server,
-                        reachable = true,
-                        latencyMs = elapsed.coerceAtLeast(1L),
-                        answered = answered,
-                        httpStatus = response.code,
-                        dnsStatus = dnsStatus,
-                        answerCount = answers,
-                        detail = ", тело ${raw.size} байт" +
-                                (if (raw.size in 1..24) ", начало " + raw.take(16).joinToString(" ") { "%02x".format(it) } else "")
-                    )
-                }
-            } catch (t: Throwable) {
+    suspend fun probe(server: DnsServer, throughTunnel: Boolean): DnsProbeResult {
+        val posted = probeOnce(server, throughTunnel, useGetForm = false)
+        if (posted.answered || !posted.reachable) return posted
+        val fetched = probeOnce(server, throughTunnel, useGetForm = true)
+        return if (fetched.answered) fetched else posted
+    }
+
+    private fun probeOnce(
+        server: DnsServer,
+        throughTunnel: Boolean,
+        useGetForm: Boolean
+    ): DnsProbeResult {
+        val started = System.currentTimeMillis()
+        val client = buildClient(throughTunnel)
+        return try {
+            val query = buildQuery(PROBE_NAME, PROBE_TYPE_A)
+            val builder = Request.Builder()
+                .header("Accept", "application/dns-message")
+                .header("User-Agent", "MirageVPN")
+            if (useGetForm) {
+                val encoded = android.util.Base64.encodeToString(
+                    query,
+                    android.util.Base64.URL_SAFE or
+                            android.util.Base64.NO_PADDING or
+                            android.util.Base64.NO_WRAP
+                )
+                val separator = if (server.url.contains('?')) "&" else "?"
+                builder.url(server.url + separator + "dns=" + encoded).get()
+            } else {
+                builder.url(server.url).post(query.toRequestBody("application/dns-message".toMediaType()))
+            }
+            client.newCall(builder.build()).execute().use { response ->
+                val raw = response.body?.bytes() ?: ByteArray(0)
+                val elapsed = System.currentTimeMillis() - started
+                val (dnsStatus, answers) = parseResponse(raw)
+                val answered = response.isSuccessful && raw.size >= 12 && answers > 0
                 DnsProbeResult(
                     server = server,
-                    reachable = false,
-                    latencyMs = System.currentTimeMillis() - started,
-                    answered = false,
-                    httpStatus = -1,
-                    dnsStatus = "-",
-                    answerCount = -1,
-                    detail = ", ошибка ${t.javaClass.simpleName}"
+                    reachable = true,
+                    latencyMs = elapsed.coerceAtLeast(1L),
+                    answered = answered,
+                    httpStatus = response.code,
+                    dnsStatus = dnsStatus,
+                    answerCount = answers,
+                    detail = ", " + if (useGetForm) "GET" else "POST" +
+                            ", тело ${raw.size} байт" +
+                            (if (raw.size in 1..24) ", начало " + raw.take(16).joinToString(" ") { "%02x".format(it) } else "")
                 )
             }
+        } catch (t: Throwable) {
+            DnsProbeResult(
+                server = server,
+                reachable = false,
+                latencyMs = System.currentTimeMillis() - started,
+                answered = false,
+                httpStatus = -1,
+                dnsStatus = "-",
+                answerCount = -1,
+                detail = ", " + if (useGetForm) "GET" else "POST" +
+                        ", ошибка ${t.javaClass.simpleName}"
+            )
         }
+    }
 }

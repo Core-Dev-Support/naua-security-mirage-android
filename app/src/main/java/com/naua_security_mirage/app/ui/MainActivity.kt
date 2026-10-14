@@ -5616,7 +5616,7 @@ class MainActivity : AppCompatActivity() {
         binding.tvBrandName.setTextColor(titleTextColor)
         (binding.btnLanguage.getChildAt(0) as? TextView)?.let {
             it.text = settingsRepository.appLanguage.uppercase()
-            it.setTextColor(titleTextColor)
+            it.setTextColor(finalActionColor)
         }
         binding.tvBrandSub.setTextColor(subtitleTextColor)
         binding.tvStatus.setTextColor(titleTextColor)
@@ -5653,6 +5653,7 @@ class MainActivity : AppCompatActivity() {
         binding.cardAccount.tvAccountPrompt.setTextColor(subtitleTextColor)
         binding.cardAccount.tvAccountLoggedOutTitle.setTextColor(titleTextColor)
         binding.cardAccount.ivAccountLoggedOutIcon.imageTintList = ColorStateList.valueOf(finalActionColor)
+        binding.cardAccount.ivAccountAvatar.imageTintList = ColorStateList.valueOf(finalActionColor)
         binding.cardAccount.ivAccountEye.imageTintList = ColorStateList.valueOf(finalActionColor)
         binding.cardAccount.tvAccountEmail.setTextColor(titleTextColor)
         binding.tvSectionAccount.setTextColor(sectionHeaderColor)
