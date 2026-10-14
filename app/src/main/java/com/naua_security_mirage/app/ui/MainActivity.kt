@@ -2052,15 +2052,7 @@ class MainActivity : AppCompatActivity() {
         dialog.show()
         AnimationHelper.popIn(root, durationMs = 220)
         AnimationHelper.attachPressAnimations(root)
-        root.post {
-            val ceiling = (resources.displayMetrics.heightPixels * 0.82f).toInt()
-            val lockedHeight = minOf(root.height, ceiling).takeIf { it > 0 } ?: return@post
-            dialog.window?.setLayout(
-                (resources.displayMetrics.widthPixels * 0.92f).toInt(),
-                lockedHeight
-            )
-            AnimationHelper.clampScrollToBudget(dialog, root, scroll, lockedHeight)
-        }
+        lockDialogList(dialog, root, scroll)
 
         fun renderLatency(result: DnsProbeResult) {
             val view = rows[result.server.id] ?: return
@@ -2176,6 +2168,32 @@ class MainActivity : AppCompatActivity() {
         customBtn.setOnClickListener {
             AnimationHelper.bounceClick(it, minScale = 0.94f, durationMs = 140)
             showCustomDnsDialog()
+        }
+    }
+
+    private fun lockDialogList(dialog: Dialog, root: View, scroll: ScrollView) {
+        if (root !is ViewGroup || scroll.parent !== root) return
+        root.post {
+            val natural = root.height
+            if (natural <= 0) return@post
+            val ceiling = (resources.displayMetrics.heightPixels * 0.82f).toInt()
+            val locked = minOf(natural, ceiling)
+            if (locked < natural) {
+                var fixed = root.paddingTop + root.paddingBottom
+                for (i in 0 until root.childCount) {
+                    val child = root.getChildAt(i)
+                    if (child === scroll) continue
+                    val lp = child.layoutParams as? ViewGroup.MarginLayoutParams
+                    fixed += child.height + (lp?.topMargin ?: 0) + (lp?.bottomMargin ?: 0)
+                }
+                val params = scroll.layoutParams
+                params.height = (locked - fixed).coerceAtLeast(0)
+                scroll.layoutParams = params
+            }
+            dialog.window?.setLayout(
+                (resources.displayMetrics.widthPixels * 0.92f).toInt(),
+                locked
+            )
         }
     }
 
@@ -4616,15 +4634,7 @@ class MainActivity : AppCompatActivity() {
         AnimationHelper.attachPressAnimations(root)
         val scroll = dialog.findViewById<ScrollView>(R.id.scrollSessionHistory)
         if (scroll != null) {
-            root.post {
-                val ceiling = (resources.displayMetrics.heightPixels * 0.82f).toInt()
-                val lockedHeight = minOf(root.height, ceiling).takeIf { it > 0 } ?: return@post
-                dialog.window?.setLayout(
-                    (resources.displayMetrics.widthPixels * 0.92f).toInt(),
-                    lockedHeight
-                )
-                AnimationHelper.clampScrollToBudget(dialog, root, scroll, lockedHeight)
-            }
+            lockDialogList(dialog, root, scroll)
         }
     }
 
