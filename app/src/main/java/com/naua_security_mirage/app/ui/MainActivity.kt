@@ -2155,11 +2155,9 @@ class MainActivity : AppCompatActivity() {
                     for (result in outcomes) {
                         kept[result.server.id] = result
                         renderLatency(result)
-                        if (result.server.id != DnsServer.AUTO_ID) {
-                            AnimationHelper.popIn(
-                                rows[result.server.id] ?: return@forEach,
-                                durationMs = 160
-                            )
+                        val view = rows[result.server.id]
+                        if (view != null && result.server.id != DnsServer.AUTO_ID) {
+                            AnimationHelper.popIn(view, durationMs = 160)
                         }
                     }
                     val reachable = outcomes.count { it.reachable && it.answered }
