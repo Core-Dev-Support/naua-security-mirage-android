@@ -483,4 +483,5 @@
   <string name="tunnel_dns_plain_hint">the default chain</string>
   <string name="tunnel_dns_formerr">server rejected the query</string>
   <string name="tunnel_dns_no_records">answered, no records</string>
+  <string name="backup_restored_with_wallpaper">Settings restored, wallpaper included</string>
 </resources>

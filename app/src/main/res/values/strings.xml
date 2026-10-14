@@ -483,4 +483,5 @@
   <string name="tunnel_dns_plain_hint">цепочка по умолчанию</string>
   <string name="tunnel_dns_formerr">сервер не понял запрос</string>
   <string name="tunnel_dns_no_records">ответил, записей нет</string>
+  <string name="backup_restored_with_wallpaper">Настройки загружены, вместе с фото обоев</string>
 </resources>

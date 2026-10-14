@@ -277,6 +277,7 @@ class SettingsRepository(context: Context) {
     }
 
     companion object {
+        const val KEY_CUSTOM_BG_IMAGE = "key_custom_bg_image_path"
         const val THEME_DARK = "dark"
         const val THEME_LIGHT = "light"
         const val THEME_CUSTOM = "custom"

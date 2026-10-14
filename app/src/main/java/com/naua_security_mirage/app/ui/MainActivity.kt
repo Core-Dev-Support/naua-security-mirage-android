@@ -2931,8 +2931,27 @@ class MainActivity : AppCompatActivity() {
                 }
                 val wrapper = org.json.JSONObject()
                     .put("app", "NAUA Security Mirage")
-                    .put("version", 1)
+                    .put("version", 2)
                     .put("settings", json)
+                val wallpaper = File(filesDir, "custom_wallpaper.jpg")
+                if (wallpaper.exists() && wallpaper.length() in 1..MAX_BACKUP_WALLPAPER_BYTES) {
+                    wrapper.put(
+                        KEY_BACKUP_WALLPAPER,
+                        android.util.Base64.encodeToString(
+                            wallpaper.readBytes(),
+                            android.util.Base64.NO_WRAP
+                        )
+                    )
+                    AppLogger.i(
+                        "Backup",
+                        "В файл настроек включено фото обоев, ${wallpaper.length()} байт"
+                    )
+                } else if (wallpaper.exists()) {
+                    AppLogger.w(
+                        "Backup",
+                        "Фото обоев крупнее лимита и не попало в файл: ${wallpaper.length()} байт"
+                    )
+                }
                 val content = wrapper.toString(2)
                 val timeStamp = java.text.SimpleDateFormat("dd-MM-yyyy_HH-mm-ss", java.util.Locale.getDefault())
                     .format(java.util.Date())
@@ -2964,6 +2983,31 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun restoreWallpaperFromBackup(
+        base64: String,
+        editor: android.content.SharedPreferences.Editor
+    ): Boolean {
+        if (base64.isBlank()) {
+            editor.remove(SettingsRepository.KEY_CUSTOM_BG_IMAGE)
+            return false
+        }
+        return try {
+            val image = android.util.Base64.decode(
+                base64,
+                android.util.Base64.DEFAULT
+            )
+            val destFile = File(filesDir, "custom_wallpaper.jpg")
+            FileOutputStream(destFile).use { it.write(image) }
+            editor.putString(SettingsRepository.KEY_CUSTOM_BG_IMAGE, destFile.absolutePath)
+            AppLogger.i("Backup", "Фото обоев из файла настроек сохранено, ${image.size} байт")
+            true
+        } catch (e: Throwable) {
+            AppLogger.w("Backup", "Фото обоев из файла настроек не читается: ${e.message}")
+            editor.remove(SettingsRepository.KEY_CUSTOM_BG_IMAGE)
+            false
+        }
+    }
+
     private fun importSettings(uri: Uri) {
         lifecycleScope.launch(Dispatchers.IO) {
             try {
@@ -2981,8 +3025,10 @@ class MainActivity : AppCompatActivity() {
                     out.toByteArray()
                 }
                 val text = String(bytes, Charsets.UTF_8)
-                val settings = org.json.JSONObject(text).optJSONObject("settings")
+                val wrapper = org.json.JSONObject(text)
+                val settings = wrapper.optJSONObject("settings")
                     ?: throw IllegalStateException("no settings")
+                val wallpaperBase64 = wrapper.optString(KEY_BACKUP_WALLPAPER, "")
                 val prefs = getSharedPreferences("mirage_settings_prefs", MODE_PRIVATE)
                 val editor = prefs.edit()
                 val keys = settings.keys()
@@ -3005,10 +3051,22 @@ class MainActivity : AppCompatActivity() {
                     }
                     count++
                 }
+                val wallpaperRestored = restoreWallpaperFromBackup(wallpaperBase64, editor)
+                val wallpaperDropped = !wallpaperRestored &&
+                        settings.has(SettingsRepository.KEY_CUSTOM_BG_IMAGE)
                 editor.apply()
-                AppLogger.i("Backup", "Настройки загружены: $count записей")
+                AppLogger.i(
+                    "Backup",
+                    "Настройки загружены: $count записей, фото восстановлено=$wallpaperRestored, " +
+                            "фото отброшено=$wallpaperDropped"
+                )
                 withContext(Dispatchers.Main) {
-                    Toast.makeText(this@MainActivity, R.string.backup_restored, Toast.LENGTH_LONG).show()
+                    Toast.makeText(
+                        this@MainActivity,
+                        if (wallpaperRestored) R.string.backup_restored_with_wallpaper
+                        else R.string.backup_restored,
+                        Toast.LENGTH_LONG
+                    ).show()
                     recreate()
                 }
             } catch (e: Throwable) {
@@ -6025,24 +6083,49 @@ class MainActivity : AppCompatActivity() {
         lifecycleScope.launch(Dispatchers.IO) {
             try {
                 val destFile = File(filesDir, "custom_wallpaper.jpg")
-                contentResolver.openInputStream(uri)?.use { input ->
-                    FileOutputStream(destFile).use { output ->
-                        input.copyTo(output)
-                    }
-                }
+                val saved = shrinkWallpaper(uri, destFile)
                 withContext(Dispatchers.Main) {
                     settingsRepository.customBgColor = 0
-                    settingsRepository.customBgImagePath = destFile.absolutePath
-                    settingsRepository.themePreset = SettingsRepository.THEME_CUSTOM
+                    settingsRepository.customBgImagePath = if (saved) destFile.absolutePath else ""
+                    if (saved) settingsRepository.themePreset = SettingsRepository.THEME_CUSTOM
                     applyCurrentAppearance()
                     setupAppearanceUI()
-                    Toast.makeText(this@MainActivity, R.string.toast_wallpaper_set, Toast.LENGTH_SHORT).show()
+                    Toast.makeText(
+                        this@MainActivity,
+                        if (saved) R.string.toast_wallpaper_set else R.string.toast_wallpaper_failed,
+                        Toast.LENGTH_SHORT
+                    ).show()
                 }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
                     Toast.makeText(this@MainActivity, R.string.toast_wallpaper_failed, Toast.LENGTH_SHORT).show()
                 }
             }
+        }
+    }
+
+    private fun shrinkWallpaper(uri: Uri, destFile: File): Boolean {
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) }
+            ?: return false
+        val width = resources.displayMetrics.widthPixels.coerceAtLeast(1080)
+        val height = resources.displayMetrics.heightPixels.coerceAtLeast(1920)
+        val sample = calculateInSampleSize(bounds, width, height)
+        val opts = BitmapFactory.Options().apply { inSampleSize = sample }
+        val bitmap = contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, opts) }
+            ?: return false
+        return try {
+            FileOutputStream(destFile).use { output ->
+                bitmap.compress(Bitmap.CompressFormat.JPEG, 85, output)
+            }
+            AppLogger.i(
+                "Wallpaper",
+                "Обои сохранены ${destFile.length()} байт, исходник ${bounds.outWidth}x${bounds.outHeight}, " +
+                        "sample=$sample"
+            )
+            true
+        } finally {
+            bitmap.recycle()
         }
     }
 
@@ -6093,7 +6176,9 @@ class MainActivity : AppCompatActivity() {
 
     companion object {
         private const val STATUS_STALE_MS = 10 * 60 * 1000L
-        private const val MAX_IMPORT_BYTES = 512 * 1024
+        private const val MAX_IMPORT_BYTES = 4 * 1024 * 1024
+        private const val MAX_BACKUP_WALLPAPER_BYTES = 900 * 1024
+        private const val KEY_BACKUP_WALLPAPER = "wallpaper_base64"
         private const val LOG_FLUSH_MS = 250L
         const val ACTION_QUICK_CONNECT = "com.naua_security_mirage.app.ACTION_QUICK_CONNECT"
         const val EXTRA_SHOW_UPDATE = "extra_show_update"
