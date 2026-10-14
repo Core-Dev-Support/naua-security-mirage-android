@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 💬 Поддержка в Telegram
+    url: https://t.me/News_And_Updates_Apps
+    about: Быстрые вопросы, помощь с установкой и подпиской
+  - name: 🛡 Сообщить об уязвимости
+    url: https://github.com/Core-Dev-Support/naua-security-mirage-android/blob/main/SECURITY.md
+    about: Приватно, без публичного issue (см. SECURITY.md)

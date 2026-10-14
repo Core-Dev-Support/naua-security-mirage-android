@@ -1,0 +1,112 @@
+
+set -Eeuo pipefail
+
+fail() {
+  printf 'LIVE_CHECK_FAILED: %s\n' "$*" >&2
+  exit 1
+}
+
+for name in SUPABASE_URL SUPABASE_SERVICE_ROLE_KEY THREE_X_UI_BASE_URL THREE_X_UI_USERNAME THREE_X_UI_PASSWORD; do
+  if [[ -z "${!name:-}" ]]; then
+    fail "$name is not configured"
+  fi
+done
+
+command -v curl >/dev/null || fail "curl is required"
+command -v jq >/dev/null || fail "jq is required"
+
+CHECK_EMAIL="${CHECK_EMAIL:-}"
+CHECK_USER_ID="${CHECK_USER_ID:-}"
+CHECK_CLIENT_UUID="${CHECK_CLIENT_UUID:-}"
+THREE_X_UI_INBOUND_ID="${THREE_X_UI_INBOUND_ID:-2}"
+
+workdir="$(mktemp -d)"
+trap 'rm -rf "$workdir"' EXIT
+
+supabase_request() {
+  local output="$1"
+  shift
+  curl -sS --connect-timeout 10 --max-time 30 -o "$output" -w '%{http_code}' \
+    -H "apikey: ${SUPABASE_SERVICE_ROLE_KEY}" \
+    -H "Authorization: Bearer ${SUPABASE_SERVICE_ROLE_KEY}" \
+    "$@"
+}
+
+schema_code="$(supabase_request "$workdir/schema.json" \
+  --get "${SUPABASE_URL%/}/rest/v1/subscriptions" \
+  --data-urlencode 'select=flow,operation_id' \
+  --data-urlencode 'limit=1')"
+[[ "$schema_code" == 2* ]] || fail "Supabase subscriptions schema check returned HTTP ${schema_code}"
+jq -e 'type == "array"' "$workdir/schema.json" >/dev/null || fail "Supabase schema response is not JSON"
+
+subscription_args=()
+if [[ -n "$CHECK_EMAIL" ]]; then
+  subscription_args+=(--data-urlencode "email=eq.${CHECK_EMAIL}")
+elif [[ -n "$CHECK_USER_ID" ]]; then
+  subscription_args+=(--data-urlencode "user_id=eq.${CHECK_USER_ID}")
+else
+  fail "set CHECK_EMAIL or CHECK_USER_ID for a subscription-specific check"
+fi
+
+subscription_code="$(supabase_request "$workdir/subscriptions.json" \
+  --get "${SUPABASE_URL%/}/rest/v1/subscriptions" \
+  "${subscription_args[@]}" \
+  --data-urlencode 'select=user_id,email,is_active,plan,paid_until,client_uuid,operation_id,updated_at')"
+[[ "$subscription_code" == 2* ]] || fail "Supabase subscription lookup returned HTTP ${subscription_code}"
+jq -e 'type == "array" and length == 1' "$workdir/subscriptions.json" >/dev/null \
+  || fail "expected exactly one subscription row"
+
+jq -r '.[] |
+  "subscription: active=\(.is_active) plan=\(.plan) paid_until=\(.paid_until // "null") " +
+  "has_client_uuid=\(.client_uuid != null) operation_id_present=\(.operation_id != null) " +
+  "user_suffix=\((.user_id // "")[-8:]) client_suffix=\(((.client_uuid // "")[-8:]))"' \
+  "$workdir/subscriptions.json"
+
+paid_until="$(jq -r '.[0].paid_until // ""' "$workdir/subscriptions.json")"
+[[ -n "$paid_until" ]] || fail "the selected Supabase row has no paid_until"
+paid_until_epoch="$(date -d "$paid_until" +%s 2>/dev/null || true)"
+now_epoch="$(date +%s)"
+[[ "$paid_until_epoch" =~ ^[0-9]+$ && "$paid_until_epoch" -gt "$now_epoch" ]] \
+  || fail "the selected Supabase subscription is expired or has an invalid paid_until"
+active_in_supabase="$(jq -r '.[0].is_active == true' "$workdir/subscriptions.json")"
+[[ "$active_in_supabase" == "true" ]] || fail "the selected Supabase row is not active"
+
+login_code="$(curl -sS --connect-timeout 10 --max-time 30 -o "$workdir/login.json" -c "$workdir/cookies.txt" -w '%{http_code}' \
+  -X POST "${THREE_X_UI_BASE_URL%/}/login" \
+  -H 'Content-Type: application/x-www-form-urlencoded' \
+  --data-urlencode "username=${THREE_X_UI_USERNAME}" \
+  --data-urlencode "password=${THREE_X_UI_PASSWORD}")"
+[[ "$login_code" == 2* ]] || fail "3X-UI login returned HTTP ${login_code}"
+jq -e '.success == true' "$workdir/login.json" >/dev/null || fail "3X-UI login did not return success=true"
+
+inbound_code="$(curl -sS --connect-timeout 10 --max-time 30 -o "$workdir/inbound.json" -b "$workdir/cookies.txt" -w '%{http_code}' \
+  "${THREE_X_UI_BASE_URL%/}/panel/api/inbounds/get/${THREE_X_UI_INBOUND_ID}")"
+[[ "$inbound_code" == 2* ]] || fail "3X-UI inbound ${THREE_X_UI_INBOUND_ID} returned HTTP ${inbound_code}"
+jq -e '.success == true and (.obj.settings | type == "string")' "$workdir/inbound.json" >/dev/null \
+  || fail "3X-UI inbound response is malformed"
+
+jq -r '.obj.settings' "$workdir/inbound.json" > "$workdir/settings.json"
+jq -e '(.clients | type) == "array"' "$workdir/settings.json" >/dev/null || fail "3X-UI clients array is missing"
+
+if [[ -n "$CHECK_CLIENT_UUID" ]]; then
+  jq --arg uuid "$CHECK_CLIENT_UUID" \
+    '[.clients[]? | select((.id // "") == $uuid)]' \
+    "$workdir/settings.json" > "$workdir/matches.json"
+elif [[ -n "$CHECK_EMAIL" ]]; then
+  jq --arg email "$CHECK_EMAIL" \
+    '[.clients[]? | select(((.email // "") | ascii_downcase) == ($email | ascii_downcase))]' \
+    "$workdir/settings.json" > "$workdir/matches.json"
+else
+  jq '[.clients[]?]' "$workdir/settings.json" > "$workdir/matches.json"
+fi
+
+match_count="$(jq 'length' "$workdir/matches.json")"
+[[ "$match_count" =~ ^[0-9]+$ && "$match_count" -gt 0 ]] || fail "no matching 3X-UI client found"
+now_ms="$(( $(date +%s) * 1000 ))"
+active_count="$(jq --argjson now "$now_ms" \
+  '[.[] | select((.enable // true) == true and ((.expiryTime // 0) == 0 or ((.expiryTime | tonumber) > $now)))] | length' \
+  "$workdir/matches.json")"
+[[ "$active_count" -gt 0 ]] || fail "matching 3X-UI client is disabled or expired"
+printf '3X-UI: inbound=%s matches=%s active_unexpired=%s\n' "$THREE_X_UI_INBOUND_ID" "$match_count" "$active_count"
+
+printf 'LIVE_CHECK_OK\n'

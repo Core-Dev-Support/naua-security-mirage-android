@@ -1,0 +1,47 @@
+name: 🐛 Bug report
+description: Сообщить об ошибке в приложении
+title: "[BUG] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Спасибо за репорт! Заполни поля — так починим быстрее.
+  - type: input
+    id: version
+    attributes:
+      label: Версия приложения
+      description: Например v1.4.0 (Настройки → О приложении)
+      placeholder: "v1.4.0"
+    validations:
+      required: true
+  - type: input
+    id: device
+    attributes:
+      label: Устройство и Android
+      description: Модель + версия Android
+      placeholder: "Pixel 7, Android 14"
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Шаги воспроизведения
+      description: Что нажимал, что ожидал, что получил
+      placeholder: "1. Нажал подключить...\n2. ..."
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Логи / скриншоты
+      description: Журнал событий из приложения (без личных данных!), скриншоты
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Проверки
+      options:
+        - label: Проверил на последней версии из Releases
+          required: true
+        - label: Отключал другой VPN перед включением Mirage
+          required: false
