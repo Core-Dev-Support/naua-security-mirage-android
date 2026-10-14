@@ -862,6 +862,35 @@ class MirageVpnService : VpnService() {
         }
     }
 
+    private suspend fun pickDnsAutomatically() {
+        val settingsRepo = com.naua_security_mirage.app.data.repository.SettingsRepository(this)
+        if (settingsRepo.selectedDnsId != com.naua_security_mirage.app.data.model.DnsServer.AUTO_ID) {
+            if (settingsRepo.selectedDnsId.isNotBlank()) {
+                AppLogger.i(TAG, "Автоматический выбор DNS пропущен, вручную выбран ${settingsRepo.selectedDnsId}")
+            }
+            return
+        }
+        val started = System.currentTimeMillis()
+        val fresh = System.currentTimeMillis() - settingsRepo.autoDnsPickedAt < AUTO_DNS_TTL_MS
+        if (fresh && settingsRepo.autoDnsPickedId.isNotBlank()) {
+            return
+        }
+        val winner = com.naua_security_mirage.app.util.DohTester.pickFastest(
+            com.naua_security_mirage.app.data.model.DnsServer.BUILT_IN
+        )
+        if (winner == null) {
+            AppLogger.i(TAG, "Автоматический выбор DNS: годных нет, остаётся цепочка по умолчанию")
+            return
+        }
+        settingsRepo.autoDnsPickedId = winner.server.id
+        settingsRepo.autoDnsPickedAt = System.currentTimeMillis()
+        AppLogger.i(
+            TAG,
+            "Автоматический выбор DNS: ${winner.server.id} за ${winner.latencyMs} мс " +
+                "(замер ${System.currentTimeMillis() - started} мс)"
+        )
+    }
+
     private suspend fun attemptTunnel(
         server: VlessServer,
         pfd: ParcelFileDescriptor
@@ -869,6 +898,7 @@ class MirageVpnService : VpnService() {
         if (!isCurrentTunnel(pfd)) {
             return TunnelAttempt(coreStarted = false, trafficFlows = false)
         }
+        pickDnsAutomatically()
         AppLogger.i(
             TAG,
             "Xray candidate ${server.tag}: network=${server.network}, security=${server.security}, " +
@@ -1511,6 +1541,7 @@ class MirageVpnService : VpnService() {
 
 
         private const val FRANCE_KEY_BUDGET_MS = 2_500L
+    private const val AUTO_DNS_TTL_MS = 10 * 60 * 1000L
 
         const val ACTION_CONNECT = "com.naua_security_mirage.app.ACTION_CONNECT"
         const val ACTION_DISCONNECT = "com.naua_security_mirage.app.ACTION_DISCONNECT"

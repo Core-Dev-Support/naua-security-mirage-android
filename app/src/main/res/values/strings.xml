@@ -469,4 +469,10 @@
   <string name="dns_server_custom">Свой адрес</string>
   <string name="tunnel_dns_latency_fmt">%1$d мс</string>
   <string name="tunnel_dns_not_dns">не DNS-ответ</string>
+  <string name="tunnel_dns_custom_body">Адрес должен начинаться с https:// и отдавать DNS по RFC 8484.</string>
+  <string name="dialog_save">Сохранить</string>
+  <string name="dialog_cancel">Отмена</string>
+  <string name="dns_server_auto">Автоматически</string>
+  <string name="tunnel_dns_auto_desc">Приложение само выберет самый быстрый при подключении</string>
+  <string name="tunnel_dns_auto_chosen_fmt">Автоматически, сейчас %1$s</string>
 </resources>

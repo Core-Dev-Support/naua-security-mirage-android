@@ -725,6 +725,13 @@ class XrayVpnController(private val vpnService: VpnService) {
 
     private fun resolveChosenDns(settingsRepo: SettingsRepository): DnsServer? {
         val selectedId = settingsRepo.selectedDnsId
+        if (selectedId == DnsServer.AUTO_ID) {
+            val picked = settingsRepo.autoDnsPickedId
+            if (picked.isNotBlank() && picked != selectedId) {
+                return DnsServer.byId(picked)
+            }
+            return null
+        }
         if (selectedId == CUSTOM_DNS_ID) {
             val url = settingsRepo.customDnsUrl.trim()
             if (!url.startsWith("https://")) return null

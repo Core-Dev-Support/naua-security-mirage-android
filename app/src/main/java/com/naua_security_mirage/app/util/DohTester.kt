@@ -3,7 +3,10 @@ package com.naua_security_mirage.app.util
 import android.util.Base64
 import com.naua_security_mirage.app.data.model.DnsServer
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.net.InetSocketAddress
@@ -102,6 +105,20 @@ object DohTester {
             else -> "${result.latencyMs} мс, ${result.dnsStatus}, записей ${result.answerCount}"
         }
         return "${result.server.id} ${result.server.url} -> $verdict${result.detail}"
+    }
+
+    suspend fun pickFastest(
+        servers: List<DnsServer>,
+        throughTunnel: Boolean = false,
+        budgetMs: Long = 3000L
+    ): DnsProbeResult? = withContext(Dispatchers.IO) {
+        if (servers.isEmpty()) return@withContext null
+        val results = kotlinx.coroutines.coroutineScope {
+            withTimeoutOrNull(budgetMs) {
+                servers.map { server -> async { probe(server, throughTunnel) } }.awaitAll()
+            }
+        } ?: return@withContext null
+        results.filter { it.answered }.minByOrNull { it.latencyMs }
     }
 
     suspend fun probe(server: DnsServer, throughTunnel: Boolean): DnsProbeResult =

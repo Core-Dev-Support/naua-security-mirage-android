@@ -469,4 +469,10 @@
   <string name="dns_server_custom">Custom address</string>
   <string name="tunnel_dns_latency_fmt">%1$d ms</string>
   <string name="tunnel_dns_not_dns">not a DNS answer</string>
+  <string name="tunnel_dns_custom_body">The address must start with https:// and serve DNS over RFC 8484.</string>
+  <string name="dialog_save">Save</string>
+  <string name="dialog_cancel">Cancel</string>
+  <string name="dns_server_auto">Automatic</string>
+  <string name="tunnel_dns_auto_desc">The app picks the fastest one on connect</string>
+  <string name="tunnel_dns_auto_chosen_fmt">Automatic, currently %1$s</string>
 </resources>
