@@ -9,6 +9,7 @@ data class DnsServer(
     companion object {
         const val DEFAULT_ID = "cloudflare"
         const val AUTO_ID = "auto"
+        const val PLAIN_ID = "plain"
 
         val BUILT_IN = listOf(
             DnsServer(

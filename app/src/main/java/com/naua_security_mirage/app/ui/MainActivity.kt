@@ -22,6 +22,7 @@ import com.naua_security_mirage.app.util.AnimationHelper
 import com.naua_security_mirage.app.util.AppUpdateManager
 import com.naua_security_mirage.app.data.model.DnsServer
 import com.naua_security_mirage.app.util.DohTester
+import com.naua_security_mirage.app.util.DnsProbeResult
 import com.naua_security_mirage.app.vpn.XrayVpnController
 import android.widget.RadioButton
 import android.text.SpannableStringBuilder
@@ -1908,6 +1909,7 @@ class MainActivity : AppCompatActivity() {
     ) {
         fun urlLine(host: android.content.Context): String = when (server.id) {
             DnsServer.AUTO_ID -> host.getString(R.string.tunnel_dns_auto_hint)
+            DnsServer.PLAIN_ID -> host.getString(R.string.tunnel_dns_plain_hint)
             else -> url
         }
     }
@@ -1916,6 +1918,11 @@ class MainActivity : AppCompatActivity() {
         val auto = DnsChoice(
             DnsServer(id = DnsServer.AUTO_ID, url = ""),
             R.string.dns_server_auto,
+            ""
+        )
+        val plain = DnsChoice(
+            DnsServer(id = DnsServer.PLAIN_ID, url = ""),
+            R.string.dns_server_plain,
             ""
         )
         val builtIn = DnsServer.BUILT_IN.map { candidate ->
@@ -1933,11 +1940,12 @@ class MainActivity : AppCompatActivity() {
                 )
             )
         }
-        return listOf(auto) + builtIn + custom
+        return listOf(auto, plain) + builtIn + custom
     }
 
     private fun dnsNameRes(id: String): Int = when (id) {
         DnsServer.AUTO_ID -> R.string.dns_server_auto
+        DnsServer.PLAIN_ID -> R.string.dns_server_plain
         "cloudflare" -> R.string.dns_server_cloudflare
         "google" -> R.string.dns_server_google
         "quad9" -> R.string.dns_server_quad9
@@ -1957,7 +1965,9 @@ class MainActivity : AppCompatActivity() {
                 getString(R.string.tunnel_dns_auto_chosen_fmt, getString(dnsNameRes(picked.id)))
             }
         }
-        if (id.isBlank()) return getString(R.string.dns_server_cloudflare)
+        if (id.isBlank() || id == DnsServer.PLAIN_ID) {
+            return getString(R.string.dns_server_plain)
+        }
         return getString(dnsNameRes(id))
     }
 
@@ -2036,17 +2046,35 @@ class MainActivity : AppCompatActivity() {
         val progress = dialog.findViewById<TextView>(R.id.tvTunnelDnsProgress)
         val scroll = dialog.findViewById<ScrollView>(R.id.scrollTunnelDns)
         val rows = mutableMapOf<String, TextView>()
+        val kept = mutableMapOf<String, DnsProbeResult>()
         val choices = dnsChoices()
 
         dialog.show()
         AnimationHelper.popIn(root, durationMs = 220)
         AnimationHelper.attachPressAnimations(root)
-        scroll.post {
-            val params = scroll.layoutParams
-            if (scroll.height > maxHeight) {
-                params.height = maxHeight
-                scroll.layoutParams = params
+        root.post {
+            val ceiling = (resources.displayMetrics.heightPixels * 0.82f).toInt()
+            val lockedHeight = minOf(root.height, ceiling).takeIf { it > 0 } ?: return@post
+            dialog.window?.setLayout(
+                (resources.displayMetrics.widthPixels * 0.92f).toInt(),
+                lockedHeight
+            )
+            AnimationHelper.clampScrollToBudget(dialog, root, scroll, lockedHeight)
+        }
+
+        fun renderLatency(result: DnsProbeResult) {
+            val view = rows[result.server.id] ?: return
+            view.text = when {
+                !result.reachable -> getString(R.string.tunnel_dns_failed)
+                result.dnsStatus == "REFUSED" -> getString(R.string.tunnel_dns_refused)
+                result.dnsStatus == "SERVFAIL" -> getString(R.string.tunnel_dns_servfail)
+                result.dnsStatus == "FORMERR" -> getString(R.string.tunnel_dns_formerr)
+                !result.answered -> getString(R.string.tunnel_dns_no_records)
+                else -> getString(R.string.tunnel_dns_latency_fmt, result.latencyMs)
             }
+            view.setTextColor(
+                if (result.reachable && result.answered) accentColor else bodyColor
+            )
         }
 
         fun buildRows() {
@@ -2099,6 +2127,12 @@ class MainActivity : AppCompatActivity() {
                 }
                 rows[choice.server.id] = latencyView
                 container.addView(row)
+                kept[choice.server.id]?.let {
+                    latencyView.text = getString(R.string.tunnel_dns_latency_fmt, it.latencyMs)
+                    latencyView.setTextColor(
+                        if (it.reachable && it.answered) accentColor else bodyColor
+                    )
+                }
                 AnimationHelper.popIn(row, durationMs = 140)
             }
         }
@@ -2119,21 +2153,13 @@ class MainActivity : AppCompatActivity() {
                     progress.visibility = View.GONE
                     testBtn.isEnabled = true
                     for (result in outcomes) {
-                        val view = rows[result.server.id] ?: continue
-                        view.text = when {
-                            !result.reachable -> getString(R.string.tunnel_dns_failed)
-                            result.dnsStatus == "REFUSED" -> getString(R.string.tunnel_dns_refused)
-                            result.dnsStatus == "SERVFAIL" -> getString(R.string.tunnel_dns_servfail)
-                            !result.answered -> getString(R.string.tunnel_dns_not_dns)
-                            else -> getString(R.string.tunnel_dns_latency_fmt, result.latencyMs)
-                        }
-                        view.setTextColor(
-                            if (result.reachable && result.answered) accentColor else bodyColor
-                        )
-                        if (result.server.id == DnsServer.AUTO_ID) {
-                            view.text = ""
-                        } else {
-                            AnimationHelper.popIn(view, durationMs = 160)
+                        kept[result.server.id] = result
+                        renderLatency(result)
+                        if (result.server.id != DnsServer.AUTO_ID) {
+                            AnimationHelper.popIn(
+                                rows[result.server.id] ?: return@forEach,
+                                durationMs = 160
+                            )
                         }
                     }
                     val reachable = outcomes.count { it.reachable && it.answered }

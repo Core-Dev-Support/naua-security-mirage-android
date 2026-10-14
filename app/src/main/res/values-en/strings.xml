@@ -479,4 +479,8 @@
   <string name="tunnel_dns_auto_short">Auto pick</string>
   <string name="tunnel_dns_refused">refused</string>
   <string name="tunnel_dns_servfail">no answer</string>
+  <string name="dns_server_plain">Leave as is</string>
+  <string name="tunnel_dns_plain_hint">the default chain</string>
+  <string name="tunnel_dns_formerr">server rejected the query</string>
+  <string name="tunnel_dns_no_records">answered, no records</string>
 </resources>

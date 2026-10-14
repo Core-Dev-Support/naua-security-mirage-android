@@ -94,11 +94,12 @@ object DohTester {
         val verdict = when {
             !result.reachable -> "не отвечает"
             result.httpStatus != 200 -> "HTTP ${result.httpStatus}, это не DNS-ответ"
+            result.answered -> "${result.latencyMs} мс, ${result.dnsStatus}, записей ${result.answerCount}"
             result.dnsStatus == "REFUSED" -> "отказал (REFUSED)"
-            result.dnsStatus == "SERVFAIL" -> "не смог ответить (SERVFAIL)"
+            result.dnsStatus == "SERVFAIL" -> "не смог разрешить (SERVFAIL)"
+            result.dnsStatus == "FORMERR" -> "сервер не понял запрос (FORMERR)"
             result.dnsStatus == "NXDOMAIN" -> "NXDOMAIN"
-            !result.answered -> "ответил, записей нет (${result.dnsStatus})"
-            else -> "${result.latencyMs} мс, ${result.dnsStatus}, записей ${result.answerCount}"
+            else -> "ответил, записей нет (${result.dnsStatus})"
         }
         return "${result.server.id} ${result.server.url} -> $verdict${result.detail}"
     }

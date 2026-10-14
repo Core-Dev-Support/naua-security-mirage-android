@@ -479,4 +479,8 @@
   <string name="tunnel_dns_auto_short">Автовыбор</string>
   <string name="tunnel_dns_refused">отказал</string>
   <string name="tunnel_dns_servfail">не ответил</string>
+  <string name="dns_server_plain">Без изменений</string>
+  <string name="tunnel_dns_plain_hint">цепочка по умолчанию</string>
+  <string name="tunnel_dns_formerr">сервер не понял запрос</string>
+  <string name="tunnel_dns_no_records">ответил, записей нет</string>
 </resources>

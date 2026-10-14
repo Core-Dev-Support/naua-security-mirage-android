@@ -2656,7 +2656,10 @@
                 android:id="@+id/scrollLogOutput"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
-                android:overScrollMode="never">
+                android:fadeScrollbars="true"
+                android:overScrollMode="never"
+                android:scrollbarStyle="outsideOverlay"
+                android:scrollbars="vertical">
 
                 <TextView
                     android:id="@+id/tvLogOutput"
@@ -2665,8 +2668,7 @@
                     android:fontFamily="monospace"
                     android:textColor="@color/ink"
                     android:textSize="11.5sp"
-                    android:lineSpacingExtra="3dp"
-                    android:textIsSelectable="true" />
+                    android:lineSpacingExtra="3dp" />
             </ScrollView>
         </LinearLayout>
 
