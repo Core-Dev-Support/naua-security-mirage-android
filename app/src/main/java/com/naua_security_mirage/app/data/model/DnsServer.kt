@@ -3,7 +3,8 @@ package com.naua_security_mirage.app.data.model
 data class DnsServer(
     val id: String,
     val url: String,
-    val bootstrapIps: List<String> = emptyList()
+    val bootstrapIps: List<String> = emptyList(),
+    val jsonUrl: String? = null
 ) {
     companion object {
         const val DEFAULT_ID = "cloudflare"
@@ -18,7 +19,8 @@ data class DnsServer(
             DnsServer(
                 id = "google",
                 url = "https://dns.google/dns-query",
-                bootstrapIps = listOf("8.8.8.8", "8.8.4.4")
+                bootstrapIps = listOf("8.8.8.8", "8.8.4.4"),
+                jsonUrl = "https://dns.google/resolve"
             ),
             DnsServer(
                 id = "quad9",
@@ -28,7 +30,8 @@ data class DnsServer(
             DnsServer(
                 id = "adguard",
                 url = "https://dns.adguard-dns.com/dns-query",
-                bootstrapIps = listOf("94.140.14.14", "94.140.15.15")
+                bootstrapIps = listOf("94.140.14.14", "94.140.15.15"),
+                jsonUrl = "https://dns.adguard-dns.com/resolve"
             ),
             DnsServer(
                 id = "mullvad",

@@ -389,6 +389,7 @@ class MainActivity : AppCompatActivity() {
         refreshKillSwitchRow()
         ensureCardRows()
         maybeShowPrivateDnsDialog()
+        applyScreenshotBlocking()
     }
 
     @Suppress("DEPRECATION")
@@ -4436,11 +4437,23 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun applyScreenshotBlocking() {
-        if (settingsRepository.isScreenshotBlockingEnabled) {
+        val blocking = settingsRepository.isScreenshotBlockingEnabled
+        if (blocking) {
             window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                setRecentsScreenshotEnabled(false)
+            }
         } else {
             window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                setRecentsScreenshotEnabled(true)
+            }
         }
+        AppLogger.i(
+            "Screenshot",
+            "Блокировка скриншотов: ${if (blocking) "включена" else "выключена"}, " +
+                "FLAG_SECURE=${window.attributes.flags and WindowManager.LayoutParams.FLAG_SECURE != 0}"
+        )
     }
 
     private fun showScreenshotWarningDialog(onAllow: () -> Unit, onKeep: () -> Unit) {

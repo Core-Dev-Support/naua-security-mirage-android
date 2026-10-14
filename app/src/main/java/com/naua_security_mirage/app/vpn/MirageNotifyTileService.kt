@@ -6,6 +6,7 @@ import android.os.Build
 import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
 import com.naua_security_mirage.app.data.repository.SettingsRepository
+import com.naua_security_mirage.app.util.AppLogger
 
 class MirageNotifyTileService : TileService() {
 
@@ -18,6 +19,10 @@ class MirageNotifyTileService : TileService() {
         super.onClick()
         val enabled = SettingsRepository(this).isPaymentNotificationEnabled
         SettingsRepository(this).isPaymentNotificationEnabled = !enabled
+        AppLogger.i(
+            TAG,
+            "Плитка шторки переключила уведомления об оплате: ${!enabled}"
+        )
         refresh()
     }
 
@@ -32,6 +37,8 @@ class MirageNotifyTileService : TileService() {
     }
 
     companion object {
+        private const val TAG = "NotifyTile"
+
         fun requestUpdate(context: Context) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
                 try {

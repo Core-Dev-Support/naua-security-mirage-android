@@ -118,16 +118,67 @@ object DohTester {
     }
 
     suspend fun probe(server: DnsServer, throughTunnel: Boolean): DnsProbeResult {
-        val posted = probeOnce(server, throughTunnel, useGetForm = false)
+        val posted = probeOnce(server, throughTunnel, Form.POST)
         if (posted.answered || !posted.reachable) return posted
-        val fetched = probeOnce(server, throughTunnel, useGetForm = true)
-        return if (fetched.answered) fetched else posted
+        val fetched = probeOnce(server, throughTunnel, Form.GET)
+        if (fetched.answered) return fetched
+        server.jsonUrl?.let { jsonUrl ->
+            val viaJson = probeJson(server, jsonUrl, throughTunnel)
+            if (viaJson.answered) return viaJson
+        }
+        return posted
+    }
+
+    private enum class Form { POST, GET, JSON }
+
+    private fun probeJson(
+        server: DnsServer,
+        jsonUrl: String,
+        throughTunnel: Boolean
+    ): DnsProbeResult {
+        val started = System.currentTimeMillis()
+        val client = buildClient(throughTunnel)
+        return try {
+            val separator = if (jsonUrl.contains('?')) "&" else "?"
+            val url = jsonUrl + separator + "name=" + PROBE_NAME + "&type=A"
+            val request = Request.Builder()
+                .url(url)
+                .header("Accept", "application/dns-json")
+                .header("User-Agent", "MirageVPN")
+                .build()
+            client.newCall(request).execute().use { response ->
+                val body = response.body?.string().orEmpty()
+                val elapsed = System.currentTimeMillis() - started
+                val answered = response.isSuccessful && body.contains("\"Answer\"")
+                DnsProbeResult(
+                    server = server,
+                    reachable = true,
+                    latencyMs = elapsed.coerceAtLeast(1L),
+                    answered = answered,
+                    httpStatus = response.code,
+                    dnsStatus = "JSON",
+                    answerCount = if (answered) 1 else 0,
+                    detail = ", JSON, тело ${body.length} байт"
+                )
+            }
+        } catch (t: Throwable) {
+            DnsProbeResult(
+                server = server,
+                reachable = false,
+                latencyMs = System.currentTimeMillis() - started,
+                answered = false,
+                httpStatus = -1,
+                dnsStatus = "-",
+                answerCount = -1,
+                detail = ", JSON, ошибка ${t.javaClass.simpleName}"
+            )
+        }
     }
 
     private fun probeOnce(
         server: DnsServer,
         throughTunnel: Boolean,
-        useGetForm: Boolean
+        form: Form
     ): DnsProbeResult {
         val started = System.currentTimeMillis()
         val client = buildClient(throughTunnel)
@@ -136,17 +187,19 @@ object DohTester {
             val builder = Request.Builder()
                 .header("Accept", "application/dns-message")
                 .header("User-Agent", "MirageVPN")
-            if (useGetForm) {
-                val encoded = android.util.Base64.encodeToString(
-                    query,
-                    android.util.Base64.URL_SAFE or
-                            android.util.Base64.NO_PADDING or
-                            android.util.Base64.NO_WRAP
-                )
-                val separator = if (server.url.contains('?')) "&" else "?"
-                builder.url(server.url + separator + "dns=" + encoded).get()
-            } else {
-                builder.url(server.url).post(query.toRequestBody("application/dns-message".toMediaType()))
+            when (form) {
+                Form.GET -> {
+                    val encoded = android.util.Base64.encodeToString(
+                        query,
+                        android.util.Base64.URL_SAFE or
+                                android.util.Base64.NO_PADDING or
+                                android.util.Base64.NO_WRAP
+                    )
+                    val separator = if (server.url.contains('?')) "&" else "?"
+                    builder.url(server.url + separator + "dns=" + encoded).get()
+                }
+                else -> builder.url(server.url)
+                    .post(query.toRequestBody("application/dns-message".toMediaType()))
             }
             client.newCall(builder.build()).execute().use { response ->
                 val raw = response.body?.bytes() ?: ByteArray(0)
@@ -161,8 +214,7 @@ object DohTester {
                     httpStatus = response.code,
                     dnsStatus = dnsStatus,
                     answerCount = answers,
-                    detail = ", " + if (useGetForm) "GET" else "POST" +
-                            ", тело ${raw.size} байт" +
+                    detail = ", ${form.name}, тело ${raw.size} байт" +
                             (if (raw.size in 1..24) ", начало " + raw.take(16).joinToString(" ") { "%02x".format(it) } else "")
                 )
             }
@@ -175,8 +227,7 @@ object DohTester {
                 httpStatus = -1,
                 dnsStatus = "-",
                 answerCount = -1,
-                detail = ", " + if (useGetForm) "GET" else "POST" +
-                        ", ошибка ${t.javaClass.simpleName}"
+                detail = ", ${form.name}, ошибка ${t.javaClass.simpleName}"
             )
         }
     }
