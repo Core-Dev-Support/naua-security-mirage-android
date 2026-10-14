@@ -454,7 +454,6 @@
   <string name="tunnel_dns_custom">Свой адрес</string>
   <string name="tunnel_dns_testing">Проверяем, идёт через туннель…</string>
   <string name="tunnel_dns_failed">не отвечает</string>
-  <string name="tunnel_dns_no_answer">ответил, но без записи</string>
   <string name="tunnel_dns_selected_fmt">Выбрано: %1$s</string>
   <string name="tunnel_dns_applied">Применится при следующем подключении</string>
   <string name="tunnel_dns_custom_title">Свой DoH-адрес</string>
@@ -469,4 +468,5 @@
   <string name="dns_server_yandex">Яндекс</string>
   <string name="dns_server_custom">Свой адрес</string>
   <string name="tunnel_dns_latency_fmt">%1$d мс</string>
+  <string name="tunnel_dns_not_dns">не DNS-ответ</string>
 </resources>

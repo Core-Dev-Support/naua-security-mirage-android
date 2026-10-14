@@ -454,7 +454,6 @@
   <string name="tunnel_dns_custom">Custom address</string>
   <string name="tunnel_dns_testing">Testing, through the tunnel…</string>
   <string name="tunnel_dns_failed">no answer</string>
-  <string name="tunnel_dns_no_answer">answered, no record</string>
   <string name="tunnel_dns_selected_fmt">Selected: %1$s</string>
   <string name="tunnel_dns_applied">Takes effect on the next connection</string>
   <string name="tunnel_dns_custom_title">Custom DoH address</string>
@@ -469,4 +468,5 @@
   <string name="dns_server_yandex">Yandex</string>
   <string name="dns_server_custom">Custom address</string>
   <string name="tunnel_dns_latency_fmt">%1$d ms</string>
+  <string name="tunnel_dns_not_dns">not a DNS answer</string>
 </resources>

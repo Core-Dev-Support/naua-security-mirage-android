@@ -2081,7 +2081,7 @@ class MainActivity : AppCompatActivity() {
                         val view = rows[result.server.id] ?: continue
                         view.text = when {
                             !result.reachable -> getString(R.string.tunnel_dns_failed)
-                            !result.answered -> getString(R.string.tunnel_dns_no_answer)
+                            !result.answered -> getString(R.string.tunnel_dns_not_dns)
                             else -> getString(R.string.tunnel_dns_latency_fmt, result.latencyMs)
                         }
                         view.setTextColor(
@@ -2091,9 +2091,12 @@ class MainActivity : AppCompatActivity() {
                     val reachable = outcomes.count { it.reachable && it.answered }
                     AppLogger.i(
                         "TunnelDns",
-                        "Проверка завершена: отвечают $reachable из ${outcomes.size}, " +
-                            "через туннель=$throughTunnel"
+                        "Проверка завершена: годных $reachable из ${outcomes.size}, " +
+                            "через туннель=$throughTunnel, имя пробы $PROBE_NAME"
                     )
+                    for (result in outcomes) {
+                        AppLogger.i("TunnelDns", DohTester.logLine(result))
+                    }
                 }
             }
         }
