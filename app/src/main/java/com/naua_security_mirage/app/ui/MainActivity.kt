@@ -652,6 +652,14 @@ class MainActivity : AppCompatActivity() {
         return R.string.plan_france
     }
 
+    private fun paidNodePlanForLabel(): String {
+        val plan = settingsRepository.selectedServerPlan
+        if (plan == SettingsRepository.PLAN_PREMIUM_BELARUS &&
+            com.naua_security_mirage.app.data.supabase.SupabaseConfig.belarusAvailable()
+        ) return SettingsRepository.PLAN_PREMIUM_BELARUS
+        return SettingsRepository.PLAN_PREMIUM_FRANCE
+    }
+
     private fun requestPaidPlan(plan: String) {
         val manager = com.naua_security_mirage.app.data.supabase.SupabaseManager.instance
         fun commit() {
@@ -783,8 +791,8 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        binding.containerServerPlan.btnPlanFrance.setOnClickListener {
-            requestPaidPlan(SettingsRepository.PLAN_PREMIUM_FRANCE)
+        binding.containerServerPlan.btnPlanFranceGroup.setOnClickListener {
+            requestPaidPlan(paidNodePlanForLabel())
         }
 
         binding.containerServerPlan.btnPaidServerChevron.setOnClickListener {
@@ -798,13 +806,11 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun animateServerPlanSwitch(isPaid: Boolean) {
-        val activeView = if (isPaid) binding.containerServerPlan.btnPlanFrance else binding.containerServerPlan.btnPlanFree
-        val inactiveView = if (isPaid) binding.containerServerPlan.btnPlanFree else binding.containerServerPlan.btnPlanFrance
+        val activeView = if (isPaid) binding.containerServerPlan.btnPlanFranceGroup else binding.containerServerPlan.btnPlanFree
+        val inactiveView = if (isPaid) binding.containerServerPlan.btnPlanFree else binding.containerServerPlan.btnPlanFranceGroup
 
         activeView.background = ContextCompat.getDrawable(this, R.drawable.bg_pill_active)
-        activeView.setTextColor(Color.WHITE)
         inactiveView.background = ColorDrawable(Color.TRANSPARENT)
-        inactiveView.setTextColor(ContextCompat.getColor(this, R.color.ink_soft))
 
         AnimationHelper.animateDirect(
             durationMs = 280L,
@@ -875,25 +881,24 @@ class MainActivity : AppCompatActivity() {
             ContextCompat.getColor(this, R.color.ink_soft)
         }
         binding.containerServerPlan.root.background = getCardDrawable(isLightNow, 30f)
-        binding.containerServerPlan.btnPlanFrance.setText(paidNodeLabelRes(plan))
+        val label = binding.containerServerPlan.btnPlanFrance
         val chevron = binding.containerServerPlan.btnPaidServerChevron
-        chevron.visibility = if (paidNodeChoices().size > 1) View.VISIBLE else View.GONE
+        label.setText(paidNodeLabelRes(plan))
+        label.setTextColor(if (isPaid) Color.WHITE else inactiveText)
+        chevron.visibility = View.VISIBLE
+        chevron.imageTintList = ColorStateList.valueOf(
+            if (isPaid) Color.WHITE else ContextCompat.getColor(this, R.color.accent)
+        )
         if (isPaid) {
-            binding.containerServerPlan.btnPlanFrance.background = ContextCompat.getDrawable(this, R.drawable.bg_pill_active)
-            binding.containerServerPlan.btnPlanFrance.setTextColor(Color.WHITE)
+            binding.containerServerPlan.btnPlanFranceGroup.background =
+                ContextCompat.getDrawable(this, R.drawable.bg_pill_active)
             binding.containerServerPlan.btnPlanFree.background = ColorDrawable(Color.TRANSPARENT)
             binding.containerServerPlan.btnPlanFree.setTextColor(inactiveText)
-            chevron.imageTintList = ColorStateList.valueOf(Color.WHITE)
-            chevron.background = ContextCompat.getDrawable(this, R.drawable.bg_pill_active)
         } else {
-            binding.containerServerPlan.btnPlanFree.background = ContextCompat.getDrawable(this, R.drawable.bg_pill_active)
+            binding.containerServerPlan.btnPlanFranceGroup.background = ColorDrawable(Color.TRANSPARENT)
+            binding.containerServerPlan.btnPlanFree.background =
+                ContextCompat.getDrawable(this, R.drawable.bg_pill_active)
             binding.containerServerPlan.btnPlanFree.setTextColor(Color.WHITE)
-            binding.containerServerPlan.btnPlanFrance.background = ColorDrawable(Color.TRANSPARENT)
-            binding.containerServerPlan.btnPlanFrance.setTextColor(inactiveText)
-            chevron.imageTintList = ColorStateList.valueOf(
-                ContextCompat.getColor(this, R.color.accent)
-            )
-            chevron.background = ColorDrawable(Color.TRANSPARENT)
         }
     }
     private fun setupAccountCard() {
