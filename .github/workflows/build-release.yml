@@ -103,6 +103,9 @@ jobs:
       - name: Validate live-check script
         run: bash -n .github/scripts/live_subscription_check.sh
 
+      - name: Check string resources
+        run: deno run --allow-read scripts/check-string-resources.js
+
       - name: Run Android Unit Tests
         run: |
           ./gradlew testDebugUnitTest --stacktrace

@@ -487,6 +487,6 @@
   <string name="plan_belarus">Belarus (Premium)</string>
   <string name="paid_server_picker_title">Premium server</string>
   <string name="paid_server_selected">selected</string>
-  <string name="node_status_untracked">This node's status is not tracked</string>
+  <string name="node_status_untracked">Status of this node is not tracked</string>
   <string name="node_history_untracked">Outages of this node are not collected</string>
 </resources>
