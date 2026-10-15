@@ -484,4 +484,9 @@
   <string name="tunnel_dns_formerr">сервер не понял запрос</string>
   <string name="tunnel_dns_no_records">ответил, записей нет</string>
   <string name="backup_restored_with_wallpaper">Настройки загружены, вместе с фото обоев</string>
+  <string name="plan_belarus">Беларусь (Платный)</string>
+  <string name="paid_server_picker_title">Платный сервер</string>
+  <string name="paid_server_selected">выбран</string>
+  <string name="node_status_untracked">Состояние этого узла не отслеживается</string>
+  <string name="node_history_untracked">Сбои этого узла не собираются</string>
 </resources>

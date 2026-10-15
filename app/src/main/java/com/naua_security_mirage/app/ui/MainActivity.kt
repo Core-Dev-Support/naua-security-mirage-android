@@ -633,50 +633,173 @@ class MainActivity : AppCompatActivity() {
 
     }
 
+    private data class PaidNodeChoice(val plan: String, val labelRes: Int)
+
+    private fun paidNodeChoices(): List<PaidNodeChoice> {
+        val choices = mutableListOf(
+            PaidNodeChoice(SettingsRepository.PLAN_PREMIUM_FRANCE, R.string.plan_france)
+        )
+        if (com.naua_security_mirage.app.data.supabase.SupabaseConfig.belarusAvailable()) {
+            choices += PaidNodeChoice(SettingsRepository.PLAN_PREMIUM_BELARUS, R.string.plan_belarus)
+        }
+        return choices
+    }
+
+    private fun paidNodeLabelRes(plan: String): Int {
+        if (plan == SettingsRepository.PLAN_PREMIUM_BELARUS &&
+            com.naua_security_mirage.app.data.supabase.SupabaseConfig.belarusAvailable()
+        ) return R.string.plan_belarus
+        return R.string.plan_france
+    }
+
+    private fun requestPaidPlan(plan: String) {
+        val manager = com.naua_security_mirage.app.data.supabase.SupabaseManager.instance
+        fun commit() {
+            if (settingsRepository.selectedServerPlan == plan) return
+            settingsRepository.selectedServerPlan = plan
+            animateServerPlanSwitch(isPaid = true)
+            handleServerPlanChanged()
+        }
+        if (manager.currentUser.value == null) {
+            showAuthDialog {
+                if (manager.hasActiveSubscription()) commit() else showSubscriptionDialog()
+            }
+            return
+        }
+        if (!manager.hasActiveSubscription()) {
+            showSubscriptionDialog()
+            return
+        }
+        commit()
+    }
+
+    private fun showPaidServerPicker() {
+        val dialog = Dialog(this)
+        dialog.setContentView(R.layout.dialog_paid_server)
+        dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+        dialog.window?.setLayout(
+            (resources.displayMetrics.widthPixels * 0.92f).toInt(),
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        )
+        val density = resources.displayMetrics.density
+        val hasWallpaper = !settingsRepository.customBgImagePath.isNullOrEmpty() &&
+                java.io.File(settingsRepository.customBgImagePath ?: "").exists()
+        val isLightContext = !hasWallpaper && (
+                settingsRepository.themePreset == SettingsRepository.THEME_LIGHT ||
+                        (settingsRepository.customBgColor != 0 &&
+                                ColorUtils.calculateLuminance(settingsRepository.customBgColor) > 0.5)
+                )
+        val customText = settingsRepository.customTextColor
+        val cardBgColor = if (isLightContext) Color.WHITE else ContextCompat.getColor(this, R.color.card)
+        val strokeColor = if (isLightContext) Color.parseColor("#E2E8F0")
+        else ContextCompat.getColor(this, R.color.card_stroke)
+        val titleColor = if (customText != 0) customText
+        else if (isLightContext) Color.parseColor("#0F172A") else ContextCompat.getColor(this, R.color.ink)
+        val bodyColor = if (customText != 0) ColorUtils.setAlphaComponent(customText, 190)
+        else if (isLightContext) Color.parseColor("#475569")
+        else ContextCompat.getColor(this, R.color.ink_soft)
+        val accent = ContextCompat.getColor(this, R.color.accent)
+
+        val root = dialog.findViewById<LinearLayout>(R.id.dialogPaidServerRoot)
+        root.background = GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            cornerRadius = 24f * density
+            setColor(cardBgColor)
+            setStroke((1.2f * density).toInt(), strokeColor)
+        }
+        dialog.findViewById<TextView>(R.id.tvPaidServerDialogTitle).setTextColor(titleColor)
+        val close = dialog.findViewById<TextView>(R.id.tvPaidServerClose)
+        close.setTextColor(bodyColor)
+        close.background = GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            cornerRadius = 14f * density
+            setColor(cardBgColor)
+            setStroke((1f * density).toInt(), strokeColor)
+        }
+        close.setOnClickListener { dialog.dismiss() }
+
+        val container = dialog.findViewById<LinearLayout>(R.id.containerPaidServer)
+        val selectedPlan = settingsRepository.selectedServerPlan
+        for ((index, choice) in paidNodeChoices().withIndex()) {
+            if (index > 0) {
+                container.addView(View(this).apply {
+                    layoutParams = LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        (1f * density).toInt().coerceAtLeast(1)
+                    )
+                    setBackgroundColor(strokeColor)
+                })
+            }
+            val selected = choice.plan == selectedPlan
+            lateinit var row: LinearLayout
+            row = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                isClickable = true
+                isFocusable = true
+                setPadding(
+                    0,
+                    (11f * density).toInt(),
+                    0,
+                    (11f * density).toInt()
+                )
+                setOnClickListener {
+                    AnimationHelper.bounceClick(row, minScale = 0.98f, durationMs = 140)
+                    dialog.dismiss()
+                    requestPaidPlan(choice.plan)
+                }
+            }
+            row.addView(TextView(this).apply {
+                text = getString(choice.labelRes) + if (selected) "  ✓" else ""
+                setTextColor(if (selected) accent else titleColor)
+                textSize = 15f
+                setTypeface(typeface, android.graphics.Typeface.BOLD)
+            })
+            if (selected) {
+                row.addView(TextView(this).apply {
+                    text = getString(R.string.paid_server_selected)
+                    setTextColor(bodyColor)
+                    textSize = 12f
+                })
+            }
+            container.addView(row)
+            AnimationHelper.popIn(row, durationMs = 140)
+        }
+
+        dialog.show()
+        AnimationHelper.popIn(root, durationMs = 220)
+        AnimationHelper.attachPressAnimations(root)
+        val scroll = dialog.findViewById<ScrollView>(R.id.scrollPaidServer)
+        lockDialogList(dialog, root, scroll)
+    }
+
     private fun setupServerPlanSelector() {
         updateServerPlanSelectorUI()
 
         binding.containerServerPlan.btnPlanFree.setOnClickListener {
             if (settingsRepository.selectedServerPlan != SettingsRepository.PLAN_FREE) {
                 settingsRepository.selectedServerPlan = SettingsRepository.PLAN_FREE
-                animateServerPlanSwitch(isFrance = false)
+                animateServerPlanSwitch(isPaid = false)
                 handleServerPlanChanged()
             }
         }
 
         binding.containerServerPlan.btnPlanFrance.setOnClickListener {
-            val user = com.naua_security_mirage.app.data.supabase.SupabaseManager.instance.currentUser.value
-            if (user == null) {
-                showAuthDialog {
-                    if (com.naua_security_mirage.app.data.supabase.SupabaseManager.instance.hasActiveSubscription()) {
-                        if (settingsRepository.selectedServerPlan != SettingsRepository.PLAN_PREMIUM_FRANCE) {
-                            settingsRepository.selectedServerPlan = SettingsRepository.PLAN_PREMIUM_FRANCE
-                            animateServerPlanSwitch(isFrance = true)
-                            handleServerPlanChanged()
-                        }
-                    } else {
-                        showSubscriptionDialog()
-                    }
-                }
-                return@setOnClickListener
-            }
+            requestPaidPlan(SettingsRepository.PLAN_PREMIUM_FRANCE)
+        }
 
-            if (!com.naua_security_mirage.app.data.supabase.SupabaseManager.instance.hasActiveSubscription()) {
-                showSubscriptionDialog()
-                return@setOnClickListener
-            }
-
-            if (settingsRepository.selectedServerPlan != SettingsRepository.PLAN_PREMIUM_FRANCE) {
-                settingsRepository.selectedServerPlan = SettingsRepository.PLAN_PREMIUM_FRANCE
-                animateServerPlanSwitch(isFrance = true)
-                handleServerPlanChanged()
-            }
+        binding.containerServerPlan.btnPaidServerChevron.setOnClickListener {
+            AnimationHelper.bounceClick(
+                binding.containerServerPlan.btnPaidServerChevron,
+                minScale = 0.86f,
+                durationMs = 140
+            )
+            showPaidServerPicker()
         }
     }
 
-    private fun animateServerPlanSwitch(isFrance: Boolean) {
-        val activeView = if (isFrance) binding.containerServerPlan.btnPlanFrance else binding.containerServerPlan.btnPlanFree
-        val inactiveView = if (isFrance) binding.containerServerPlan.btnPlanFree else binding.containerServerPlan.btnPlanFrance
+    private fun animateServerPlanSwitch(isPaid: Boolean) {
+        val activeView = if (isPaid) binding.containerServerPlan.btnPlanFrance else binding.containerServerPlan.btnPlanFree
+        val inactiveView = if (isPaid) binding.containerServerPlan.btnPlanFree else binding.containerServerPlan.btnPlanFrance
 
         activeView.background = ContextCompat.getDrawable(this, R.drawable.bg_pill_active)
         activeView.setTextColor(Color.WHITE)
@@ -718,7 +841,7 @@ class MainActivity : AppCompatActivity() {
             durationMs = 220L,
             interpolator = AnimationHelper.SpringOvershoot(1.2f),
             onUpdate = { fraction ->
-                val dx = if (isFrance) 3.5f * (1f - fraction) else -3.5f * (1f - fraction)
+                val dx = if (isPaid) 3.5f * (1f - fraction) else -3.5f * (1f - fraction)
                 container.translationX = dx
             },
             onEnd = {
@@ -727,15 +850,9 @@ class MainActivity : AppCompatActivity() {
         )
     }
 
-    private fun handleServerPlanChanged() {
-        val isVpnConnected = MirageVpnService.vpnState.value == VpnState.CONNECTED || MirageVpnService.vpnState.value == VpnState.CONNECTING
-        if (isVpnConnected) {
-            MirageVpnService.reconnect(this)
-        }
-    }
-
     private fun updateServerPlanSelectorUI() {
-        val isFrance = settingsRepository.selectedServerPlan == SettingsRepository.PLAN_PREMIUM_FRANCE
+        val plan = settingsRepository.selectedServerPlan
+        val isPaid = settingsRepository.isPaidPlan(plan)
         val customText = settingsRepository.customTextColor
         val hasWallpaper = !settingsRepository.customBgImagePath.isNullOrEmpty() &&
             java.io.File(settingsRepository.customBgImagePath ?: "").exists()
@@ -750,19 +867,27 @@ class MainActivity : AppCompatActivity() {
             ContextCompat.getColor(this, R.color.ink_soft)
         }
         binding.containerServerPlan.root.background = getCardDrawable(isLightNow, 30f)
-        if (isFrance) {
+        binding.containerServerPlan.btnPlanFrance.setText(paidNodeLabelRes(plan))
+        val chevron = binding.containerServerPlan.btnPaidServerChevron
+        chevron.visibility = if (paidNodeChoices().size > 1) View.VISIBLE else View.GONE
+        if (isPaid) {
             binding.containerServerPlan.btnPlanFrance.background = ContextCompat.getDrawable(this, R.drawable.bg_pill_active)
             binding.containerServerPlan.btnPlanFrance.setTextColor(Color.WHITE)
             binding.containerServerPlan.btnPlanFree.background = ColorDrawable(Color.TRANSPARENT)
             binding.containerServerPlan.btnPlanFree.setTextColor(inactiveText)
+            chevron.imageTintList = ColorStateList.valueOf(Color.WHITE)
+            chevron.background = ContextCompat.getDrawable(this, R.drawable.bg_pill_active)
         } else {
             binding.containerServerPlan.btnPlanFree.background = ContextCompat.getDrawable(this, R.drawable.bg_pill_active)
             binding.containerServerPlan.btnPlanFree.setTextColor(Color.WHITE)
             binding.containerServerPlan.btnPlanFrance.background = ColorDrawable(Color.TRANSPARENT)
             binding.containerServerPlan.btnPlanFrance.setTextColor(inactiveText)
+            chevron.imageTintList = ColorStateList.valueOf(
+                ContextCompat.getColor(this, R.color.accent)
+            )
+            chevron.background = ColorDrawable(Color.TRANSPARENT)
         }
     }
-
     private fun setupAccountCard() {
         updateAccountCardUI()
 
@@ -782,7 +907,7 @@ class MainActivity : AppCompatActivity() {
         binding.cardAccount.btnAccountLogout.setOnClickListener {
             com.naua_security_mirage.app.data.supabase.SupabaseManager.instance.signOut()
             updateAccountCardUI()
-            if (settingsRepository.selectedServerPlan == SettingsRepository.PLAN_PREMIUM_FRANCE) {
+            if (settingsRepository.isPaidPlan()) {
                 settingsRepository.selectedServerPlan = SettingsRepository.PLAN_FREE
                 updateServerPlanSelectorUI()
                 if (MirageVpnService.vpnState.value == VpnState.CONNECTED) {
@@ -798,7 +923,7 @@ class MainActivity : AppCompatActivity() {
         lifecycleScope.launch {
             com.naua_security_mirage.app.data.supabase.SupabaseManager.instance.currentUser.collect { user ->
                 updateAccountCardUI()
-                if (user == null && settingsRepository.selectedServerPlan == SettingsRepository.PLAN_PREMIUM_FRANCE) {
+                if (user == null && settingsRepository.isPaidPlan()) {
                     settingsRepository.selectedServerPlan = SettingsRepository.PLAN_FREE
                     updateServerPlanSelectorUI()
                     if (MirageVpnService.vpnState.value == VpnState.CONNECTED) {
@@ -810,10 +935,7 @@ class MainActivity : AppCompatActivity() {
         lifecycleScope.launch {
             com.naua_security_mirage.app.data.supabase.SupabaseManager.instance.subscription.collect { sub ->
                 updateAccountCardUI()
-                if (sub != null &&
-                    !sub.isActive &&
-                    settingsRepository.selectedServerPlan == SettingsRepository.PLAN_PREMIUM_FRANCE
-                ) {
+                if (sub != null && !sub.isActive && settingsRepository.isPaidPlan()) {
                     settingsRepository.selectedServerPlan = SettingsRepository.PLAN_FREE
                     updateServerPlanSelectorUI()
                     if (MirageVpnService.vpnState.value == VpnState.CONNECTED) {
@@ -1031,7 +1153,9 @@ class MainActivity : AppCompatActivity() {
                 if (renewedUntil != null) {
                     isWaitingForPayment = false
                     paymentBaselineUntil = null
-                    settingsRepository.selectedServerPlan = SettingsRepository.PLAN_PREMIUM_FRANCE
+                    if (!settingsRepository.isPaidPlan()) {
+                        settingsRepository.selectedServerPlan = SettingsRepository.PLAN_PREMIUM_FRANCE
+                    }
                     Toast.makeText(
                         this@MainActivity,
                         getString(R.string.sub_renewed_toast, formatExpiry(renewedUntil)),
@@ -1324,7 +1448,7 @@ class MainActivity : AppCompatActivity() {
                 MirageVpnService.stop(this)
             }
             VpnState.DISCONNECTED, VpnState.DISCONNECTING -> {
-                if (settingsRepository.selectedServerPlan == SettingsRepository.PLAN_PREMIUM_FRANCE) {
+                if (settingsRepository.isPaidPlan()) {
                     val user = com.naua_security_mirage.app.data.supabase.SupabaseManager.instance.currentUser.value
                     if (user == null) {
                         showAuthDialog {
@@ -1545,15 +1669,20 @@ class MainActivity : AppCompatActivity() {
                     } else {
                         AppLogger.d("DataRefresh", "Нет активной подписки, платный узел пропущен")
                     }
-                    val isPaidPlan = settingsRepository.selectedServerPlan == SettingsRepository.PLAN_PREMIUM_FRANCE
+                    val paidPlan = settingsRepository.selectedServerPlan
+                    val isPaidPlan = settingsRepository.isPaidPlan(paidPlan)
                     val francePingJob = if (isPaidPlan) {
                         async {
                             runCatching {
-                                val manager = com.naua_security_mirage.app.data.supabase.SupabaseManager.instance
-                                val uuid = manager.getActiveClientUuid()
-                                val france = com.naua_security_mirage.app.data.supabase.SupabaseConfig
-                                    .getFranceServer(uuid, manager.getActiveClientFlow(uuid))
-                                val p = pingRepository.measurePing(france, timeoutMs = 1800)
+                                val server = if (paidPlan == SettingsRepository.PLAN_PREMIUM_BELARUS) {
+                                    com.naua_security_mirage.app.data.supabase.SupabaseConfig.BELARUS_SERVER
+                                } else {
+                                    val manager = com.naua_security_mirage.app.data.supabase.SupabaseManager.instance
+                                    val uuid = manager.getActiveClientUuid()
+                                    com.naua_security_mirage.app.data.supabase.SupabaseConfig
+                                        .getFranceServer(uuid, manager.getActiveClientFlow(uuid))
+                                }
+                                val p = server?.let { pingRepository.measurePing(it, timeoutMs = 1800) } ?: -1L
                                 if (p in 1..9998) "$p ms" else getString(R.string.ping_timeout)
                             }.getOrNull() ?: getString(R.string.ping_timeout)
                         }
@@ -1716,6 +1845,16 @@ class MainActivity : AppCompatActivity() {
                 if (gen != nodeStatusGen) return@launch
                 stateView.text = getString(R.string.node_status_no_subscription)
                 stateView.setTextColor(themedSubtitle())
+            } else if (settingsRepository.selectedServerPlan == SettingsRepository.PLAN_PREMIUM_BELARUS) {
+                if (gen != nodeStatusGen) return@launch
+                stateView.text = getString(R.string.node_status_untracked)
+                stateView.setTextColor(themedSubtitle())
+                historyView?.text = getString(R.string.node_history_untracked)
+                AppLogger.i(
+                    "NodeStatus",
+                    "Выбран узел без отслеживания состояния, проверка не выполняется"
+                )
+                return@launch
             } else {
                 refreshFranceState(stateView, gen)
             }

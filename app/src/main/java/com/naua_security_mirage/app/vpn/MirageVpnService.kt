@@ -204,8 +204,12 @@ class MirageVpnService : VpnService() {
             val isCellular = isCellularNetwork()
             AppLogger.i(TAG, "Тип сети на старте: ${describeUnderlyingNetwork()}")
             try {
-                val isFrancePlan = settingsRepository.selectedServerPlan == SettingsRepository.PLAN_PREMIUM_FRANCE &&
-                        com.naua_security_mirage.app.data.supabase.SupabaseManager.instance.hasActiveSubscription()
+                val selectedPlan = settingsRepository.selectedServerPlan
+                val hasSubscription =
+                    com.naua_security_mirage.app.data.supabase.SupabaseManager.instance.hasActiveSubscription()
+                val isFrancePlan = selectedPlan == SettingsRepository.PLAN_PREMIUM_FRANCE && hasSubscription
+                val isBelarusPlan = selectedPlan == SettingsRepository.PLAN_PREMIUM_BELARUS && hasSubscription
+                val isPaidPlan = settingsRepository.isPaidPlan(selectedPlan) && hasSubscription
 
                 var premeasuredFree: List<VlessServer> = emptyList()
                 var franceRefresh: Deferred<String?>? = null
@@ -257,6 +261,8 @@ class MirageVpnService : VpnService() {
                         )
                     }
                     franceReady
+                } else if (isBelarusPlan) {
+                    resolveBelarusServer()
                 } else {
 
                     val servers = vlessKeyRepository.getVlessServers()
@@ -300,7 +306,7 @@ class MirageVpnService : VpnService() {
                 }
 
 
-                if (isFrancePlan && bestServer == null) {
+                if (isPaidPlan && bestServer == null) {
                     AppLogger.e(TAG, "Платный узел недоступен, соединение не устанавливается")
                     AppLogger.onUserMessage(getString(R.string.paid_unavailable_later))
                     _vpnState.value = VpnState.DISCONNECTED
@@ -370,7 +376,7 @@ class MirageVpnService : VpnService() {
                 vpnInterface = pfd
                 AppLogger.i(TAG, "VPN Tun interface established successfully (FD: ${pfd.fd})")
 
-                val onPaidNode = isFrancePlan
+                val onPaidNode = isPaidPlan
                 val tunnelBudgetMs = if (onPaidNode) 90_000L else 60_000L
                 var tunnelAttempt = withTimeoutOrNull(tunnelBudgetMs) {
                     openWorkingTunnel(selectedServer, onPaidNode, pfd, premeasuredFree)
@@ -399,7 +405,7 @@ class MirageVpnService : VpnService() {
                     if (LockdownInspector.isOurAppLocked(this@MirageVpnService)) {
                         AppLogger.e(TAG, "Подключение невозможно: включена системная блокировка сети без VPN")
                         AppLogger.onUserMessage(getString(R.string.vpn_error_lockdown))
-                    } else if (isFrancePlan) {
+                    } else if (isPaidPlan) {
                         AppLogger.e(TAG, "Платный узел не подтвердил передачу трафика — VPN отключается.")
                         AppLogger.onUserMessage(getString(R.string.paid_unavailable_retry))
                     } else {
@@ -473,6 +479,27 @@ class MirageVpnService : VpnService() {
         }
     }
 
+    private fun resolveBelarusServer(): VlessServer? {
+        val server = com.naua_security_mirage.app.data.supabase.SupabaseConfig.BELARUS_SERVER
+        if (server == null) {
+            AppLogger.w(TAG, "Беларусь не настроена в этой сборке, платный узел пропущен")
+            return null
+        }
+        if (!com.naua_security_mirage.app.data.supabase.FranceAccessPolicy
+                .mayBuildPaidTunnel(server.uuid)
+        ) {
+            AppLogger.w(TAG, "У узла Беларусь некорректный UUID, платный узел пропущен")
+            return null
+        }
+        AppLogger.i(
+            TAG,
+            "Выбран платный узел: ${server.tag} (${server.address}:${server.port}), " +
+                    "network=${server.network}, security=${server.security}, " +
+                    "uuid: ${redactUuid(server.uuid)}"
+        )
+        return server
+    }
+
     private suspend fun openWorkingTunnel(
         preferred: VlessServer,
         isPaidPlan: Boolean,
@@ -481,8 +508,13 @@ class MirageVpnService : VpnService() {
     ): Pair<VlessServer?, Boolean> {
         val candidates = mutableListOf(preferred)
 
+        val isFranceNode = isPaidPlan &&
+                preferred.address.equals(
+                    com.naua_security_mirage.app.data.supabase.SupabaseConfig.FRANCE_HOST,
+                    ignoreCase = true
+                )
 
-        if (isPaidPlan) {
+        if (isFranceNode) {
             try {
                 val manager = com.naua_security_mirage.app.data.supabase.SupabaseManager.instance
                 val clientUuid = manager.getActiveClientUuid()
@@ -1409,8 +1441,12 @@ class MirageVpnService : VpnService() {
                 xrayController?.stopXray()
                 delay(200)
 
-                val isFrancePlan = settingsRepository.selectedServerPlan == SettingsRepository.PLAN_PREMIUM_FRANCE &&
-                        com.naua_security_mirage.app.data.supabase.SupabaseManager.instance.hasActiveSubscription()
+                val reconnectPlan = settingsRepository.selectedServerPlan
+                val reconnectHasSubscription =
+                    com.naua_security_mirage.app.data.supabase.SupabaseManager.instance.hasActiveSubscription()
+                val isFrancePlan = reconnectPlan == SettingsRepository.PLAN_PREMIUM_FRANCE && reconnectHasSubscription
+                val isBelarusPlan = reconnectPlan == SettingsRepository.PLAN_PREMIUM_BELARUS && reconnectHasSubscription
+                val isPaidPlan = settingsRepository.isPaidPlan(reconnectPlan) && reconnectHasSubscription
 
                 val newServer = if (isFrancePlan) {
                     com.naua_security_mirage.app.data.supabase.SupabaseManager.instance.ensureFranceVlessKey()
@@ -1440,6 +1476,8 @@ class MirageVpnService : VpnService() {
                         )
                     }
                     france
+                } else if (isBelarusPlan) {
+                    resolveBelarusServer()
                 } else {
                     val servers = vlessKeyRepository.getVlessServers()
                     val measured = pingRepository.measureAllPings(servers)
@@ -1458,7 +1496,7 @@ class MirageVpnService : VpnService() {
                     return@launch
                 }
                 if (pfd != null && reconnectTarget != null) {
-                    val onPaidNode = isFrancePlan
+                    val onPaidNode = isPaidPlan
                     val tunnelAttempt = withTimeoutOrNull(if (onPaidNode) 90_000L else 60_000L) {
                         openWorkingTunnel(reconnectTarget, onPaidNode, pfd)
                     }

@@ -128,6 +128,7 @@ jobs:
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
           FRANCE_DEFAULT_UUID: ${{ secrets.FRANCE_DEFAULT_UUID }}
           FRANCE_ENDPOINTS: ${{ secrets.FRANCE_ENDPOINTS }}
+          BELARUS_LINK: ${{ secrets.BELARUS_LINK }}
           COMMIT_HASH: ${{ github.sha }}
         run: |
           START_TIME=$(date +%s)

@@ -163,6 +163,10 @@ class SettingsRepository(context: Context) {
         get() = prefs.getString(KEY_SELECTED_SERVER_PLAN, PLAN_FREE) ?: PLAN_FREE
         set(value) = prefs.edit().putString(KEY_SELECTED_SERVER_PLAN, value).apply()
 
+    fun isPaidPlan(plan: String = selectedServerPlan): Boolean {
+        return plan == PLAN_PREMIUM_FRANCE || plan == PLAN_PREMIUM_BELARUS
+    }
+
     fun isAppProxied(packageName: String): Boolean {
 
         return !bypassedAppPackages.contains(packageName)
@@ -305,6 +309,7 @@ class SettingsRepository(context: Context) {
         const val LANG_RU = "ru"
         const val LANG_EN = "en"
         const val PLAN_PREMIUM_FRANCE = "premium_france"
+        const val PLAN_PREMIUM_BELARUS = "premium_belarus"
 
         private const val KEY_SELECTED_SERVER_PLAN = "key_selected_server_plan"
         private const val KEY_UPDATE_SOURCE = "key_update_source"

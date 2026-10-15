@@ -8,6 +8,7 @@ import android.os.Looper
 import android.util.Log
 import android.widget.Toast
 import com.naua_security_mirage.app.BuildConfig
+import com.naua_security_mirage.app.data.supabase.SupabaseConfig
 import com.naua_security_mirage.app.data.repository.SettingsRepository
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -101,7 +102,10 @@ object AppLogger {
             BuildConfig.FRANCE_SNI,
             BuildConfig.FRANCE_HOST,
             BuildConfig.YOOMONEY_WALLET,
-            BuildConfig.SUPABASE_URL
+            BuildConfig.SUPABASE_URL,
+            SupabaseConfig.BELARUS_SERVER?.address,
+            SupabaseConfig.BELARUS_SERVER?.serverName,
+            SupabaseConfig.BELARUS_SERVER?.uuid
         )
         logFile = File(context.filesDir, "mirage_logs.txt")
         if (logBuffer.isEmpty() && logFile?.exists() == true) {

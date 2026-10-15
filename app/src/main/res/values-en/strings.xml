@@ -484,4 +484,9 @@
   <string name="tunnel_dns_formerr">server rejected the query</string>
   <string name="tunnel_dns_no_records">answered, no records</string>
   <string name="backup_restored_with_wallpaper">Settings restored, wallpaper included</string>
+  <string name="plan_belarus">Belarus (Premium)</string>
+  <string name="paid_server_picker_title">Premium server</string>
+  <string name="paid_server_selected">selected</string>
+  <string name="node_status_untracked">This node's status is not tracked</string>
+  <string name="node_history_untracked">Outages of this node are not collected</string>
 </resources>

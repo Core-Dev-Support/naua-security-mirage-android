@@ -50,4 +50,17 @@
         app:autoSizeMinTextSize="9sp"
         app:autoSizeMaxTextSize="12sp"
         app:autoSizeStepGranularity="1sp" />
+
+    <ImageView
+        android:id="@+id/btnPaidServerChevron"
+        android:layout_width="30dp"
+        android:layout_height="30dp"
+        android:layout_gravity="center_vertical"
+        android:layout_marginStart="2dp"
+        android:background="?android:attr/selectableItemBackgroundBorderless"
+        android:clickable="true"
+        android:contentDescription="@string/paid_server_picker_title"
+        android:focusable="true"
+        android:padding="7dp"
+        android:src="@drawable/ic_arrow_down" />
 </LinearLayout>
