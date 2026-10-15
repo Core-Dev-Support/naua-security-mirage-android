@@ -230,8 +230,8 @@
     <string name="notification_connecting_text">Establishing the tunnel…</string>
     <string name="notification_disconnecting_title">Status: Disconnecting…</string>
     <string name="notification_disconnecting_text">Closing the tunnel…</string>
-    <string name="notification_connected_text">Ping: %1$d ms • %2$s</string>
-    <string name="notification_connected_speed_text">↓ %1$s  ↑ %2$s • %3$d ms • %4$s</string>
+    <string name="notification_connected_text">Ping: %1$s ms • %2$s</string>
+    <string name="notification_connected_speed_text">↓ %1$s  ↑ %2$s • %3$s ms • %4$s</string>
     <string name="notification_disconnected_text">Protection is off. Tap to connect.</string>
 
     <string name="cloudtips_url">https://pay.cloudtips.ru/p/82445608</string>
