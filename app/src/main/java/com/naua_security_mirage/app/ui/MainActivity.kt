@@ -66,6 +66,7 @@ import android.widget.EditText
 import android.widget.ImageView
 import android.widget.SeekBar
 import android.widget.ScrollView
+import android.widget.PopupWindow
 import android.widget.TextView
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
@@ -661,6 +662,7 @@ class MainActivity : AppCompatActivity() {
             if (settingsRepository.selectedServerPlan == plan) return
             settingsRepository.selectedServerPlan = plan
             animateServerPlanSwitch(isPaid = true)
+            updateServerPlanSelectorUI()
             handleServerPlanChanged()
         }
         if (manager.currentUser.value == null) {
@@ -676,14 +678,13 @@ class MainActivity : AppCompatActivity() {
         commit()
     }
 
+    private fun paidNodeFlagRes(plan: String): Int {
+        return if (plan == SettingsRepository.PLAN_PREMIUM_BELARUS) R.drawable.ic_belarus
+        else R.drawable.ic_france
+    }
+
     private fun showPaidServerPicker() {
-        val dialog = Dialog(this)
-        dialog.setContentView(R.layout.dialog_paid_server)
-        dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
-        dialog.window?.setLayout(
-            (resources.displayMetrics.widthPixels * 0.92f).toInt(),
-            LinearLayout.LayoutParams.WRAP_CONTENT
-        )
+        val anchor = binding.containerServerPlan.btnPlanFranceGroup
         val density = resources.displayMetrics.density
         val hasWallpaper = !settingsRepository.customBgImagePath.isNullOrEmpty() &&
                 java.io.File(settingsRepository.customBgImagePath ?: "").exists()
@@ -703,29 +704,35 @@ class MainActivity : AppCompatActivity() {
         else ContextCompat.getColor(this, R.color.ink_soft)
         val accent = ContextCompat.getColor(this, R.color.accent)
 
-        val root = dialog.findViewById<LinearLayout>(R.id.dialogPaidServerRoot)
-        root.background = GradientDrawable().apply {
-            shape = GradientDrawable.RECTANGLE
-            cornerRadius = 24f * density
-            setColor(cardBgColor)
-            setStroke((1.2f * density).toInt(), strokeColor)
+        val list = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(
+                (6f * density).toInt(),
+                (6f * density).toInt(),
+                (6f * density).toInt(),
+                (6f * density).toInt()
+            )
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                cornerRadius = 18f * density
+                setColor(cardBgColor)
+                setStroke((1.2f * density).toInt(), strokeColor)
+                setShadow((6f * density).toInt(), 0x40000000, 0f, (3f * density).toInt())
+            }
         }
-        dialog.findViewById<TextView>(R.id.tvPaidServerDialogTitle).setTextColor(titleColor)
-        val close = dialog.findViewById<TextView>(R.id.tvPaidServerClose)
-        close.setTextColor(bodyColor)
-        close.background = GradientDrawable().apply {
-            shape = GradientDrawable.RECTANGLE
-            cornerRadius = 14f * density
-            setColor(cardBgColor)
-            setStroke((1f * density).toInt(), strokeColor)
-        }
-        close.setOnClickListener { dialog.dismiss() }
 
-        val container = dialog.findViewById<LinearLayout>(R.id.containerPaidServer)
+        val popup = PopupWindow(
+            list,
+            LinearLayout.LayoutParams.WRAP_CONTENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT,
+            true
+        )
+        popup.elevation = (12f * density).toInt()
+
         val selectedPlan = settingsRepository.selectedServerPlan
         for ((index, choice) in paidNodeChoices().withIndex()) {
             if (index > 0) {
-                container.addView(View(this).apply {
+                list.addView(View(this).apply {
                     layoutParams = LinearLayout.LayoutParams(
                         LinearLayout.LayoutParams.MATCH_PARENT,
                         (1f * density).toInt().coerceAtLeast(1)
@@ -736,45 +743,57 @@ class MainActivity : AppCompatActivity() {
             val selected = choice.plan == selectedPlan
             lateinit var row: LinearLayout
             row = LinearLayout(this).apply {
-                orientation = LinearLayout.VERTICAL
+                orientation = LinearLayout.HORIZONTAL
+                gravity = android.view.Gravity.CENTER_VERTICAL
                 isClickable = true
                 isFocusable = true
                 setPadding(
-                    0,
-                    (11f * density).toInt(),
-                    0,
-                    (11f * density).toInt()
+                    (12f * density).toInt(),
+                    (10f * density).toInt(),
+                    (14f * density).toInt(),
+                    (10f * density).toInt()
                 )
                 setOnClickListener {
-                    AnimationHelper.bounceClick(row, minScale = 0.98f, durationMs = 140)
-                    dialog.dismiss()
+                    AnimationHelper.bounceClick(row, minScale = 0.97f, durationMs = 140)
+                    popup.dismiss()
                     requestPaidPlan(choice.plan)
                 }
             }
+            row.addView(ImageView(this).apply {
+                setImageResource(paidNodeFlagRes(choice.plan))
+                layoutParams = LinearLayout.LayoutParams(
+                    (20f * density).toInt(),
+                    (20f * density).toInt()
+                )
+                contentDescription = null
+            })
             row.addView(TextView(this).apply {
-                text = getString(choice.labelRes) + if (selected) "  ✓" else ""
+                text = getString(choice.labelRes)
                 setTextColor(if (selected) accent else titleColor)
-                textSize = 15f
+                textSize = 14f
                 setTypeface(typeface, android.graphics.Typeface.BOLD)
+                layoutParams = LinearLayout.LayoutParams(
+                    0,
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                    1f
+                ).apply {
+                    marginStart = (10f * density).toInt()
+                }
             })
             if (selected) {
                 row.addView(TextView(this).apply {
-                    text = getString(R.string.paid_server_selected)
-                    setTextColor(bodyColor)
-                    textSize = 12f
+                    text = "✓"
+                    setTextColor(accent)
+                    textSize = 15f
+                    setTypeface(typeface, android.graphics.Typeface.BOLD)
                 })
             }
-            container.addView(row)
-            AnimationHelper.popIn(row, durationMs = 140)
+            list.addView(row)
         }
 
-        dialog.show()
-        AnimationHelper.popIn(root, durationMs = 220)
-        AnimationHelper.attachPressAnimations(root)
-        val scroll = dialog.findViewById<ScrollView>(R.id.scrollPaidServer)
-        lockDialogList(dialog, root, scroll)
+        popup.showAsDropDown(anchor, 0, (4f * density).toInt())
+        AnimationHelper.popIn(list, durationMs = 150)
     }
-
     private fun setupServerPlanSelector() {
         updateServerPlanSelectorUI()
 
@@ -879,6 +898,7 @@ class MainActivity : AppCompatActivity() {
         val label = binding.containerServerPlan.btnPlanFrance
         val chevron = binding.containerServerPlan.btnPaidServerChevron
         label.setText(paidNodeLabelRes(plan))
+        binding.containerServerPlan.ivPaidNodeFlag.setImageResource(paidNodeFlagRes(plan))
         label.setTextColor(if (isPaid) Color.WHITE else inactiveText)
         chevron.visibility = View.VISIBLE
         chevron.imageTintList = ColorStateList.valueOf(

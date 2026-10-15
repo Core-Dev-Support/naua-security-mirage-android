@@ -178,6 +178,21 @@ function daysUntil(paidUntil: string | null): number {
   return Math.max(1, Math.ceil(remaining / 86_400_000));
 }
 
+function fingerprint(text: string): string {
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < text.length; i++) {
+    hash ^= text.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193) >>> 0;
+  }
+  return hash.toString(16).padStart(8, "0");
+}
+
+function clientNameFor(email: string): string {
+  const lowered = email.trim().toLowerCase();
+  const safe = lowered.replace(/[^a-z0-9._-]+/g, "_").slice(0, 46);
+  return `mrge_${safe}_${fingerprint(lowered)}`;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   if (req.method !== "GET") return json({ error: "Method not allowed" }, 405);
@@ -219,16 +234,17 @@ serve(async (req) => {
 
     const days = daysUntil(row.paid_until);
     const panelToken = await loginToPanel();
+    const wantedName = clientNameFor(email);
 
     const existing = (await listClients(panelToken))
-      .find((client) => (client.name || "").toLowerCase() === email.toLowerCase());
-    let clientName = existing?.name || email;
+      .find((client) => (client.name || "").toLowerCase() === wantedName.toLowerCase());
+    let clientName = existing?.name || wantedName;
 
     if (!existing) {
-      const created = await createPanelClient(panelToken, email, days);
+      const created = await createPanelClient(panelToken, wantedName, days);
       if (!created) {
         const raced = (await listClients(panelToken))
-          .find((client) => (client.name || "").toLowerCase() === email.toLowerCase());
+          .find((client) => (client.name || "").toLowerCase() === wantedName.toLowerCase());
         if (!raced) throw new Error("The H1Cloud client could not be created or found");
         clientName = raced.name;
       } else {
