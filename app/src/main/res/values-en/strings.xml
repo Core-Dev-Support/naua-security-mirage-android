@@ -10,7 +10,7 @@
 
     <string name="status_sub_disconnected">Tap to enable protection</string>
     <string name="status_sub_selecting">Looking for the best server…</string>
-    <string name="status_sub_connected_format">Session %1$s • %2$d ms</string>
+    <string name="status_sub_connected_format">Session %1$s • %2$s ms</string>
 
     <string name="support_project">Thank the developer</string>
     <string name="telegram_channel">Telegram channel</string>

@@ -1548,7 +1548,7 @@ class MainActivity : AppCompatActivity() {
                     val minutes = seconds / 60
                     val remSeconds = seconds % 60
                     val timeStr = String.format("%02d:%02d", minutes, remSeconds)
-                    val pingDisplay = if (ping > 0) ping else 45L
+                    val pingDisplay = if (ping in 1..9999) ping.toString() else "—"
                     binding.tvStatusSub.text = String.format(
                         getString(R.string.status_sub_connected_format),
                         timeStr,

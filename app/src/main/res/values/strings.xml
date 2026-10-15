@@ -10,7 +10,7 @@
 
     <string name="status_sub_disconnected">Нажми, чтобы включить защиту</string>
     <string name="status_sub_selecting">Поиск наилучшего сервера...</string>
-    <string name="status_sub_connected_format">Время сессии %1$s • %2$d ms</string>
+    <string name="status_sub_connected_format">Время сессии %1$s • %2$s ms</string>
 
     <string name="support_project">Поблагодарить разработчика</string>
     <string name="telegram_channel">Telegram канал</string>

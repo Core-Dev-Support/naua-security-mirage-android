@@ -24,7 +24,7 @@ class PingRepository {
         repeat(samples.coerceAtLeast(1)) {
             probeOnce(server, timeoutMs, protectSocket)?.let { value -> collected.add(value) }
         }
-        val result = if (collected.isEmpty()) 9999L else collected.sorted()[collected.size / 2]
+        val result = if (collected.isEmpty()) 9999L else collected.min()
         server.pingMs = result
         if (result in 1..9998) {
             Log.d(TAG, "Server ${server.tag} ping: ${result}ms from ${collected.size}/$samples probes")
