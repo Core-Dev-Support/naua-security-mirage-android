@@ -717,7 +717,6 @@ class MainActivity : AppCompatActivity() {
                 cornerRadius = 18f * density
                 setColor(cardBgColor)
                 setStroke((1.2f * density).toInt(), strokeColor)
-                setShadow((6f * density).toInt(), 0x40000000, 0f, (3f * density).toInt())
             }
         }
 
@@ -727,7 +726,7 @@ class MainActivity : AppCompatActivity() {
             LinearLayout.LayoutParams.WRAP_CONTENT,
             true
         )
-        popup.elevation = (12f * density).toInt()
+        popup.elevation = 12f * density
 
         val selectedPlan = settingsRepository.selectedServerPlan
         for ((index, choice) in paidNodeChoices().withIndex()) {
