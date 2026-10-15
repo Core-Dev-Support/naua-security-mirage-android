@@ -30,7 +30,7 @@ object DohTester {
 
     const val PROBE_NAME = "example.com"
     private const val PROBE_TYPE_A = 1
-    private const val PROBE_TIMEOUT_MS = 2500L
+    private const val PROBE_TIMEOUT_MS = 1500L
     private const val SOCKS_HOST = "127.0.0.1"
     private const val SOCKS_PORT = 10808
     private const val CLASS_IN = 1
@@ -39,7 +39,7 @@ object DohTester {
         val builder = OkHttpClient.Builder()
             .connectTimeout(PROBE_TIMEOUT_MS, TimeUnit.MILLISECONDS)
             .readTimeout(PROBE_TIMEOUT_MS, TimeUnit.MILLISECONDS)
-            .callTimeout(PROBE_TIMEOUT_MS + 2000, TimeUnit.MILLISECONDS)
+            .callTimeout(PROBE_TIMEOUT_MS + 500, TimeUnit.MILLISECONDS)
             .retryOnConnectionFailure(false)
         if (throughTunnel) {
             builder.proxy(Proxy(Proxy.Type.SOCKS, InetSocketAddress(SOCKS_HOST, SOCKS_PORT)))
