@@ -897,7 +897,9 @@ class MainActivity : AppCompatActivity() {
         val label = binding.containerServerPlan.btnPlanFrance
         val chevron = binding.containerServerPlan.btnPaidServerChevron
         label.setText(paidNodeLabelRes(plan))
-        binding.containerServerPlan.ivPaidNodeFlag.setImageResource(paidNodeFlagRes(plan))
+        val flag = binding.containerServerPlan.ivPaidNodeFlag
+        flag.visibility = if (isPaid) View.VISIBLE else View.GONE
+        flag.setImageResource(paidNodeFlagRes(plan))
         label.setTextColor(if (isPaid) Color.WHITE else inactiveText)
         chevron.visibility = View.VISIBLE
         chevron.imageTintList = ColorStateList.valueOf(

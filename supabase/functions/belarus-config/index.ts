@@ -4,8 +4,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.8";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") || "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
-const H1CLOUD_BASE_URL = (Deno.env.get("H1CLOUD_BASE_URL") || "http://by2.h1cloud.net:25009")
-  .replace(/\/+$/, "");
+const H1CLOUD_BASE_URL = (Deno.env.get("H1CLOUD_BASE_URL") || "").replace(/\/+$/, "");
 const H1CLOUD_USERNAME = Deno.env.get("H1CLOUD_USERNAME") || "";
 const H1CLOUD_PASSWORD = Deno.env.get("H1CLOUD_PASSWORD") || "";
 
@@ -64,6 +63,7 @@ async function panelCall(
   token: string | null,
   body?: unknown,
 ): Promise<{ status: number; parsed: Record<string, unknown> }> {
+  if (!H1CLOUD_BASE_URL) throw new Error("H1Cloud panel address is not configured");
   const headers: Record<string, string> = { Accept: "application/json" };
   if (token) headers.Authorization = `Bearer ${token}`;
   if (body !== undefined) headers["Content-Type"] = "application/json";

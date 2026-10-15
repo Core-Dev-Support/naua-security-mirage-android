@@ -203,6 +203,7 @@ class MirageVpnService : VpnService() {
             captureUnderlyingNetwork()
             val isCellular = isCellularNetwork()
             AppLogger.i(TAG, "Тип сети на старте: ${describeUnderlyingNetwork()}")
+            warmDnsSelection()
             try {
                 val selectedPlan = settingsRepository.selectedServerPlan
                 val hasSubscription =
@@ -903,6 +904,13 @@ class MirageVpnService : VpnService() {
         }
     }
 
+    private var dnsWarmJob: Job? = null
+
+    private fun warmDnsSelection() {
+        if (dnsWarmJob?.isActive == true) return
+        dnsWarmJob = serviceScope.launch(Dispatchers.IO) { pickDnsAutomatically() }
+    }
+
     private suspend fun pickDnsAutomatically() {
         val settingsRepo = com.naua_security_mirage.app.data.repository.SettingsRepository(this)
         if (settingsRepo.selectedDnsId != com.naua_security_mirage.app.data.model.DnsServer.AUTO_ID) {
@@ -912,19 +920,21 @@ class MirageVpnService : VpnService() {
             return
         }
         val started = System.currentTimeMillis()
-        val fresh = System.currentTimeMillis() - settingsRepo.autoDnsPickedAt < AUTO_DNS_TTL_MS
-        if (fresh && settingsRepo.autoDnsPickedId.isNotBlank()) {
+        val age = System.currentTimeMillis() - settingsRepo.autoDnsPickedAt
+        if (settingsRepo.autoDnsPickedId.isNotBlank() &&
+            (age < AUTO_DNS_TTL_MS || age < AUTO_DNS_RETRY_MS)
+        ) {
             return
         }
         val winner = com.naua_security_mirage.app.util.DohTester.pickFastest(
             com.naua_security_mirage.app.data.model.DnsServer.BUILT_IN
         )
+        settingsRepo.autoDnsPickedAt = System.currentTimeMillis()
         if (winner == null) {
             AppLogger.i(TAG, "Автоматический выбор DNS: годных нет, остаётся цепочка по умолчанию")
             return
         }
         settingsRepo.autoDnsPickedId = winner.server.id
-        settingsRepo.autoDnsPickedAt = System.currentTimeMillis()
         AppLogger.i(
             TAG,
             "Автоматический выбор DNS: ${winner.server.id} за ${winner.latencyMs} мс " +
@@ -939,6 +949,7 @@ class MirageVpnService : VpnService() {
         if (!isCurrentTunnel(pfd)) {
             return TunnelAttempt(coreStarted = false, trafficFlows = false)
         }
+        dnsWarmJob?.let { job -> runCatching { job.join() } }
         pickDnsAutomatically()
         AppLogger.i(
             TAG,
@@ -1589,6 +1600,7 @@ class MirageVpnService : VpnService() {
 
         private const val FRANCE_KEY_BUDGET_MS = 2_500L
     private const val AUTO_DNS_TTL_MS = 10 * 60 * 1000L
+    private const val AUTO_DNS_RETRY_MS = 3 * 60 * 1000L
 
         const val ACTION_CONNECT = "com.naua_security_mirage.app.ACTION_CONNECT"
         const val ACTION_DISCONNECT = "com.naua_security_mirage.app.ACTION_DISCONNECT"
