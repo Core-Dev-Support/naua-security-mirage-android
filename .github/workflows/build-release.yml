@@ -33,7 +33,6 @@ jobs:
           CHECK_PWD: ${{ secrets.THREE_X_UI_PASSWORD }}
           CHECK_HOST: ${{ secrets.FRANCE_HOST }}
           CHECK_PBK: ${{ secrets.FRANCE_PBK }}
-          CHECK_BELARUS: ${{ secrets.BELARUS_LINK }}
         run: |
           echo "Scanning source code for plaintext credentials..."
           FAILED=0
@@ -47,10 +46,6 @@ jobs:
           fi
           if [ -n "$CHECK_PBK" ] && git grep -q -F "$CHECK_PBK" -- ':!app/src/main/assets/geo/*' ':!desktop/Core/geo*' ':!.github/*'; then
             echo "❌ [SECURITY VIOLATION] Reality key found in source code!"
-            FAILED=1
-          fi
-          if [ -n "$CHECK_BELARUS" ] && git grep -q -F "$CHECK_BELARUS" -- ':!app/src/main/assets/geo/*' ':!desktop/Core/geo*' ':!.github/*'; then
-            echo "❌ [SECURITY VIOLATION] Belarus node link found in source code!"
             FAILED=1
           fi
           if [ $FAILED -ne 0 ]; then
@@ -102,6 +97,9 @@ jobs:
       - name: Type-check france-config edge function
         run: deno check supabase/functions/france-config/index.ts
 
+      - name: Type-check belarus-config edge function
+        run: deno check supabase/functions/belarus-config/index.ts
+
       - name: Test YooMoney edge-function contracts
         run: deno test supabase/functions/yoomoney-webhook/contract_test.ts
 
@@ -146,7 +144,6 @@ jobs:
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
           FRANCE_DEFAULT_UUID: ${{ secrets.FRANCE_DEFAULT_UUID }}
           FRANCE_ENDPOINTS: ${{ secrets.FRANCE_ENDPOINTS }}
-          BELARUS_LINK: ${{ secrets.BELARUS_LINK }}
           COMMIT_HASH: ${{ github.sha }}
         run: |
           START_TIME=$(date +%s)

@@ -479,10 +479,19 @@ class MirageVpnService : VpnService() {
         }
     }
 
-    private fun resolveBelarusServer(): VlessServer? {
-        val server = com.naua_security_mirage.app.data.supabase.SupabaseConfig.BELARUS_SERVER
+    private suspend fun resolveBelarusServer(): VlessServer? {
+        val manager = com.naua_security_mirage.app.data.supabase.SupabaseManager.instance
+        val key = manager.ensureBelarusVlessKey()
+        val server = if (!key.isNullOrBlank()) {
+            com.naua_security_mirage.app.data.model.VlessServer.fromUri(
+                key,
+                com.naua_security_mirage.app.data.supabase.SupabaseConfig.BELARUS_LABEL
+            )
+        } else {
+            null
+        }
         if (server == null) {
-            AppLogger.w(TAG, "Беларусь не настроена в этой сборке, платный узел пропущен")
+            AppLogger.w(TAG, "belarus-config не выдал ключ, узел Беларусь пропущен")
             return null
         }
         if (!com.naua_security_mirage.app.data.supabase.FranceAccessPolicy

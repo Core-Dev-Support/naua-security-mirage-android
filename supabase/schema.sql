@@ -13,6 +13,8 @@ CREATE TABLE IF NOT EXISTS public.subscriptions (
     vless_key TEXT,
     client_uuid TEXT,
     flow TEXT,
+    belarus_vless_key TEXT,
+    belarus_client_uuid TEXT,
     operation_id TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()

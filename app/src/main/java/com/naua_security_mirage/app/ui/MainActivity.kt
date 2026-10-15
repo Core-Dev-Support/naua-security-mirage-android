@@ -636,28 +636,23 @@ class MainActivity : AppCompatActivity() {
     private data class PaidNodeChoice(val plan: String, val labelRes: Int)
 
     private fun paidNodeChoices(): List<PaidNodeChoice> {
-        val choices = mutableListOf(
-            PaidNodeChoice(SettingsRepository.PLAN_PREMIUM_FRANCE, R.string.plan_france)
+        return listOf(
+            PaidNodeChoice(SettingsRepository.PLAN_PREMIUM_FRANCE, R.string.plan_france),
+            PaidNodeChoice(SettingsRepository.PLAN_PREMIUM_BELARUS, R.string.plan_belarus)
         )
-        if (com.naua_security_mirage.app.data.supabase.SupabaseConfig.belarusAvailable()) {
-            choices += PaidNodeChoice(SettingsRepository.PLAN_PREMIUM_BELARUS, R.string.plan_belarus)
-        }
-        return choices
     }
 
     private fun paidNodeLabelRes(plan: String): Int {
-        if (plan == SettingsRepository.PLAN_PREMIUM_BELARUS &&
-            com.naua_security_mirage.app.data.supabase.SupabaseConfig.belarusAvailable()
-        ) return R.string.plan_belarus
-        return R.string.plan_france
+        return if (plan == SettingsRepository.PLAN_PREMIUM_BELARUS) R.string.plan_belarus
+        else R.string.plan_france
     }
 
     private fun paidNodePlanForLabel(): String {
-        val plan = settingsRepository.selectedServerPlan
-        if (plan == SettingsRepository.PLAN_PREMIUM_BELARUS &&
-            com.naua_security_mirage.app.data.supabase.SupabaseConfig.belarusAvailable()
-        ) return SettingsRepository.PLAN_PREMIUM_BELARUS
-        return SettingsRepository.PLAN_PREMIUM_FRANCE
+        return if (settingsRepository.selectedServerPlan == SettingsRepository.PLAN_PREMIUM_BELARUS) {
+            SettingsRepository.PLAN_PREMIUM_BELARUS
+        } else {
+            SettingsRepository.PLAN_PREMIUM_FRANCE
+        }
     }
 
     private fun requestPaidPlan(plan: String) {
@@ -1687,10 +1682,13 @@ class MainActivity : AppCompatActivity() {
                     val francePingJob = if (isPaidPlan) {
                         async {
                             runCatching {
+                                val manager = com.naua_security_mirage.app.data.supabase.SupabaseManager.instance
                                 val server = if (paidPlan == SettingsRepository.PLAN_PREMIUM_BELARUS) {
-                                    com.naua_security_mirage.app.data.supabase.SupabaseConfig.BELARUS_SERVER
+                                    manager.ensureBelarusVlessKey()?.let { key ->
+                                        com.naua_security_mirage.app.data.model.VlessServer
+                                            .fromUri(key, com.naua_security_mirage.app.data.supabase.SupabaseConfig.BELARUS_LABEL)
+                                    }
                                 } else {
-                                    val manager = com.naua_security_mirage.app.data.supabase.SupabaseManager.instance
                                     val uuid = manager.getActiveClientUuid()
                                     com.naua_security_mirage.app.data.supabase.SupabaseConfig
                                         .getFranceServer(uuid, manager.getActiveClientFlow(uuid))

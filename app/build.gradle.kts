@@ -72,11 +72,6 @@ android {
             "FRANCE_ENDPOINTS",
             "\"${getSecret("FRANCE_ENDPOINTS").replace("\"", "")}\""
         )
-        buildConfigField(
-            "String",
-            "BELARUS_LINK",
-            "\"${getSecret("BELARUS_LINK").replace("\\", "\\\\").replace("\"", "\\\"")}\""
-        )
         buildConfigField("String", "YOOMONEY_WALLET", "\"${getSecret("YOOMONEY_WALLET")}\"")
         buildConfigField("boolean", "USE_LIBXRAY_CONVERTER", getSecret("USE_LIBXRAY_CONVERTER", "false"))
         buildConfigField("String", "GIT_HASH", "\"${gitHash()}\"")

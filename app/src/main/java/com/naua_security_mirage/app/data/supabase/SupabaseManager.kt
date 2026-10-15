@@ -43,7 +43,9 @@ data class SubscriptionDto(
     @SerializedName("paid_until") val paidUntil: String? = null,
     @SerializedName("vless_key") val vlessKey: String? = null,
     @SerializedName("client_uuid") val clientUuid: String? = null,
-    @SerializedName("flow") val flow: String? = null
+    @SerializedName("flow") val flow: String? = null,
+      @SerializedName("belarus_vless_key") val belarusVlessKey: String? = null,
+      @SerializedName("belarus_client_uuid") val belarusClientUuid: String? = null
 )
 
 class SupabaseManager private constructor() {
@@ -66,6 +68,8 @@ class SupabaseManager private constructor() {
         private const val KEY_SUB_VLESS_KEY = "sub_vless_key"
         private const val KEY_SUB_CLIENT_UUID = "sub_client_uuid"
         private const val KEY_SUB_FLOW = "sub_flow"
+        private const val KEY_SUB_BELARUS_VLESS_KEY = "sub_belarus_vless_key"
+        private const val KEY_SUB_BELARUS_CLIENT_UUID = "sub_belarus_client_uuid"
 
         private const val KEY_OAUTH_STATE = "oauth_state_pending"
 
@@ -117,6 +121,8 @@ class SupabaseManager private constructor() {
             ?.remove(KEY_SUB_VLESS_KEY)
             ?.remove(KEY_SUB_CLIENT_UUID)
             ?.remove(KEY_SUB_FLOW)
+            ?.remove(KEY_SUB_BELARUS_VLESS_KEY)
+            ?.remove(KEY_SUB_BELARUS_CLIENT_UUID)
               ?.remove(KEY_SUB_CONFIRMED_AT)
             ?.apply()
     }
@@ -225,7 +231,9 @@ class SupabaseManager private constructor() {
                             paidUntil = prefs?.getString(KEY_SUB_PAID_UNTIL, null),
                             vlessKey = prefs?.getString(KEY_SUB_VLESS_KEY, null),
                             clientUuid = prefs?.getString(KEY_SUB_CLIENT_UUID, null) ?: extractUuidFromVless(prefs?.getString(KEY_SUB_VLESS_KEY, null)),
-                            flow = prefs?.getString(KEY_SUB_FLOW, null)
+                            flow = prefs?.getString(KEY_SUB_FLOW, null),
+                            belarusVlessKey = prefs?.getString(KEY_SUB_BELARUS_VLESS_KEY, null),
+                            belarusClientUuid = prefs?.getString(KEY_SUB_BELARUS_CLIENT_UUID, null)
                         )
                         _subscription.value = sub
 
@@ -974,6 +982,141 @@ class SupabaseManager private constructor() {
 
         AppLogger.w(TAG, "Нет верифицированного France-ключа ни с сервера, ни из кэша")
         null
+    }
+
+    fun getActiveBelarusVlessKey(): String? {
+        val sub = _subscription.value
+        return sub?.belarusVlessKey ?: prefs?.getString(KEY_SUB_BELARUS_VLESS_KEY, null)
+    }
+
+    suspend fun ensureBelarusVlessKey(): String? = withContext(Dispatchers.IO) {
+        if (!hasActiveSubscription()) return@withContext null
+        _currentUser.value ?: return@withContext null
+
+        if (isCacheFresh()) {
+            val cached = getActiveBelarusVlessKey()
+            if (!cached.isNullOrBlank()) {
+                AppLogger.i(
+                    TAG,
+                    "Ключ Беларуси из кэша, возраст ${cacheAgeMinutes()} мин, панель не опрашивается"
+                )
+                return@withContext cached
+            }
+        } else {
+            AppLogger.w(
+                TAG,
+                "Кэш подписки протух (${cacheAgeMinutes()} мин), ключ Беларуси обновляется у панели"
+            )
+        }
+
+        val serverKey = fetchBelarusConfigFromServer()
+        if (!serverKey.isNullOrBlank()) {
+            markConfirmedAt()
+            AppLogger.i(TAG, "Belarus key issued by belarus-config")
+            return@withContext serverKey
+        }
+
+        AppLogger.w(TAG, "belarus-config недоступен, узел Беларусь не будет подключён")
+
+        val cachedKey = _subscription.value?.belarusVlessKey
+            ?: prefs?.getString(KEY_SUB_BELARUS_VLESS_KEY, null)
+        if (!cachedKey.isNullOrBlank()) {
+            AppLogger.w(TAG, "Используется кэшированный ключ Беларуси с прошлого успешного входа")
+            return@withContext cachedKey
+        }
+
+        AppLogger.w(TAG, "Нет верифицированного ключа Беларуси ни с сервера, ни из кэша")
+        null
+    }
+
+    private suspend fun fetchBelarusConfigFromServer(): String? = withContext(Dispatchers.IO) {
+        when (val result = fetchBelarusConfig()) {
+            is BelarusConfigResult.Key -> {
+                persistBelarusKey(result.vlessKey, result.clientUuid, result.paidUntil)
+                result.vlessKey
+            }
+            is BelarusConfigResult.NoSubscription -> {
+                AppLogger.i(TAG, "Сервер сообщил: активной подписки нет")
+                null
+            }
+            is BelarusConfigResult.Unavailable -> {
+                AppLogger.w(TAG, "belarus-config недоступен: ${result.reason}")
+                null
+            }
+        }
+    }
+
+    private sealed class BelarusConfigResult {
+        data class Key(
+            val vlessKey: String,
+            val clientUuid: String,
+            val paidUntil: String?
+        ) : BelarusConfigResult()
+        object NoSubscription : BelarusConfigResult()
+        data class Unavailable(val reason: String) : BelarusConfigResult()
+    }
+
+    private fun persistBelarusKey(key: String, clientUuid: String, paidUntil: String?) {
+        val sub = _subscription.value
+        if (sub != null) {
+            _subscription.value = sub.copy(
+                belarusVlessKey = key,
+                belarusClientUuid = clientUuid,
+                paidUntil = paidUntil ?: sub.paidUntil
+            )
+        }
+        prefs?.edit()
+            ?.putString(KEY_SUB_BELARUS_VLESS_KEY, key)
+            ?.putString(KEY_SUB_BELARUS_CLIENT_UUID, clientUuid)
+            ?.apply()
+    }
+
+    private suspend fun fetchBelarusConfig(): BelarusConfigResult = withContext(Dispatchers.IO) {
+        try {
+            val token = accessToken
+            if (token.isNullOrEmpty()) {
+                return@withContext BelarusConfigResult.Unavailable("нет сессии")
+            }
+            fun call(bearer: String): Response {
+                val request = Request.Builder()
+                    .url("${SupabaseConfig.SUPABASE_URL}/functions/v1/belarus-config")
+                    .header("apikey", SupabaseConfig.getAnonKey())
+                    .header("Authorization", "Bearer $bearer")
+                    .get()
+                    .build()
+                return httpClient.newCall(request).execute()
+            }
+
+            var response = call(token)
+            if (response.code == 401 && refreshAccessToken()) {
+                val refreshed = accessToken
+                if (refreshed.isNullOrEmpty()) {
+                    return@withContext BelarusConfigResult.Unavailable("токен не обновился")
+                }
+                response = call(refreshed)
+            }
+
+            val body = response.body?.string().orEmpty()
+            when {
+                response.code == 403 -> BelarusConfigResult.NoSubscription
+                !response.isSuccessful -> BelarusConfigResult.Unavailable("HTTP ${response.code}")
+                else -> {
+                    val json = gson.fromJson(body, JsonObject::class.java)
+                    val key = json?.get("vlessKey")?.asString
+                    if (key.isNullOrBlank()) {
+                        BelarusConfigResult.Unavailable("в ответе нет ключа")
+                    } else {
+                        BelarusConfigResult.Key(
+                            vlessKey = key,
+                            clientUuid = json.get("clientUuid")?.asString.orEmpty(),
+                            paidUntil = json.get("paidUntil")?.takeIf { !it.isJsonNull }?.asString
+                        )
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            BelarusConfigResult.Unavailable(e.message ?: "сетевая ошибка")
+        }
     }
 
     fun extractUuidFromVless(vlessUrl: String?): String? {

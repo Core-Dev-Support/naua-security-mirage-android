@@ -36,13 +36,6 @@ object SupabaseConfig {
 
     val BELARUS_LABEL = "Беларусь (Платный)"
 
-    val BELARUS_SERVER: VlessServer? by lazy {
-        val link = BuildConfig.BELARUS_LINK.trim()
-        if (link.isEmpty()) null else VlessServer.fromUri(link, BELARUS_LABEL)
-    }
-
-    fun belarusAvailable(): Boolean = BELARUS_SERVER != null
-
     var yooMoneyWallet: String = BuildConfig.YOOMONEY_WALLET
     var subscriptionPriceRub: Int = 30
 
