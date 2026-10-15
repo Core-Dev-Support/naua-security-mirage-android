@@ -850,6 +850,14 @@ class MainActivity : AppCompatActivity() {
         )
     }
 
+    private fun handleServerPlanChanged() {
+        val isVpnConnected = MirageVpnService.vpnState.value == VpnState.CONNECTED ||
+                MirageVpnService.vpnState.value == VpnState.CONNECTING
+        if (isVpnConnected) {
+            MirageVpnService.reconnect(this)
+        }
+    }
+
     private fun updateServerPlanSelectorUI() {
         val plan = settingsRepository.selectedServerPlan
         val isPaid = settingsRepository.isPaidPlan(plan)
