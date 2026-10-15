@@ -33,6 +33,7 @@ jobs:
           CHECK_PWD: ${{ secrets.THREE_X_UI_PASSWORD }}
           CHECK_HOST: ${{ secrets.FRANCE_HOST }}
           CHECK_PBK: ${{ secrets.FRANCE_PBK }}
+          CHECK_BELARUS: ${{ secrets.BELARUS_LINK }}
         run: |
           echo "Scanning source code for plaintext credentials..."
           FAILED=0
@@ -46,6 +47,10 @@ jobs:
           fi
           if [ -n "$CHECK_PBK" ] && git grep -q -F "$CHECK_PBK" -- ':!app/src/main/assets/geo/*' ':!desktop/Core/geo*' ':!.github/*'; then
             echo "❌ [SECURITY VIOLATION] Reality key found in source code!"
+            FAILED=1
+          fi
+          if [ -n "$CHECK_BELARUS" ] && git grep -q -F "$CHECK_BELARUS" -- ':!app/src/main/assets/geo/*' ':!desktop/Core/geo*' ':!.github/*'; then
+            echo "❌ [SECURITY VIOLATION] Belarus node link found in source code!"
             FAILED=1
           fi
           if [ $FAILED -ne 0 ]; then
@@ -105,6 +110,16 @@ jobs:
 
       - name: Check string resources
         run: deno run --allow-read scripts/check-string-resources.js
+
+      - name: Verify source rules
+        run: bash scripts/check-no-hardcoded-secrets.sh
+
+      - name: Check text encoding
+        run: |
+          deno run --allow-read scripts/check-text-encoding.js app/src
+          deno run --allow-read scripts/check-text-encoding.js desktop/src
+          deno run --allow-read scripts/check-text-encoding.js scripts
+          deno run --allow-read scripts/check-text-encoding.js .github
 
       - name: Run Android Unit Tests
         run: |
