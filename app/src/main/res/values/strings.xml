@@ -489,4 +489,6 @@
   <string name="paid_server_selected">выбран</string>
   <string name="node_status_untracked">Состояние этого узла не отслеживается</string>
   <string name="node_history_untracked">Сбои этого узла не собираются</string>
+  <string name="tunnel_dns_remove">Удалить</string>
+  <string name="tunnel_dns_removed">Свой DNS удалён</string>
 </resources>

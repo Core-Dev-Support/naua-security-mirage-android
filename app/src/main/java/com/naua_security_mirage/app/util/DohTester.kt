@@ -30,7 +30,7 @@ object DohTester {
 
     const val PROBE_NAME = "example.com"
     private const val PROBE_TYPE_A = 1
-    private const val PROBE_TIMEOUT_MS = 6000L
+    private const val PROBE_TIMEOUT_MS = 2500L
     private const val SOCKS_HOST = "127.0.0.1"
     private const val SOCKS_PORT = 10808
     private const val CLASS_IN = 1
@@ -110,7 +110,7 @@ object DohTester {
     suspend fun pickFastest(
         servers: List<DnsServer>,
         throughTunnel: Boolean = false,
-        budgetMs: Long = 3000L
+        budgetMs: Long = 1500L
     ): DnsProbeResult? = withContext(Dispatchers.IO) {
         if (servers.isEmpty()) return@withContext null
         val results = kotlinx.coroutines.coroutineScope {

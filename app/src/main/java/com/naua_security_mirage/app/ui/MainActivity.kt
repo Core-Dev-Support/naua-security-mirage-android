@@ -897,9 +897,6 @@ class MainActivity : AppCompatActivity() {
         val label = binding.containerServerPlan.btnPlanFrance
         val chevron = binding.containerServerPlan.btnPaidServerChevron
         label.setText(paidNodeLabelRes(plan))
-        val flag = binding.containerServerPlan.ivPaidNodeFlag
-        flag.visibility = if (isPaid) View.VISIBLE else View.GONE
-        flag.setImageResource(paidNodeFlagRes(plan))
         label.setTextColor(if (isPaid) Color.WHITE else inactiveText)
         chevron.visibility = View.VISIBLE
         chevron.imageTintList = ColorStateList.valueOf(
@@ -2261,6 +2258,24 @@ class MainActivity : AppCompatActivity() {
                 val nameView = row.findViewById<TextView>(R.id.tvDnsServerName)
                 val urlView = row.findViewById<TextView>(R.id.tvDnsServerUrl)
                 val latencyView = row.findViewById<TextView>(R.id.tvDnsServerLatency)
+                val removeView = row.findViewById<TextView>(R.id.btnDnsServerRemove)
+                val isCustom = choice.server.id == XrayVpnController.CUSTOM_DNS_ID
+                removeView.visibility = if (isCustom) View.VISIBLE else View.GONE
+                if (isCustom) {
+                    removeView.text = getString(R.string.tunnel_dns_remove)
+                    removeView.setTextColor(bodyColor)
+                    removeView.setOnClickListener {
+                        AnimationHelper.bounceClick(removeView, minScale = 0.9f, durationMs = 140)
+                        settingsRepository.customDnsUrl = ""
+                        if (settingsRepository.selectedDnsId == XrayVpnController.CUSTOM_DNS_ID) {
+                            settingsRepository.selectedDnsId = DnsServer.AUTO_ID
+                        }
+                        kept.remove(XrayVpnController.CUSTOM_DNS_ID)
+                        refreshTunnelDnsRow()
+                        buildRows()
+                        Toast.makeText(this, R.string.tunnel_dns_removed, Toast.LENGTH_SHORT).show()
+                    }
+                }
                 nameView.text = getString(choice.nameRes) +
                         if (choice.server.id == selectedId) "  ✓" else ""
                 nameView.setTextColor(

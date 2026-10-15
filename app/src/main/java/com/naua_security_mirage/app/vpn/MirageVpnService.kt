@@ -203,7 +203,6 @@ class MirageVpnService : VpnService() {
             captureUnderlyingNetwork()
             val isCellular = isCellularNetwork()
             AppLogger.i(TAG, "Тип сети на старте: ${describeUnderlyingNetwork()}")
-            warmDnsSelection()
             try {
                 val selectedPlan = settingsRepository.selectedServerPlan
                 val hasSubscription =
@@ -318,6 +317,7 @@ class MirageVpnService : VpnService() {
 
                 captureUnderlyingNetwork()
 
+                pickDnsAutomatically()
                 establishedTunMtu = currentTunMtu()
                 val builder = Builder()
                     .addAddress("172.19.0.1", 30)
@@ -904,13 +904,6 @@ class MirageVpnService : VpnService() {
         }
     }
 
-    private var dnsWarmJob: Job? = null
-
-    private fun warmDnsSelection() {
-        if (dnsWarmJob?.isActive == true) return
-        dnsWarmJob = serviceScope.launch(Dispatchers.IO) { pickDnsAutomatically() }
-    }
-
     private suspend fun pickDnsAutomatically() {
         val settingsRepo = com.naua_security_mirage.app.data.repository.SettingsRepository(this)
         if (settingsRepo.selectedDnsId != com.naua_security_mirage.app.data.model.DnsServer.AUTO_ID) {
@@ -921,11 +914,9 @@ class MirageVpnService : VpnService() {
         }
         val started = System.currentTimeMillis()
         val age = System.currentTimeMillis() - settingsRepo.autoDnsPickedAt
-        if (settingsRepo.autoDnsPickedId.isNotBlank() &&
-            (age < AUTO_DNS_TTL_MS || age < AUTO_DNS_RETRY_MS)
-        ) {
-            return
-        }
+        val hasPick = settingsRepo.autoDnsPickedId.isNotBlank()
+        if (hasPick && age < AUTO_DNS_TTL_MS) return
+        if (!hasPick && age < AUTO_DNS_RETRY_MS) return
         val winner = com.naua_security_mirage.app.util.DohTester.pickFastest(
             com.naua_security_mirage.app.data.model.DnsServer.BUILT_IN
         )
@@ -949,7 +940,6 @@ class MirageVpnService : VpnService() {
         if (!isCurrentTunnel(pfd)) {
             return TunnelAttempt(coreStarted = false, trafficFlows = false)
         }
-        dnsWarmJob?.let { job -> runCatching { job.join() } }
         pickDnsAutomatically()
         AppLogger.i(
             TAG,
