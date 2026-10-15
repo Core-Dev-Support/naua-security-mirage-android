@@ -792,6 +792,7 @@ class MainActivity : AppCompatActivity() {
 
         popup.showAsDropDown(anchor, 0, (4f * density).toInt())
         AnimationHelper.popIn(list, durationMs = 150)
+        AnimationHelper.attachPressAnimations(list)
     }
     private fun setupServerPlanSelector() {
         updateServerPlanSelectorUI()
@@ -897,6 +898,16 @@ class MainActivity : AppCompatActivity() {
         val label = binding.containerServerPlan.btnPlanFrance
         val chevron = binding.containerServerPlan.btnPaidServerChevron
         label.setText(paidNodeLabelRes(plan))
+        val flag = binding.containerServerPlan.ivPaidNodeFlag
+        flag.visibility = if (isPaid) View.VISIBLE else View.GONE
+        flag.setImageResource(paidNodeFlagRes(plan))
+        val flagDensity = resources.displayMetrics.density
+        label.setPaddingRelative(
+            ((if (isPaid) 2f else 16f) * flagDensity).toInt(),
+            label.paddingTop,
+            label.paddingEnd,
+            label.paddingBottom
+        )
         label.setTextColor(if (isPaid) Color.WHITE else inactiveText)
         chevron.visibility = View.VISIBLE
         chevron.imageTintList = ColorStateList.valueOf(
@@ -2215,7 +2226,7 @@ class MainActivity : AppCompatActivity() {
         val scroll = dialog.findViewById<ScrollView>(R.id.scrollTunnelDns)
         val rows = mutableMapOf<String, TextView>()
         val kept = mutableMapOf<String, DnsProbeResult>()
-        val choices = dnsChoices()
+        var choices = dnsChoices()
 
         dialog.show()
         AnimationHelper.popIn(root, durationMs = 220)
@@ -2238,6 +2249,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         fun buildRows() {
+            choices = dnsChoices()
             container.removeAllViews()
             rows.clear()
             val selectedId = settingsRepository.selectedDnsId
@@ -2264,6 +2276,17 @@ class MainActivity : AppCompatActivity() {
                 if (isCustom) {
                     removeView.text = getString(R.string.tunnel_dns_remove)
                     removeView.setTextColor(bodyColor)
+                    removeView.setPadding(
+                        (12f * density).toInt(),
+                        (6f * density).toInt(),
+                        (12f * density).toInt(),
+                        (6f * density).toInt()
+                    )
+                    removeView.background = GradientDrawable().apply {
+                        cornerRadius = 12f * density
+                        setColor(ColorUtils.setAlphaComponent(bodyColor, 26))
+                        setStroke((1.2f * density).toInt(), stroke)
+                    }
                     removeView.setOnClickListener {
                         AnimationHelper.bounceClick(removeView, minScale = 0.9f, durationMs = 140)
                         settingsRepository.customDnsUrl = ""
@@ -2272,8 +2295,8 @@ class MainActivity : AppCompatActivity() {
                         }
                         kept.remove(XrayVpnController.CUSTOM_DNS_ID)
                         refreshTunnelDnsRow()
-                        buildRows()
                         Toast.makeText(this, R.string.tunnel_dns_removed, Toast.LENGTH_SHORT).show()
+                        AnimationHelper.fadeAndSlideOut(row, toX = -70f, durationMs = 180) { buildRows() }
                     }
                 }
                 nameView.text = getString(choice.nameRes) +
@@ -2308,6 +2331,7 @@ class MainActivity : AppCompatActivity() {
                 kept[choice.server.id]?.let { renderLatency(it) }
                 AnimationHelper.popIn(row, durationMs = 140)
             }
+            AnimationHelper.attachPressAnimations(container)
         }
         buildRows()
 
@@ -3983,6 +4007,8 @@ class MainActivity : AppCompatActivity() {
         holder.icon.setImageResource(iconRes)
         holder.title.setText(titleRes)
         holder.desc.setText(descRes)
+        AnimationHelper.excludeFromPress(holder.switch)
+        AnimationHelper.attachPressAnimations(row)
         return holder
     }
 

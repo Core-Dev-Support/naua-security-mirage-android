@@ -48,6 +48,7 @@ class MirageVpnService : VpnService() {
     private val serviceScope = CoroutineScope(Dispatchers.IO + Job())
     private var connectionJob: Job? = null
     private var pingJob: Job? = null
+    private val pingSamples = ArrayDeque<Long>()
     private var timerJob: Job? = null
     private var speedJob: Job? = null
     private var watchdogJob: Job? = null
@@ -428,6 +429,7 @@ class MirageVpnService : VpnService() {
 
                 _activeServer.value = activeServer
                 _sessionSeconds.value = 0L
+                pingSamples.clear()
                 _vpnState.value = VpnState.CONNECTED
                 AppLogger.i(TAG, "VPN State changed to CONNECTED. Маршрутизация защищенного трафика через ${activeServer.tag} (Endpoint: Зашифрован)")
                 notificationManager.updateConnected(
@@ -1010,6 +1012,7 @@ class MirageVpnService : VpnService() {
     private fun startPeriodicPing(server: VlessServer) {
         pingJob?.cancel()
         pingJob = serviceScope.launch {
+            pingSamples.clear()
             while (isActive && _vpnState.value == VpnState.CONNECTED) {
                 val intervalSec = settingsRepository.autoPingIntervalSeconds
                 if (intervalSec <= 0) break
@@ -1018,7 +1021,11 @@ class MirageVpnService : VpnService() {
                 if (!isActive || _vpnState.value != VpnState.CONNECTED) break
 
                 val target = _activeServer.value ?: server
-                val ping = pingRepository.measurePing(target, timeoutMs = 2000) { socket ->
+                val ping = pingRepository.measurePing(
+                    target,
+                    timeoutMs = 2000,
+                    samples = PING_SAMPLES_PER_MEASUREMENT
+                ) { socket ->
                     try {
                         protect(socket)
                     } catch (t: Throwable) {
@@ -1026,14 +1033,10 @@ class MirageVpnService : VpnService() {
                     }
                 }
                 if (ping in 1..9998) {
-                    val current = _activePing.value
-                    _activePing.value = if (current !in 1..9998) {
-                        ping
-                    } else if (ping < current) {
-                        (current * 0.5 + ping * 0.5).toLong()
-                    } else {
-                        (current * 0.85 + ping * 0.15).toLong()
-                    }
+                    if (pingSamples.size >= PING_HISTORY) pingSamples.removeFirst()
+                    pingSamples.addLast(ping)
+                    val ordered = pingSamples.sorted()
+                    _activePing.value = ordered[ordered.size / 2]
                 } else {
                     AppLogger.w(TAG, "Автопинг узла ${target.tag} не ответил")
                 }
@@ -1195,6 +1198,7 @@ class MirageVpnService : VpnService() {
 
         _vpnState.value = VpnState.DISCONNECTED
         _activePing.value = -1L
+        pingSamples.clear()
         val finishedServer = _activeServer.value?.tag
         val finishedSeconds = _sessionSeconds.value
         if (finishedServer != null) {
@@ -1591,6 +1595,8 @@ class MirageVpnService : VpnService() {
         private const val FRANCE_KEY_BUDGET_MS = 2_500L
     private const val AUTO_DNS_TTL_MS = 10 * 60 * 1000L
     private const val AUTO_DNS_RETRY_MS = 3 * 60 * 1000L
+    private const val PING_SAMPLES_PER_MEASUREMENT = 3
+    private const val PING_HISTORY = 5
 
         const val ACTION_CONNECT = "com.naua_security_mirage.app.ACTION_CONNECT"
         const val ACTION_DISCONNECT = "com.naua_security_mirage.app.ACTION_DISCONNECT"

@@ -357,7 +357,7 @@
     <string name="site_direct">Прямое подключение</string>
     <string name="site_via_tunnel">Через туннель (по умолчанию)</string>
     <string name="plan_free">⚡ Бесплатный</string>
-    <string name="plan_france">🇫🇷 Франция (Платный)</string>
+    <string name="plan_france">Франция (Платный)</string>
 
     <string name="toast_vpn_denied">Разрешение на VPN не получено</string>
     <string name="toast_storage_denied">Разрешение на запись файлов не предоставлено</string>

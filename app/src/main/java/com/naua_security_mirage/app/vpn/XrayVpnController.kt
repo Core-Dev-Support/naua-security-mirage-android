@@ -1025,6 +1025,7 @@ class XrayVpnController(private val vpnService: VpnService) {
                 val sockopt = JsonObject().apply {
                     addProperty("domainStrategy", "AsIs")
                     addProperty("tcpNoDelay", true)
+                    addProperty("tcpFastOpen", true)
                     addProperty("tcpKeepAliveIdle", 30)
                     addProperty("tcpKeepAliveInterval", 15)
                     addProperty("tcpKeepAliveCount", 4)

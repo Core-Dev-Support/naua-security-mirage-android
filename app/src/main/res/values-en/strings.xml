@@ -357,7 +357,7 @@
     <string name="site_direct">Direct connection</string>
     <string name="site_via_tunnel">Via tunnel (default)</string>
     <string name="plan_free">⚡ Free</string>
-    <string name="plan_france">🇫🇷 France (Premium)</string>
+    <string name="plan_france">France (Premium)</string>
 
     <string name="toast_vpn_denied">VPN permission not granted</string>
     <string name="toast_storage_denied">File write permission not granted</string>

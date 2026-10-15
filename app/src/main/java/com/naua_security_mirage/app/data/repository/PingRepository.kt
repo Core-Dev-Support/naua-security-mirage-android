@@ -16,13 +16,18 @@ class PingRepository {
     suspend fun measurePing(
         server: VlessServer,
         timeoutMs: Int = 1500,
+        samples: Int = 1,
         protectSocket: ((Socket) -> Unit)? = null
     ): Long = withContext(Dispatchers.IO) {
         probeOnce(server, timeoutMs, protectSocket)
-        val result = probeOnce(server, timeoutMs, protectSocket) ?: 9999L
+        val collected = ArrayList<Long>(samples)
+        repeat(samples.coerceAtLeast(1)) {
+            probeOnce(server, timeoutMs, protectSocket)?.let { value -> collected.add(value) }
+        }
+        val result = if (collected.isEmpty()) 9999L else collected.sorted()[collected.size / 2]
         server.pingMs = result
         if (result in 1..9998) {
-            Log.d(TAG, "Server ${server.tag} ping: ${result}ms")
+            Log.d(TAG, "Server ${server.tag} ping: ${result}ms from ${collected.size}/$samples probes")
         } else {
             Log.w(TAG, "Server ${server.tag} unreachable")
         }
@@ -57,10 +62,10 @@ class PingRepository {
         protectSocket: ((Socket) -> Unit)?
     ): Long? = kotlinx.coroutines.withTimeoutOrNull(timeoutMs.toLong() + 500L) {
         val target = try {
-            InetAddress.getByName(server.address)
+            resolveAddress(server.address)
         } catch (_: Exception) {
-            return@withTimeoutOrNull null
-        }
+            null
+        } ?: return@withTimeoutOrNull null
         var socket: Socket? = null
         try {
             socket = Socket()
@@ -77,6 +82,25 @@ class PingRepository {
             } catch (_: Exception) {}
         }
     }
+
+    private fun resolveAddress(host: String): InetAddress? {
+        val key = host.trim()
+        if (key.isEmpty()) return null
+        val now = System.currentTimeMillis()
+        val cached = addressCache[key]
+        if (cached != null && now - cached.at < RESOLVE_TTL_MS) {
+            return InetAddress.getByName(cached.ip)
+        }
+        val resolved = InetAddress.getByName(key)
+        val literal = resolved.hostAddress
+        if (literal != null) {
+            if (addressCache.size > 64) addressCache.clear()
+            addressCache[key] = CachedAddress(literal, now)
+        }
+        return resolved
+    }
+
+    private data class CachedAddress(val ip: String, val at: Long)
 
     private suspend fun measureQuality(
         server: VlessServer,
@@ -137,5 +161,9 @@ class PingRepository {
         private const val QUALITY_SAMPLES = 3
         private const val QUALITY_PROBE_TIMEOUT_MS = 700
         private const val LOSS_PENALTY_MS_PER_PERCENT = 5.0
+        private const val RESOLVE_TTL_MS = 10 * 60 * 1000L
+
+        private val addressCache =
+            java.util.concurrent.ConcurrentHashMap<String, CachedAddress>()
     }
 }
