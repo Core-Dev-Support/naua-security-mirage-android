@@ -1637,9 +1637,9 @@ class MirageVpnService : VpnService() {
     private const val AUTO_DNS_RETRY_MS = 3 * 60 * 1000L
     private const val PING_SAMPLES_PER_MEASUREMENT = 3
     private const val PING_HISTORY = 5
-    private const val FIRST_PING_TIMEOUT_MS = 900L
+    private const val FIRST_PING_TIMEOUT_MS = 900
     private const val FIRST_PING_RETRY_MS = 1_000L
-    private const val PING_TIMEOUT_MS = 2_000L
+    private const val PING_TIMEOUT_MS = 2_000
 
         const val ACTION_CONNECT = "com.naua_security_mirage.app.ACTION_CONNECT"
         const val ACTION_DISCONNECT = "com.naua_security_mirage.app.ACTION_DISCONNECT"
