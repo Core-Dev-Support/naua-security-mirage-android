@@ -761,62 +761,64 @@ class MirageVpnService : VpnService() {
             verifyPaidNodeForAiMode(server)
             return true
         }
-        val country = detectExitCountryCode()
-        if (country == null) {
-            AppLogger.w(TAG, "Режим ИИ: страну выхода узла ${server.tag} определить не удалось, оставляем узел")
-            return true
-        }
-        AppLogger.i(TAG, "Режим ИИ: узел ${server.tag} выходит в $country")
-        if (AI_BLOCKED_COUNTRY_CODES.contains(country)) {
-            AppLogger.w(TAG, "Режим ИИ: $country не поддерживается ИИ-сервисами, узел ${server.tag} пропускаем")
-            aiSkipCount++
-            return false
-        }
-        val probeTimeout = if (isCellularNetwork()) 12_000 else 9_000
-        val access = try {
-            xrayController?.probeGeminiApiAccess(probeTimeout)
-        } catch (_: Throwable) {
-            null
-        }
-        when (access) {
-            true -> {
-                AppLogger.i(TAG, "Режим ИИ: Google отвечает узлу ${server.tag}, оставляем")
-                return true
-            }
-            false -> {
-                AppLogger.w(TAG, "Режим ИИ: Google отклоняет узел ${server.tag}, пропускаем")
-                aiSkipCount++
-                return false
-            }
-            else -> {
-                AppLogger.w(TAG, "Режим ИИ: проверка Google для ${server.tag} не удалась, оставляем узел")
-                return true
-            }
-        }
+        AppLogger.i(
+            TAG,
+            "Режим ИИ: Gemini и Google AI идут через фронты обхода гео-блокировки, " +
+                    "узел ${server.tag} подходит для остального трафика"
+        )
+        return true
     }
 
     private suspend fun verifyAiAccessAfterConnect(server: VlessServer) {
         delay(2_500)
         if (_vpnState.value != VpnState.CONNECTED) return
         if (!settingsRepository.isAiModeEnabled) return
+        val probeTimeout = if (isCellularNetwork()) 12_000 else 9_000
+        if (isPaidNodeTag(server.tag)) {
+            val access = try {
+                xrayController?.probeGeminiApiAccess(probeTimeout)
+            } catch (_: Throwable) {
+                null
+            }
+            if (_vpnState.value != VpnState.CONNECTED) return
+            when (access) {
+                true -> AppLogger.i(
+                    TAG,
+                    "Доступ к ИИ: Google отвечает через ${server.tag} — Gemini и Google API должны работать"
+                )
+                false -> {
+                    AppLogger.w(TAG, "Доступ к ИИ: Google не отвечает через ${server.tag}")
+                    AppLogger.onUserMessage(getString(R.string.ai_mode_node_unusable, server.tag))
+                }
+                else -> AppLogger.w(
+                    TAG,
+                    "Доступ к ИИ: проверка Google через ${server.tag} не удалась, состояние ИИ неизвестно"
+                )
+            }
+            return
+        }
+        val frontAddress = XrayVpnController.aiFrontIpFor(AI_FRONT_PROBE_HOST)
         val access = try {
-            xrayController?.probeGeminiApiAccess(if (isCellularNetwork()) 12_000 else 9_000)
+            xrayController?.probeGeminiApiAccess(probeTimeout, frontAddress)
         } catch (_: Throwable) {
             null
         }
         if (_vpnState.value != VpnState.CONNECTED) return
         when (access) {
-            true -> AppLogger.i(
-                TAG,
-                "Доступ к ИИ: Google отвечает через ${server.tag} — Gemini и Google API должны работать"
-            )
+            true -> {
+                AppLogger.i(
+                    TAG,
+                    "Доступ к ИИ: фронт гео-обхода отвечает через ${server.tag} — Gemini и Google API должны работать"
+                )
+                AppLogger.onUserMessage(getString(R.string.ai_geo_bypass_active))
+            }
             false -> {
-                AppLogger.w(TAG, "Доступ к ИИ: Google не отвечает через ${server.tag}")
-                AppLogger.onUserMessage(getString(R.string.ai_mode_node_unusable, server.tag))
+                AppLogger.w(TAG, "Доступ к ИИ: фронт гео-обхода не отвечает через ${server.tag}")
+                AppLogger.onUserMessage(getString(R.string.ai_geo_bypass_failed))
             }
             else -> AppLogger.w(
                 TAG,
-                "Доступ к ИИ: проверка Google через ${server.tag} не удалась, состояние ИИ неизвестно"
+                "Доступ к ИИ: проверка фронта гео-обхода через ${server.tag} не удалась, состояние ИИ неизвестно"
             )
         }
     }
@@ -1770,6 +1772,8 @@ class MirageVpnService : VpnService() {
             "com.google.android.apps.bard",
             "com.google.android.googlequicksearchbox"
         )
+
+        private const val AI_FRONT_PROBE_HOST = "generativelanguage.googleapis.com"
 
 
 

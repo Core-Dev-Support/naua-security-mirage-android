@@ -462,7 +462,7 @@ class XrayVpnController(private val vpnService: VpnService) {
         }
     }
 
-    fun probeGeminiApiAccess(timeoutMs: Int = 9000): Boolean? {
+    fun probeGeminiApiAccess(timeoutMs: Int = 9000, connectAddress: String? = null): Boolean? {
         val host = "generativelanguage.googleapis.com"
         val port = 443
         var socket: Socket? = null
@@ -481,19 +481,34 @@ class XrayVpnController(private val vpnService: VpnService) {
             readFully(input, greeting, 2)
             if (greeting[0] != 0x05.toByte() || greeting[1] != 0x00.toByte()) return null
 
-            val hostBytes = host.toByteArray(StandardCharsets.US_ASCII)
-            if (hostBytes.isEmpty() || hostBytes.size > 255) return null
+            val addressOctets = connectAddress?.split('.')?.mapNotNull { it.trim().toIntOrNull() }
+            val request: ByteArray
+            if (addressOctets != null && addressOctets.size == 4 && addressOctets.all { it in 0..255 }) {
+                request = ByteArray(10)
+                request[0] = 0x05
+                request[1] = 0x01
+                request[2] = 0x00
+                request[3] = 0x01
+                for (index in 0 until 4) {
+                    request[4 + index] = addressOctets[index].toByte()
+                }
+                request[8] = ((port shr 8) and 0xFF).toByte()
+                request[9] = (port and 0xFF).toByte()
+            } else {
+                val hostBytes = host.toByteArray(StandardCharsets.US_ASCII)
+                if (hostBytes.isEmpty() || hostBytes.size > 255) return null
 
-            val request = ByteArray(7 + hostBytes.size)
-            request[0] = 0x05
-            request[1] = 0x01
-            request[2] = 0x00
-            request[3] = 0x03
-            request[4] = hostBytes.size.toByte()
-            hostBytes.copyInto(request, 5)
-            val portOffset = 5 + hostBytes.size
-            request[portOffset] = ((port shr 8) and 0xFF).toByte()
-            request[portOffset + 1] = (port and 0xFF).toByte()
+                request = ByteArray(7 + hostBytes.size)
+                request[0] = 0x05
+                request[1] = 0x01
+                request[2] = 0x00
+                request[3] = 0x03
+                request[4] = hostBytes.size.toByte()
+                hostBytes.copyInto(request, 5)
+                val portOffset = 5 + hostBytes.size
+                request[portOffset] = ((port shr 8) and 0xFF).toByte()
+                request[portOffset + 1] = (port and 0xFF).toByte()
+            }
             output.write(request)
             output.flush()
             if (!readSocks5Reply(input)) return null
@@ -797,6 +812,7 @@ class XrayVpnController(private val vpnService: VpnService) {
         val hasGeoSite = geositeFile.exists() && geositeFile.length() > 100_000 && GeoRoutingRepository.hasCategoryRu(geositeFile)
         val hasGeoIp = geoipFile.exists() && geoipFile.length() > 500_000
 
+        val aiGeoBypass = settingsRepo.isAiModeEnabled && !isPaidNodeTag(server.tag)
         val customBypassedDomains = settingsRepo.getActiveBypassedDomains()
         if (customBypassedDomains.isNotEmpty()) {
             AppLogger.i(TAG, "Исключения сайтов: ${customBypassedDomains.size} доменов идут напрямую")
@@ -827,6 +843,18 @@ class XrayVpnController(private val vpnService: VpnService) {
                         JsonArray().apply { chosen.bootstrapIps.forEach { add(it) } }
                     )
                 }
+            }
+            if (aiGeoBypass) {
+                AI_FRONT_HOSTS.forEach { (frontHost, frontIp) ->
+                    if (!hosts.has(frontHost)) {
+                        hosts.add(frontHost, JsonArray().apply { add(frontIp) })
+                    }
+                }
+                AppLogger.i(
+                    TAG,
+                    "Режим ИИ: Gemini и Google AI разрешаются через внешние фронты " +
+                            "(обход гео-блокировки Google), имён: ${AI_FRONT_HOSTS.size}"
+                )
             }
             add("hosts", hosts)
 
@@ -1455,6 +1483,67 @@ class XrayVpnController(private val vpnService: VpnService) {
             "domain:copilot.microsoft.com",
             "domain:huggingface.co"
         )
+
+        private val PAID_NODE_TAG_PREFIXES = listOf("Франция", "Беларусь")
+
+        private fun isPaidNodeTag(tag: String): Boolean =
+            PAID_NODE_TAG_PREFIXES.any { tag.startsWith(it) }
+
+        private val AI_FRONT_HOSTS = listOf(
+            "geller-pa.googleapis.com" to "193.233.112.88",
+            "robinfrontend-pa.googleapis.com" to "193.233.112.88",
+            "proactivebackend-pa.googleapis.com" to "193.233.112.88",
+            "signaler-pa.clients6.google.com" to "193.233.112.88",
+            "signaler-pa.googleapis.com" to "193.233.112.88",
+            "generativelanguage.googleapis.com" to "193.233.112.88",
+            "gemini.google.com" to "193.233.112.88",
+            "gemini.google" to "193.233.112.88",
+            "bard.google.com" to "193.233.112.88",
+            "aistudio.google.com" to "193.233.112.88",
+            "apis.google.com" to "193.233.112.88",
+            "ai.google.dev" to "193.233.112.88",
+            "generativeai.google" to "193.233.112.88",
+            "geminiweb-pa.clients6.google.com" to "193.233.112.67",
+            "geminiweb-pa.clients.google.com" to "193.233.112.67",
+            "waa-pa.clients6.google.com" to "193.233.112.67",
+            "people-pa.clients6.google.com" to "193.233.112.67",
+            "alkalimakersuite-pa.clients6.google.com" to "193.233.112.67",
+            "webchannel-alkalimakersuite-pa.clients6.google.com" to "193.233.112.67",
+            "alkalicore-pa.clients6.google.com" to "193.233.112.67",
+            "assistant-s3-pa.googleapis.com" to "193.233.112.67",
+            "aisandbox-pa.googleapis.com" to "193.233.112.67",
+            "appcatalyst.pa.googleapis.com" to "193.233.112.67",
+            "o.pki.goog" to "193.233.112.68",
+            "labs.google" to "193.233.112.68",
+            "labs.google.com" to "193.233.112.68",
+            "lookerstudio.google.com" to "193.233.112.68",
+            "datastudio.google.com" to "193.233.112.68",
+            "makersuite.google.com" to "193.233.112.68",
+            "notebook.google" to "193.233.112.68",
+            "notebooklm.google" to "193.233.112.68",
+            "notebooklm.google.com" to "193.233.112.68",
+            "notebook-pa.googleapis.com" to "193.233.112.68",
+            "notebooklm-pa.googleapis.com" to "193.233.112.68",
+            "jules.google" to "193.233.112.68",
+            "jules.google.com" to "193.233.112.68",
+            "opal.google" to "193.233.112.68",
+            "opal.google.com" to "193.233.112.68",
+            "opal.withgoogle.com" to "193.233.112.68",
+            "aitestkitchen.withgoogle.com" to "193.233.112.68",
+            "stitch.withgoogle.com" to "193.233.112.68",
+            "suggestqueries.google.com" to "193.233.112.68",
+            "deepmind.google" to "193.233.112.68",
+            "deepmind.com" to "193.233.112.68",
+            "flow.google" to "193.233.112.68",
+            "flowmusic.app" to "193.233.112.68",
+            "antigravity.google" to "193.233.112.68",
+            "daily-cloudcode-pa.googleapis.com" to "193.233.112.68",
+            "developerprofiles-pa.googleapis.com" to "193.233.112.68",
+            "aicode.googleapis.com" to "193.233.112.68"
+        )
+
+        fun aiFrontIpFor(host: String): String? =
+            AI_FRONT_HOSTS.firstOrNull { it.first.equals(host, ignoreCase = true) }?.second
 
         private val AI_SERVICE_SUFFIXES = listOf(
             "gemini.google.com",

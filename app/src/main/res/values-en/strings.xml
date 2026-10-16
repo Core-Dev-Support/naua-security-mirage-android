@@ -63,7 +63,7 @@
     <string name="quick_tile_notify_label">Payment reminders</string>
     <string name="tribute_tg_url">https://t.me/tribute/app?startapp=dS04</string>
     <string name="tribute_web_url">https://web.tribute.tg/d/S04</string>
-    <string name="ai_mode_on">AI mode is on. Nodes in regions where AI services are blocked will be excluded from selection.</string>
+    <string name="ai_mode_on">AI mode is on. A Google geo-block bypass is enabled for Gemini and the Google API.</string>
     <string name="ai_mode_off">AI mode is off.</string>
     <string name="ai_mode_hint">If Gemini or another AI won’t open — turn on “AI mode”.</string>
     <string name="support_chat_url">https://t.me/News_And_Updates_Apps?direct</string>
@@ -494,6 +494,8 @@
   <string name="node_status_belarus_down">Belarus does not respond from this device</string>
   <string name="ai_paid_node_blocked_country">AI access: this node exits in %1$s — Gemini and the Google API do not work in that region. Switch to France.</string>
   <string name="ai_paid_node_rejected">AI access: Google does not answer from this node. Try another node.</string>
+  <string name="ai_geo_bypass_active">AI access: the Google geo-block bypass is on — Gemini and the Google API should work.</string>
+  <string name="ai_geo_bypass_failed">AI access: the bypass server is not answering. Reconnect or pick another node.</string>
   <string name="free_server_auto">Automatic · fastest</string>
   <string name="free_server_node_format">Node %1$d</string>
   <string name="picker_ping_format">%1$d ms</string>
