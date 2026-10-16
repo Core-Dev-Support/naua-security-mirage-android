@@ -61,7 +61,7 @@ class VpnNotificationManager(private val context: Context) {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        val pingText = if (pingMs in 1..9999) pingMs.toString() else "—"
+        val pingText = if (pingMs in 1..9998) pingMs.toString() else "—"
         val contentText = if (isSpeedEnabled) {
             String.format(
                 context.getString(R.string.notification_connected_speed_text),

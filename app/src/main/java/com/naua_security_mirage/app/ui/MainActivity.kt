@@ -326,7 +326,9 @@ class MainActivity : AppCompatActivity() {
                 val renewedUntil = awaitSubscriptionExtension()
                 isWaitingForPayment = false
                 if (renewedUntil != null) {
-                    settingsRepository.selectedServerPlan = SettingsRepository.PLAN_PREMIUM_FRANCE
+                    if (!settingsRepository.isPaidPlan()) {
+                        settingsRepository.selectedServerPlan = settingsRepository.lastPaidPlan
+                    }
                     updateServerPlanSelectorUI()
                     updateAccountCardUI()
                     paymentBaselineUntil = null
@@ -649,16 +651,13 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun paidNodePlanForLabel(): String {
-        return if (settingsRepository.selectedServerPlan == SettingsRepository.PLAN_PREMIUM_BELARUS) {
-            SettingsRepository.PLAN_PREMIUM_BELARUS
-        } else {
-            SettingsRepository.PLAN_PREMIUM_FRANCE
-        }
+        return settingsRepository.lastPaidPlan
     }
 
     private fun requestPaidPlan(plan: String) {
         val manager = com.naua_security_mirage.app.data.supabase.SupabaseManager.instance
         fun commit() {
+            settingsRepository.lastPaidPlan = plan
             if (settingsRepository.selectedServerPlan == plan) return
             settingsRepository.selectedServerPlan = plan
             animateServerPlanSwitch(isPaid = true)
@@ -728,7 +727,11 @@ class MainActivity : AppCompatActivity() {
         )
         popup.elevation = 12f * density
 
-        val selectedPlan = settingsRepository.selectedServerPlan
+        val selectedPlan = if (settingsRepository.isPaidPlan()) {
+            settingsRepository.selectedServerPlan
+        } else {
+            settingsRepository.lastPaidPlan
+        }
         for ((index, choice) in paidNodeChoices().withIndex()) {
             if (index > 0) {
                 list.addView(View(this).apply {
@@ -897,13 +900,14 @@ class MainActivity : AppCompatActivity() {
         binding.containerServerPlan.root.background = getCardDrawable(isLightNow, 30f)
         val label = binding.containerServerPlan.btnPlanFrance
         val chevron = binding.containerServerPlan.btnPaidServerChevron
-        label.setText(paidNodeLabelRes(plan))
+        val paidTarget = if (isPaid) plan else settingsRepository.lastPaidPlan
+        label.setText(paidNodeLabelRes(paidTarget))
         val flag = binding.containerServerPlan.ivPaidNodeFlag
-        flag.visibility = if (isPaid) View.VISIBLE else View.GONE
-        flag.setImageResource(paidNodeFlagRes(plan))
+        flag.visibility = View.VISIBLE
+        flag.setImageResource(paidNodeFlagRes(paidTarget))
         val flagDensity = resources.displayMetrics.density
         label.setPaddingRelative(
-            ((if (isPaid) 2f else 16f) * flagDensity).toInt(),
+            (2f * flagDensity).toInt(),
             label.paddingTop,
             label.paddingEnd,
             label.paddingBottom
@@ -1191,7 +1195,7 @@ class MainActivity : AppCompatActivity() {
                     isWaitingForPayment = false
                     paymentBaselineUntil = null
                     if (!settingsRepository.isPaidPlan()) {
-                        settingsRepository.selectedServerPlan = SettingsRepository.PLAN_PREMIUM_FRANCE
+                        settingsRepository.selectedServerPlan = settingsRepository.lastPaidPlan
                     }
                     Toast.makeText(
                         this@MainActivity,
@@ -1548,7 +1552,7 @@ class MainActivity : AppCompatActivity() {
                     val minutes = seconds / 60
                     val remSeconds = seconds % 60
                     val timeStr = String.format("%02d:%02d", minutes, remSeconds)
-                    val pingDisplay = if (ping in 1..9999) ping.toString() else "—"
+                    val pingDisplay = if (ping in 1..9998) ping.toString() else "—"
                     binding.tvStatusSub.text = String.format(
                         getString(R.string.status_sub_connected_format),
                         timeStr,
@@ -1879,13 +1883,18 @@ class MainActivity : AppCompatActivity() {
         if (!force && nodeStatusJob?.isActive == true) return
         nodeStatusJob?.cancel()
         val gen = ++nodeStatusGen
+        val trackedPlan = if (settingsRepository.isPaidPlan()) {
+            settingsRepository.selectedServerPlan
+        } else {
+            settingsRepository.lastPaidPlan
+        }
 
         nodeStatusJob = lifecycleScope.launch {
             if (!com.naua_security_mirage.app.data.supabase.SupabaseManager.instance.hasActiveSubscription()) {
                 if (gen != nodeStatusGen) return@launch
                 stateView.text = getString(R.string.node_status_no_subscription)
                 stateView.setTextColor(themedSubtitle())
-            } else if (settingsRepository.selectedServerPlan == SettingsRepository.PLAN_PREMIUM_BELARUS) {
+            } else if (trackedPlan == SettingsRepository.PLAN_PREMIUM_BELARUS) {
                 if (gen != nodeStatusGen) return@launch
                 stateView.text = getString(R.string.node_status_untracked)
                 stateView.setTextColor(themedSubtitle())

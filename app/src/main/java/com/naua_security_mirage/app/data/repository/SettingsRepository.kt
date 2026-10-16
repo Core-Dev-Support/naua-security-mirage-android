@@ -163,6 +163,17 @@ class SettingsRepository(context: Context) {
         get() = prefs.getString(KEY_SELECTED_SERVER_PLAN, PLAN_FREE) ?: PLAN_FREE
         set(value) = prefs.edit().putString(KEY_SELECTED_SERVER_PLAN, value).apply()
 
+    var lastPaidPlan: String
+        get() {
+            val stored = prefs.getString(KEY_LAST_PAID_PLAN, PLAN_PREMIUM_FRANCE) ?: PLAN_PREMIUM_FRANCE
+            return if (stored == PLAN_PREMIUM_BELARUS) PLAN_PREMIUM_BELARUS else PLAN_PREMIUM_FRANCE
+        }
+        set(value) {
+            if (value == PLAN_PREMIUM_BELARUS || value == PLAN_PREMIUM_FRANCE) {
+                prefs.edit().putString(KEY_LAST_PAID_PLAN, value).apply()
+            }
+        }
+
     fun isPaidPlan(plan: String = selectedServerPlan): Boolean {
         return plan == PLAN_PREMIUM_FRANCE || plan == PLAN_PREMIUM_BELARUS
     }
@@ -312,6 +323,7 @@ class SettingsRepository(context: Context) {
         const val PLAN_PREMIUM_BELARUS = "premium_belarus"
 
         private const val KEY_SELECTED_SERVER_PLAN = "key_selected_server_plan"
+        private const val KEY_LAST_PAID_PLAN = "key_last_paid_plan"
         private const val KEY_UPDATE_SOURCE = "key_update_source"
         private const val KEY_LAST_SHOWN_WHATS_NEW_VERSION = "key_last_shown_whats_new_version"
 

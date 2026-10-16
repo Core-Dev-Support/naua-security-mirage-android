@@ -214,6 +214,7 @@ class MirageVpnService : VpnService() {
 
                 var premeasuredFree: List<VlessServer> = emptyList()
                 var franceRefresh: Deferred<String?>? = null
+                var belarusRefresh: Deferred<String?>? = null
                 var freeLoadedCount = 0
                 var freeAnyReachable = false
                 var freeAiMode = false
@@ -221,12 +222,15 @@ class MirageVpnService : VpnService() {
                 val bestServer = if (isFrancePlan) {
                     val manager = com.naua_security_mirage.app.data.supabase.SupabaseManager.instance
 
+                    val cachedKey = manager.getActiveVlessKey()
                     franceRefresh = serviceScope.async(Dispatchers.IO) { manager.ensureFranceVlessKey() }
-                    val liveKey = withTimeoutOrNull(FRANCE_KEY_BUDGET_MS) { franceRefresh.await() }
+                    val keyBudgetMs =
+                        if (cachedKey.isNullOrBlank()) FRANCE_KEY_BUDGET_MS else CACHED_KEY_BUDGET_MS
+                    val liveKey = withTimeoutOrNull(keyBudgetMs) { franceRefresh.await() }
                     if (liveKey.isNullOrBlank()) {
                         AppLogger.w(
                             TAG,
-                            "Панель не ответила за ${FRANCE_KEY_BUDGET_MS}мс, используется кэшированный ключ; " +
+                            "Панель не ответила за ${keyBudgetMs}мс, используется кэшированный ключ; " +
                                     "обновление продолжится в фоне"
                         )
                     }
@@ -263,7 +267,12 @@ class MirageVpnService : VpnService() {
                     }
                     franceReady
                 } else if (isBelarusPlan) {
-                    resolveBelarusServer()
+                    val refresh = serviceScope.async(Dispatchers.IO) {
+                        com.naua_security_mirage.app.data.supabase.SupabaseManager.instance
+                            .ensureBelarusVlessKey()
+                    }
+                    belarusRefresh = refresh
+                    resolveBelarusServer(refresh)
                 } else {
 
                     val servers = vlessKeyRepository.getVlessServers()
@@ -385,15 +394,23 @@ class MirageVpnService : VpnService() {
                 }
 
 
-                if (tunnelAttempt?.first == null && onPaidNode && franceRefresh != null && !franceRefresh.isCompleted) {
-                    val freshKey = withTimeoutOrNull(FRANCE_KEY_BUDGET_MS) { franceRefresh.await() }
-                    val retryServer = freshKey
-                        ?.let { com.naua_security_mirage.app.data.model.VlessServer.fromUri(it, "Франция (Платный)") }
-                        ?.let { applyFingerprintPreference(it) }
-                    if (retryServer != null) {
-                        AppLogger.w(TAG, "Повтор платного подключения с ключом, полученным после обновления панели")
-                        tunnelAttempt = withTimeoutOrNull(tunnelBudgetMs) {
-                            openWorkingTunnel(retryServer, true, pfd, emptyList())
+                if (tunnelAttempt?.first == null && onPaidNode) {
+                    val pendingRefresh = if (isBelarusPlan) belarusRefresh else franceRefresh
+                    val retryLabel = if (isBelarusPlan) {
+                        com.naua_security_mirage.app.data.supabase.SupabaseConfig.BELARUS_LABEL
+                    } else {
+                        "Франция (Платный)"
+                    }
+                    if (pendingRefresh != null && !pendingRefresh.isCompleted) {
+                        val freshKey = withTimeoutOrNull(CACHED_KEY_BUDGET_MS) { pendingRefresh.await() }
+                        val retryServer = freshKey
+                            ?.let { com.naua_security_mirage.app.data.model.VlessServer.fromUri(it, retryLabel) }
+                            ?.let { applyFingerprintPreference(it) }
+                        if (retryServer != null) {
+                            AppLogger.w(TAG, "Повтор платного подключения с ключом, полученным после обновления панели")
+                            tunnelAttempt = withTimeoutOrNull(tunnelBudgetMs) {
+                                openWorkingTunnel(retryServer, true, pfd, emptyList())
+                            }
                         }
                     }
                 }
@@ -445,19 +462,6 @@ class MirageVpnService : VpnService() {
 
                 if (activeServer.pingMs in 1..9998) {
                     _activePing.value = activeServer.pingMs
-                } else {
-                    serviceScope.launch {
-                        val measured = pingRepository.measurePing(activeServer, timeoutMs = 1200) { socket ->
-                            try {
-                                protect(socket)
-                            } catch (t: Throwable) {
-                                Log.w(TAG, "protect(socket) failed during initial ping: ${t.message}")
-                            }
-                        }
-                        if (measured in 1..9998 && isCurrentTunnel(pfd)) {
-                            _activePing.value = measured
-                        }
-                    }
                 }
 
                 registerNetworkMonitoring()
@@ -482,9 +486,19 @@ class MirageVpnService : VpnService() {
         }
     }
 
-    private suspend fun resolveBelarusServer(): VlessServer? {
+    private suspend fun resolveBelarusServer(refresh: Deferred<String?>): VlessServer? {
         val manager = com.naua_security_mirage.app.data.supabase.SupabaseManager.instance
-        val key = manager.ensureBelarusVlessKey()
+        val cachedKey = manager.getActiveBelarusVlessKey()
+        val budgetMs = if (cachedKey.isNullOrBlank()) FRANCE_KEY_BUDGET_MS else CACHED_KEY_BUDGET_MS
+        val liveKey = withTimeoutOrNull(budgetMs) { refresh.await() }
+        if (liveKey.isNullOrBlank() && !cachedKey.isNullOrBlank()) {
+            AppLogger.w(
+                TAG,
+                "Панель не ответила за ${budgetMs}мс, используется кэшированный ключ Беларуси; " +
+                        "обновление продолжится в фоне"
+            )
+        }
+        val key = liveKey?.takeIf { it.isNotBlank() } ?: cachedKey
         val server = if (!key.isNullOrBlank()) {
             com.naua_security_mirage.app.data.model.VlessServer.fromUri(
                 key,
@@ -1013,18 +1027,22 @@ class MirageVpnService : VpnService() {
         pingJob?.cancel()
         pingJob = serviceScope.launch {
             pingSamples.clear()
+            _activePing.value.takeIf { it in 1..9998 }?.let { pingSamples.addLast(it) }
             while (isActive && _vpnState.value == VpnState.CONNECTED) {
                 val intervalSec = settingsRepository.autoPingIntervalSeconds
                 if (intervalSec <= 0) break
 
-                delay(intervalSec * 1000L)
-                if (!isActive || _vpnState.value != VpnState.CONNECTED) break
+                val waitingForFirst = pingSamples.isEmpty()
+                if (!waitingForFirst) {
+                    delay(intervalSec * 1000L)
+                    if (!isActive || _vpnState.value != VpnState.CONNECTED) break
+                }
 
                 val target = _activeServer.value ?: server
                 val ping = pingRepository.measurePing(
                     target,
-                    timeoutMs = 2000,
-                    samples = PING_SAMPLES_PER_MEASUREMENT
+                    timeoutMs = if (waitingForFirst) FIRST_PING_TIMEOUT_MS else PING_TIMEOUT_MS,
+                    samples = if (waitingForFirst) 1 else PING_SAMPLES_PER_MEASUREMENT
                 ) { socket ->
                     try {
                         protect(socket)
@@ -1039,6 +1057,10 @@ class MirageVpnService : VpnService() {
                     _activePing.value = ordered[ordered.size / 2]
                 } else {
                     AppLogger.w(TAG, "Автопинг узла ${target.tag} не ответил")
+                    if (waitingForFirst) {
+                        delay(FIRST_PING_RETRY_MS)
+                        if (!isActive || _vpnState.value != VpnState.CONNECTED) break
+                    }
                 }
             }
         }
@@ -1463,8 +1485,21 @@ class MirageVpnService : VpnService() {
                 val isPaidPlan = settingsRepository.isPaidPlan(reconnectPlan) && reconnectHasSubscription
 
                 val newServer = if (isFrancePlan) {
-                    com.naua_security_mirage.app.data.supabase.SupabaseManager.instance.ensureFranceVlessKey()
-                    val activeKey = com.naua_security_mirage.app.data.supabase.SupabaseManager.instance.getActiveVlessKey()
+                    val keyManager = com.naua_security_mirage.app.data.supabase.SupabaseManager.instance
+                    val cachedKey = keyManager.getActiveVlessKey()
+                    val keyRefresh = serviceScope.async(Dispatchers.IO) { keyManager.ensureFranceVlessKey() }
+                    val keyBudgetMs =
+                        if (cachedKey.isNullOrBlank()) FRANCE_KEY_BUDGET_MS else CACHED_KEY_BUDGET_MS
+                    if (withTimeoutOrNull(keyBudgetMs) { keyRefresh.await() }.isNullOrBlank() &&
+                        !cachedKey.isNullOrBlank()
+                    ) {
+                        AppLogger.w(
+                            TAG,
+                            "Панель не ответила за ${keyBudgetMs}мс при переподключении, " +
+                                    "используется кэшированный ключ Франции"
+                        )
+                    }
+                    val activeKey = keyManager.getActiveVlessKey()
                     val parsedServer = if (!activeKey.isNullOrBlank()) {
                         com.naua_security_mirage.app.data.model.VlessServer.fromUri(activeKey, "Франция (Платный)")
                     } else null
@@ -1491,7 +1526,11 @@ class MirageVpnService : VpnService() {
                     }
                     france
                 } else if (isBelarusPlan) {
-                    resolveBelarusServer()
+                    val refresh = serviceScope.async(Dispatchers.IO) {
+                        com.naua_security_mirage.app.data.supabase.SupabaseManager.instance
+                            .ensureBelarusVlessKey()
+                    }
+                    resolveBelarusServer(refresh)
                 } else {
                     val servers = vlessKeyRepository.getVlessServers()
                     val measured = pingRepository.measureAllPings(servers)
@@ -1593,10 +1632,14 @@ class MirageVpnService : VpnService() {
 
 
         private const val FRANCE_KEY_BUDGET_MS = 2_500L
+    private const val CACHED_KEY_BUDGET_MS = 1_200L
     private const val AUTO_DNS_TTL_MS = 10 * 60 * 1000L
     private const val AUTO_DNS_RETRY_MS = 3 * 60 * 1000L
     private const val PING_SAMPLES_PER_MEASUREMENT = 3
     private const val PING_HISTORY = 5
+    private const val FIRST_PING_TIMEOUT_MS = 900L
+    private const val FIRST_PING_RETRY_MS = 1_000L
+    private const val PING_TIMEOUT_MS = 2_000L
 
         const val ACTION_CONNECT = "com.naua_security_mirage.app.ACTION_CONNECT"
         const val ACTION_DISCONNECT = "com.naua_security_mirage.app.ACTION_DISCONNECT"

@@ -19,7 +19,6 @@ class PingRepository {
         samples: Int = 1,
         protectSocket: ((Socket) -> Unit)? = null
     ): Long = withContext(Dispatchers.IO) {
-        probeOnce(server, timeoutMs, protectSocket)
         val collected = ArrayList<Long>(samples)
         repeat(samples.coerceAtLeast(1)) {
             probeOnce(server, timeoutMs, protectSocket)?.let { value -> collected.add(value) }
@@ -108,7 +107,6 @@ class PingRepository {
         probeTimeoutMs: Int = QUALITY_PROBE_TIMEOUT_MS,
         samples: Int = QUALITY_SAMPLES
     ) {
-        probeOnce(server, probeTimeoutMs, protectSocket)
         val qualitySamples = mutableListOf<Long>()
         repeat(samples) {
             val duration = probeOnce(server, probeTimeoutMs, protectSocket)
