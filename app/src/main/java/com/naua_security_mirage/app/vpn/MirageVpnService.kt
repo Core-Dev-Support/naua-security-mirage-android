@@ -487,6 +487,10 @@ class MirageVpnService : VpnService() {
 
                 startTunnelWatchdog(activeServer)
 
+                if (settingsRepository.isAiModeEnabled) {
+                    serviceScope.launch { verifyAiAccessAfterConnect(activeServer) }
+                }
+
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
             } catch (e: Throwable) {
@@ -573,6 +577,10 @@ class MirageVpnService : VpnService() {
 
         if (!isPaidPlan && premeasuredFree.isNotEmpty()) {
             appendFreeCandidates(candidates, premeasuredFree)
+        }
+
+        if (!isPaidPlan && settingsRepository.isAiModeEnabled) {
+            orderCandidatesForAiMode(candidates)
         }
 
         var coreStarted = false
@@ -723,6 +731,28 @@ class MirageVpnService : VpnService() {
         AppLogger.i(TAG, "Подготовлено кандидатов для failover: ${candidates.size}")
     }
 
+    private fun aiLocationHint(server: VlessServer): String? {
+        val host = server.address.lowercase()
+        return AI_FRIENDLY_HOST_TOKENS.firstOrNull { host.contains("-$it-") }
+    }
+
+    private fun orderCandidatesForAiMode(candidates: MutableList<VlessServer>) {
+        val friendly = candidates.filter { aiLocationHint(it) != null }
+        if (friendly.isEmpty()) {
+            AppLogger.w(
+                TAG,
+                "Режим ИИ: по именам узлов регион не определить, порядок проверки оставлен по задержке"
+            )
+            return
+        }
+        candidates.sortByDescending { if (aiLocationHint(it) != null) 1 else 0 }
+        AppLogger.i(
+            TAG,
+            "Режим ИИ: первыми проверяем узлы " +
+                    friendly.joinToString(", ") { "${it.tag} (${aiLocationHint(it)})" }
+        )
+    }
+
     private class TunnelAttempt(val coreStarted: Boolean, val trafficFlows: Boolean)
 
     private suspend fun acceptCandidateForAiMode(server: VlessServer, isPaidPlan: Boolean): Boolean {
@@ -762,6 +792,32 @@ class MirageVpnService : VpnService() {
                 AppLogger.w(TAG, "Режим ИИ: проверка Google для ${server.tag} не удалась, оставляем узел")
                 return true
             }
+        }
+    }
+
+    private suspend fun verifyAiAccessAfterConnect(server: VlessServer) {
+        delay(2_500)
+        if (_vpnState.value != VpnState.CONNECTED) return
+        if (!settingsRepository.isAiModeEnabled) return
+        val access = try {
+            xrayController?.probeGeminiApiAccess(if (isCellularNetwork()) 12_000 else 9_000)
+        } catch (_: Throwable) {
+            null
+        }
+        if (_vpnState.value != VpnState.CONNECTED) return
+        when (access) {
+            true -> AppLogger.i(
+                TAG,
+                "Доступ к ИИ: Google отвечает через ${server.tag} — Gemini и Google API должны работать"
+            )
+            false -> {
+                AppLogger.w(TAG, "Доступ к ИИ: Google не отвечает через ${server.tag}")
+                AppLogger.onUserMessage(getString(R.string.ai_mode_node_unusable, server.tag))
+            }
+            else -> AppLogger.w(
+                TAG,
+                "Доступ к ИИ: проверка Google через ${server.tag} не удалась, состояние ИИ неизвестно"
+            )
         }
     }
 
@@ -1703,6 +1759,12 @@ class MirageVpnService : VpnService() {
 
         private val aiVerifiedPaidNodes = java.util.concurrent.ConcurrentHashMap<String, Long>()
         private const val AI_VERIFY_TTL_MS = 10 * 60 * 1000L
+
+        private val AI_FRIENDLY_HOST_TOKENS = listOf(
+            "nl", "de", "fr", "fi", "se", "no", "dk", "pl", "cz", "sk", "at", "ch", "hu", "ro",
+            "bg", "gr", "it", "es", "pt", "ie", "gb", "uk", "us", "ca", "ee", "lv", "lt", "md",
+            "rs", "hr", "si", "jp", "kr", "sg", "au", "in", "tr"
+        )
 
         private val AI_APP_PACKAGES = listOf(
             "com.google.android.apps.bard",

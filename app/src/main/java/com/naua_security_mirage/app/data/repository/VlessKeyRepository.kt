@@ -175,8 +175,9 @@ class VlessKeyRepository(
         result.forEach { server ->
             AppLogger.i(
                 TAG,
-                "Free candidate ${server.tag}: network=${server.network}, security=${server.security}, " +
-                    "port=${server.port}, mode=${server.mode}, path_present=${server.path.isNotBlank()}, " +
+                "Free candidate ${server.tag}: ${server.address}:${server.port}, " +
+                    "network=${server.network}, security=${server.security}, " +
+                    "mode=${server.mode}, path_present=${server.path.isNotBlank()}, " +
                     "path_query=${server.path.contains('?')}"
             )
         }

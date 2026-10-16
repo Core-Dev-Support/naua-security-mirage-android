@@ -54,7 +54,8 @@
     <string name="vpn_error_no_internet">No internet connection. Check your mobile data or Wi-Fi and try again.</string>
     <string name="vpn_error_nodes_blocked">Nodes are unreachable from your network. Your carrier may be blocking the connection — try Wi-Fi, another SIM, or turn off Private DNS.</string>
     <string name="vpn_error_no_traffic">Nodes respond but no data flows. Wait a minute and try again.</string>
-    <string name="vpn_error_ai_no_nodes">No node worked for AI: Google rejects their addresses. Try again later.</string>
+    <string name="vpn_error_ai_no_nodes">No node worked for AI: every address is in a region where Gemini and the Google API do not work. Refresh the node list or switch to France.</string>
+    <string name="ai_mode_node_unusable">AI access: Google does not answer through node \"%1$s\". Refresh the node list or switch to France.</string>
     <string name="vpn_error_panel_empty">The server returned no free nodes and the backups are down. Try again later.</string>
     <string name="setting_screenshots_allowed">Screenshots and screen recording are allowed.</string>
     <string name="setting_animations_off">Off — the interface has no animations.</string>

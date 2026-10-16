@@ -54,7 +54,8 @@
     <string name="vpn_error_no_internet">Нет соединения с интернетом. Проверьте мобильные данные или Wi-Fi и попробуйте ещё раз.</string>
     <string name="vpn_error_nodes_blocked">Узлы недоступны из вашей сети. Возможно, оператор блокирует соединение — попробуйте Wi-Fi, другую SIM или отключите частный DNS.</string>
     <string name="vpn_error_no_traffic">Узлы отвечают, но данные не проходят. Подождите минуту и попробуйте ещё раз.</string>
-    <string name="vpn_error_ai_no_nodes">Ни один узел не подошёл для ИИ: Google отклоняет их адреса. Попробуйте позже.</string>
+    <string name="vpn_error_ai_no_nodes">Ни один узел не подошёл для ИИ: их адреса в регионе, где Gemini и Google API не работают. Обновите список узлов или включите Францию.</string>
+    <string name="ai_mode_node_unusable">Доступ к ИИ: Google не отвечает через узел «%1$s». Обновите список узлов или включите Францию.</string>
     <string name="vpn_error_panel_empty">Сервер не выдал бесплатные узлы, а запасные не работают. Попробуйте позже.</string>
     <string name="setting_screenshots_allowed">Снимки экрана и запись экрана разрешены.</string>
     <string name="setting_animations_off">Выключены — интерфейс без анимаций.</string>
