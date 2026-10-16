@@ -19,14 +19,21 @@ class PingRepository {
         samples: Int = 1,
         protectSocket: ((Socket) -> Unit)? = null
     ): Long = withContext(Dispatchers.IO) {
-        val collected = ArrayList<Long>(samples)
-        repeat(samples.coerceAtLeast(1)) {
-            probeOnce(server, timeoutMs, protectSocket)?.let { value -> collected.add(value) }
+        val count = samples.coerceAtLeast(1)
+        val probes = if (count == 1) {
+            listOf(probeOnce(server, timeoutMs, protectSocket))
+        } else {
+            coroutineScope {
+                (1..count)
+                    .map { async { probeOnce(server, timeoutMs, protectSocket) } }
+                    .awaitAll()
+            }
         }
+        val collected = probes.filterNotNull()
         val result = if (collected.isEmpty()) 9999L else collected.min()
         server.pingMs = result
         if (result in 1..9998) {
-            Log.d(TAG, "Server ${server.tag} ping: ${result}ms from ${collected.size}/$samples probes")
+            Log.d(TAG, "Server ${server.tag} ping: ${result}ms from ${collected.size}/$count probes")
         } else {
             Log.w(TAG, "Server ${server.tag} unreachable")
         }

@@ -174,6 +174,10 @@ class SettingsRepository(context: Context) {
             }
         }
 
+    var preferredFreeNodeKey: String?
+        get() = prefs.getString(KEY_PREFERRED_FREE_NODE, null)
+        set(value) = prefs.edit().putString(KEY_PREFERRED_FREE_NODE, value).apply()
+
     fun isPaidPlan(plan: String = selectedServerPlan): Boolean {
         return plan == PLAN_PREMIUM_FRANCE || plan == PLAN_PREMIUM_BELARUS
     }
@@ -324,6 +328,7 @@ class SettingsRepository(context: Context) {
 
         private const val KEY_SELECTED_SERVER_PLAN = "key_selected_server_plan"
         private const val KEY_LAST_PAID_PLAN = "key_last_paid_plan"
+        private const val KEY_PREFERRED_FREE_NODE = "key_preferred_free_node"
         private const val KEY_UPDATE_SOURCE = "key_update_source"
         private const val KEY_LAST_SHOWN_WHATS_NEW_VERSION = "key_last_shown_whats_new_version"
 

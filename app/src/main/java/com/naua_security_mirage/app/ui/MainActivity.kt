@@ -40,6 +40,7 @@ import androidx.core.text.HtmlCompat
 import androidx.lifecycle.lifecycleScope
 import com.naua_security_mirage.app.R
 import com.naua_security_mirage.app.data.model.VpnState
+import com.naua_security_mirage.app.data.model.VlessServer
 import com.naua_security_mirage.app.data.repository.DeviceIdRepository
 import com.naua_security_mirage.app.data.repository.GeoRoutingRepository
 import com.naua_security_mirage.app.data.repository.PingRepository
@@ -682,8 +683,16 @@ class MainActivity : AppCompatActivity() {
         else R.drawable.ic_france
     }
 
-    private fun showPaidServerPicker() {
-        val anchor = binding.containerServerPlan.btnPlanFranceGroup
+    private class PlanPickerStyle(
+        val density: Float,
+        val cardBgColor: Int,
+        val strokeColor: Int,
+        val titleColor: Int,
+        val bodyColor: Int,
+        val accent: Int
+    )
+
+    private fun planPickerStyle(): PlanPickerStyle {
         val density = resources.displayMetrics.density
         val hasWallpaper = !settingsRepository.customBgImagePath.isNullOrEmpty() &&
                 java.io.File(settingsRepository.customBgImagePath ?: "").exists()
@@ -702,8 +711,12 @@ class MainActivity : AppCompatActivity() {
         else if (isLightContext) Color.parseColor("#475569")
         else ContextCompat.getColor(this, R.color.ink_soft)
         val accent = ContextCompat.getColor(this, R.color.accent)
+        return PlanPickerStyle(density, cardBgColor, strokeColor, titleColor, bodyColor, accent)
+    }
 
-        val list = LinearLayout(this).apply {
+    private fun planPickerList(style: PlanPickerStyle): LinearLayout {
+        val density = style.density
+        return LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(
                 (6f * density).toInt(),
@@ -714,10 +727,17 @@ class MainActivity : AppCompatActivity() {
             background = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
                 cornerRadius = 18f * density
-                setColor(cardBgColor)
-                setStroke((1.2f * density).toInt(), strokeColor)
+                setColor(style.cardBgColor)
+                setStroke((1.2f * density).toInt(), style.strokeColor)
             }
         }
+    }
+
+    private fun showPaidServerPicker() {
+        val anchor = binding.containerServerPlan.btnPlanFranceGroup
+        val style = planPickerStyle()
+        val density = style.density
+        val list = planPickerList(style)
 
         val popup = PopupWindow(
             list,
@@ -739,7 +759,7 @@ class MainActivity : AppCompatActivity() {
                         LinearLayout.LayoutParams.MATCH_PARENT,
                         (1f * density).toInt().coerceAtLeast(1)
                     )
-                    setBackgroundColor(strokeColor)
+                    setBackgroundColor(style.strokeColor)
                 })
             }
             val selected = choice.plan == selectedPlan
@@ -771,13 +791,12 @@ class MainActivity : AppCompatActivity() {
             })
             row.addView(TextView(this).apply {
                 text = getString(choice.labelRes)
-                setTextColor(if (selected) accent else titleColor)
+                setTextColor(if (selected) style.accent else style.titleColor)
                 textSize = 14f
                 setTypeface(typeface, android.graphics.Typeface.BOLD)
                 layoutParams = LinearLayout.LayoutParams(
-                    0,
                     LinearLayout.LayoutParams.WRAP_CONTENT,
-                    1f
+                    LinearLayout.LayoutParams.WRAP_CONTENT
                 ).apply {
                     marginStart = (10f * density).toInt()
                 }
@@ -785,9 +804,15 @@ class MainActivity : AppCompatActivity() {
             if (selected) {
                 row.addView(TextView(this).apply {
                     text = "✓"
-                    setTextColor(accent)
+                    setTextColor(style.accent)
                     textSize = 15f
                     setTypeface(typeface, android.graphics.Typeface.BOLD)
+                    layoutParams = LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.WRAP_CONTENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT
+                    ).apply {
+                        marginStart = (10f * density).toInt()
+                    }
                 })
             }
             list.addView(row)
@@ -797,8 +822,167 @@ class MainActivity : AppCompatActivity() {
         AnimationHelper.popIn(list, durationMs = 150)
         AnimationHelper.attachPressAnimations(list)
     }
+    private fun freeNodeKeyOf(server: VlessServer): String =
+        listOf(server.address, server.port.toString(), server.uuid).joinToString("|")
+
+    private fun showFreeServerPicker() {
+        val anchor = binding.containerServerPlan.btnPlanFree
+        val style = planPickerStyle()
+        val density = style.density
+        val list = planPickerList(style)
+        val popup = PopupWindow(
+            list,
+            LinearLayout.LayoutParams.WRAP_CONTENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT,
+            true
+        )
+        popup.elevation = 12f * density
+        popup.setOnDismissListener { freePickerJob?.cancel() }
+
+        fillFreePickerRows(list, popup, style, freePickerSnapshot)
+
+        popup.showAsDropDown(anchor, 0, (4f * density).toInt())
+        AnimationHelper.popIn(list, durationMs = 150)
+        AnimationHelper.attachPressAnimations(list)
+
+        freePickerJob?.cancel()
+        freePickerJob = lifecycleScope.launch {
+            val measured = withContext(Dispatchers.IO) {
+                runCatching {
+                    val servers = vlessKeyRepository.getVlessServers()
+                    if (servers.isEmpty()) emptyList<VlessServer>() else pingRepository.measureAllPings(servers)
+                }.getOrNull()
+            } ?: return@launch
+            freePickerSnapshot = measured
+            if (!popup.isShowing) return@launch
+            fillFreePickerRows(list, popup, style, measured)
+            runCatching { popup.update() }
+        }
+    }
+
+    private fun fillFreePickerRows(
+        list: LinearLayout,
+        popup: PopupWindow,
+        style: PlanPickerStyle,
+        servers: List<VlessServer>
+    ) {
+        val density = style.density
+        val preferredKey = settingsRepository.preferredFreeNodeKey
+        list.removeAllViews()
+
+        val rows = mutableListOf<Pair<String?, String>>()
+        rows.add(null to getString(R.string.free_server_auto))
+        servers.forEachIndexed { index, server ->
+            val ping = if (server.pingMs in 1..9998) {
+                getString(R.string.picker_ping_format, server.pingMs.toInt())
+            } else {
+                getString(R.string.ping_timeout)
+            }
+            rows.add(
+                freeNodeKeyOf(server) to
+                        "${getString(R.string.free_server_node_format, index + 1)} · $ping"
+            )
+        }
+
+        rows.forEachIndexed { index, row ->
+            val key = row.first
+            val label = row.second
+            if (index > 0) {
+                list.addView(View(this).apply {
+                    layoutParams = LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        (1f * density).toInt().coerceAtLeast(1)
+                    )
+                    setBackgroundColor(style.strokeColor)
+                })
+            }
+            val selected = if (key == null) preferredKey.isNullOrBlank() else key == preferredKey
+            lateinit var rowView: LinearLayout
+            rowView = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                isClickable = true
+                isFocusable = true
+                setPadding(
+                    (12f * density).toInt(),
+                    (10f * density).toInt(),
+                    (14f * density).toInt(),
+                    (10f * density).toInt()
+                )
+                setOnClickListener {
+                    AnimationHelper.bounceClick(rowView, minScale = 0.97f, durationMs = 140)
+                    popup.dismiss()
+                    settingsRepository.preferredFreeNodeKey = key
+                    applyFreeNodeChoice(label)
+                }
+            }
+            rowView.addView(TextView(this).apply {
+                text = label
+                setTextColor(if (selected) style.accent else style.titleColor)
+                textSize = 14f
+                setTypeface(typeface, Typeface.BOLD)
+                maxLines = 1
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                )
+            })
+            if (selected) {
+                rowView.addView(TextView(this).apply {
+                    text = "✓"
+                    setTextColor(style.accent)
+                    textSize = 15f
+                    setTypeface(typeface, Typeface.BOLD)
+                    layoutParams = LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.WRAP_CONTENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT
+                    ).apply {
+                        marginStart = (10f * density).toInt()
+                    }
+                })
+            }
+            list.addView(rowView)
+        }
+    }
+
+    private fun applyFreeNodeChoice(label: String) {
+        AppLogger.i("FreeNodes", "Выбран бесплатный узел: $label")
+        val active = MirageVpnService.vpnState.value == VpnState.CONNECTED ||
+                MirageVpnService.vpnState.value == VpnState.CONNECTING
+        if (active && settingsRepository.selectedServerPlan == SettingsRepository.PLAN_FREE) {
+            AppLogger.i("FreeNodes", "Переподключение на выбранный бесплатный узел")
+            MirageVpnService.reconnect(this)
+        }
+    }
+
     private fun setupServerPlanSelector() {
         updateServerPlanSelectorUI()
+
+        val freePill = binding.containerServerPlan.btnPlanFree
+        freePill.setCompoundDrawablesRelativeWithIntrinsicBounds(
+            null,
+            null,
+            ContextCompat.getDrawable(this, R.drawable.ic_arrow_down),
+            null
+        )
+        freePill.compoundDrawablePadding = (6f * resources.displayMetrics.density).toInt()
+        freePill.setOnTouchListener { view, event ->
+            val textView = view as TextView
+            val chevronDrawable = textView.compoundDrawablesRelative[2]
+            val chevronStart = if (chevronDrawable != null) {
+                (textView.width - textView.paddingEnd -
+                        chevronDrawable.intrinsicWidth - textView.compoundDrawablePadding).toFloat()
+            } else {
+                Float.MAX_VALUE
+            }
+            if (event.action == android.view.MotionEvent.ACTION_UP && event.x >= chevronStart) {
+                AnimationHelper.bounceClick(textView, minScale = 0.94f, durationMs = 140)
+                showFreeServerPicker()
+                true
+            } else {
+                false
+            }
+        }
 
         binding.containerServerPlan.btnPlanFree.setOnClickListener {
             if (settingsRepository.selectedServerPlan != SettingsRepository.PLAN_FREE) {
@@ -928,6 +1112,8 @@ class MainActivity : AppCompatActivity() {
                 ContextCompat.getDrawable(this, R.drawable.bg_pill_active)
             binding.containerServerPlan.btnPlanFree.setTextColor(Color.WHITE)
         }
+        binding.containerServerPlan.btnPlanFree.compoundDrawableTintList =
+            ColorStateList.valueOf(if (isPaid) inactiveText else Color.WHITE)
     }
     private fun setupAccountCard() {
         updateAccountCardUI()
@@ -1820,6 +2006,8 @@ class MainActivity : AppCompatActivity() {
     private var privateDnsCard: View? = null
     private var nodeStatusCard: View? = null
     private var nodeStatusJob: Job? = null
+    private var freePickerJob: Job? = null
+    private var freePickerSnapshot: List<VlessServer> = emptyList()
     private var themedSubtitleColor: Int = 0
 
     private fun themedSubtitle(): Int =
@@ -1895,14 +2083,9 @@ class MainActivity : AppCompatActivity() {
                 stateView.text = getString(R.string.node_status_no_subscription)
                 stateView.setTextColor(themedSubtitle())
             } else if (trackedPlan == SettingsRepository.PLAN_PREMIUM_BELARUS) {
+                refreshBelarusState(stateView, gen)
                 if (gen != nodeStatusGen) return@launch
-                stateView.text = getString(R.string.node_status_untracked)
-                stateView.setTextColor(themedSubtitle())
                 historyView?.text = getString(R.string.node_history_untracked)
-                AppLogger.i(
-                    "NodeStatus",
-                    "Выбран узел без отслеживания состояния, проверка не выполняется"
-                )
                 return@launch
             } else {
                 refreshFranceState(stateView, gen)
@@ -1928,6 +2111,48 @@ class MainActivity : AppCompatActivity() {
                     else "История сбоев: записей ${events.size}"
                 )
             }
+        }
+    }
+
+    private suspend fun refreshBelarusState(stateView: TextView, gen: Int) {
+        val manager = com.naua_security_mirage.app.data.supabase.SupabaseManager.instance
+        val server = withContext(Dispatchers.IO) {
+            val key = manager.getActiveBelarusVlessKey()?.takeIf { it.isNotBlank() }
+                ?: runCatching { manager.ensureBelarusVlessKey() }
+                    .getOrNull()
+                    ?.takeIf { it.isNotBlank() }
+            key?.let {
+                com.naua_security_mirage.app.data.model.VlessServer.fromUri(
+                    it,
+                    com.naua_security_mirage.app.data.supabase.SupabaseConfig.BELARUS_LABEL
+                )
+            }
+        }
+        if (gen != nodeStatusGen) return
+        if (server == null) {
+            stateView.text = getString(R.string.node_status_fetch_failed)
+            stateView.setTextColor(themedSubtitle())
+            AppLogger.w("NodeStatus", "Беларусь: ключ узла не получен, проверка не выполнена")
+            return
+        }
+        val pingMs = pingRepository.measurePing(server, timeoutMs = 3000) { socket ->
+            com.naua_security_mirage.app.vpn.MirageVpnService.protectSocket(socket)
+        }
+        if (gen != nodeStatusGen) return
+        if (pingMs in 1..9998) {
+            stateView.text = getString(R.string.node_status_belarus_up, pingMs)
+            stateView.setTextColor(themedSubtitle())
+            AppLogger.i(
+                "NodeStatus",
+                "Беларусь: узел отвечает с устройства за ${pingMs} мс (${server.address}:${server.port})"
+            )
+        } else {
+            stateView.text = getString(R.string.node_status_belarus_down)
+            stateView.setTextColor(nodeColor(true))
+            AppLogger.w(
+                "NodeStatus",
+                "Беларусь: узел не отвечает с устройства (${server.address}:${server.port})"
+            )
         }
     }
 

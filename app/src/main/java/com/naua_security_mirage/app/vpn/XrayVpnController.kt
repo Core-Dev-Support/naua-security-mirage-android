@@ -832,6 +832,20 @@ class XrayVpnController(private val vpnService: VpnService) {
 
             val servers = JsonArray().apply {
 
+                if (settingsRepo.isAiModeEnabled) {
+                    add(JsonObject().apply {
+                        addProperty("address", "https://dns.google/dns-query")
+                        add("domains", JsonArray().apply { AI_DNS_DOMAINS.forEach { add(it) } })
+                        addProperty("skipFallback", true)
+                        addProperty("finalQuery", true)
+                    })
+                    AppLogger.i(
+                        TAG,
+                        "Режим ИИ: домены Google и ИИ разрешаются через DNS Google внутри туннеля, " +
+                            "российские резолверы для них не используются"
+                    )
+                }
+
                 chosenDns?.let { chosen ->
                     add(JsonObject().apply {
                         addProperty("address", chosen.url)
@@ -1399,6 +1413,25 @@ class XrayVpnController(private val vpnService: VpnService) {
 
         private val PROBE_TARGETS = listOf(
             "1.1.1.1" to 80
+        )
+
+        private val AI_DNS_DOMAINS = listOf(
+            "domain:google.com",
+            "domain:googleapis.com",
+            "domain:gstatic.com",
+            "domain:googleusercontent.com",
+            "domain:gvt1.com",
+            "domain:gvt2.com",
+            "domain:withgoogle.com",
+            "domain:openai.com",
+            "domain:oaistatic.com",
+            "domain:oaiusercontent.com",
+            "domain:anthropic.com",
+            "domain:claude.ai",
+            "domain:chatgpt.com",
+            "domain:perplexity.ai",
+            "domain:copilot.microsoft.com",
+            "domain:huggingface.co"
         )
 
         private val AI_DOMAINS = listOf(

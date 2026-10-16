@@ -489,6 +489,13 @@
   <string name="paid_server_selected">selected</string>
   <string name="node_status_untracked">Status of this node is not tracked</string>
   <string name="node_history_untracked">Outages of this node are not collected</string>
+  <string name="node_status_belarus_up">Belarus responds from this device · %1$d ms</string>
+  <string name="node_status_belarus_down">Belarus does not respond from this device</string>
+  <string name="ai_paid_node_blocked_country">AI access: this node exits in %1$s — Gemini and the Google API do not work in that region. Switch to France.</string>
+  <string name="ai_paid_node_rejected">AI access: Google does not answer from this node. Try another node.</string>
+  <string name="free_server_auto">Automatic · fastest</string>
+  <string name="free_server_node_format">Node %1$d</string>
+  <string name="picker_ping_format">%1$d ms</string>
   <string name="tunnel_dns_remove">Remove</string>
   <string name="tunnel_dns_removed">Your DNS was removed</string>
 </resources>

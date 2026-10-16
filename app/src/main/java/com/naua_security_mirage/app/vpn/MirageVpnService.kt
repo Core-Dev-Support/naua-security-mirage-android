@@ -49,6 +49,8 @@ class MirageVpnService : VpnService() {
     private var connectionJob: Job? = null
     private var pingJob: Job? = null
     private val pingSamples = ArrayDeque<Long>()
+    @Volatile
+    private var entryProbePingMs = -1L
     private var timerJob: Job? = null
     private var speedJob: Job? = null
     private var watchdogJob: Job? = null
@@ -79,6 +81,7 @@ class MirageVpnService : VpnService() {
 
     override fun onCreate() {
         super.onCreate()
+        serviceInstance = this
         com.naua_security_mirage.app.util.AppShield.checkIntegrity(this)
         notificationManager = VpnNotificationManager(this)
         settingsRepository = SettingsRepository(this)
@@ -306,7 +309,7 @@ class MirageVpnService : VpnService() {
                         measuredServers
                     }
 
-                    val best = pingRepository.selectBestServer(candidates)
+                    val best = pickFreeServer(candidates)
                     val bestPingText = if (best.pingMs in 1..9998) "${best.pingMs} ms" else "доступен"
                     AppLogger.i(TAG, "Выбран оптимальный узел: ${best.tag} (задержка: $bestPingText)")
                     freeAnyReachable = measuredServers.any { it.pingMs in 1..9998 }
@@ -447,10 +450,18 @@ class MirageVpnService : VpnService() {
                 _activeServer.value = activeServer
                 _sessionSeconds.value = 0L
                 pingSamples.clear()
+                val seedPing = if (activeServer.pingMs in 1..9998) {
+                    activeServer.pingMs
+                } else {
+                    entryProbePingMs
+                }
+                if (seedPing in 1..9998) {
+                    _activePing.value = seedPing
+                }
                 _vpnState.value = VpnState.CONNECTED
                 AppLogger.i(TAG, "VPN State changed to CONNECTED. Маршрутизация защищенного трафика через ${activeServer.tag} (Endpoint: Зашифрован)")
                 notificationManager.updateConnected(
-                    pingMs = activeServer.pingMs,
+                    pingMs = _activePing.value,
                     durationStr = "00:00",
                     downBps = 0L,
                     upBps = 0L,
@@ -459,9 +470,8 @@ class MirageVpnService : VpnService() {
 
                 serviceScope.launch(Dispatchers.IO) { checkPrivateDnsCompatibility(pfd) }
 
-
-                if (activeServer.pingMs in 1..9998) {
-                    _activePing.value = activeServer.pingMs
+                if (seedPing in 1..9998) {
+                    AppLogger.i(TAG, "Стартовый пинг сессии: ${seedPing} мс (без ожидания замера)")
                 }
 
                 registerNetworkMonitoring()
@@ -569,7 +579,7 @@ class MirageVpnService : VpnService() {
         for ((index, candidate) in candidates.withIndex()) {
             val server = candidate
 
-            if (isPaidPlan && server.tag.startsWith(PAID_TAG_PREFIX)) {
+            if (isPaidPlan && isPaidNodeTag(server.tag)) {
 
                 serviceScope.launch { checkEndpointReachability(server) }
             }
@@ -716,7 +726,11 @@ class MirageVpnService : VpnService() {
     private class TunnelAttempt(val coreStarted: Boolean, val trafficFlows: Boolean)
 
     private suspend fun acceptCandidateForAiMode(server: VlessServer, isPaidPlan: Boolean): Boolean {
-        if (!settingsRepository.isAiModeEnabled || isPaidPlan) return true
+        if (!settingsRepository.isAiModeEnabled) return true
+        if (isPaidPlan) {
+            verifyPaidNodeForAiMode(server)
+            return true
+        }
         val country = detectExitCountryCode()
         if (country == null) {
             AppLogger.w(TAG, "Режим ИИ: страну выхода узла ${server.tag} определить не удалось, оставляем узел")
@@ -749,6 +763,63 @@ class MirageVpnService : VpnService() {
                 return true
             }
         }
+    }
+
+    private suspend fun verifyPaidNodeForAiMode(server: VlessServer) {
+        val verifiedAt = aiVerifiedPaidNodes[server.tag]
+        if (verifiedAt != null && System.currentTimeMillis() - verifiedAt < AI_VERIFY_TTL_MS) {
+            AppLogger.i(TAG, "Режим ИИ: платный узел ${server.tag} уже проверен недавно, проверку пропускаем")
+            return
+        }
+        val country = detectExitCountryCode()
+        if (country != null && AI_BLOCKED_COUNTRY_CODES.contains(country)) {
+            aiVerifiedPaidNodes[server.tag] = System.currentTimeMillis()
+            AppLogger.w(
+                TAG,
+                "Режим ИИ: платный узел ${server.tag} выходит в $country — Google не поддерживает этот регион"
+            )
+            AppLogger.onUserMessage(getString(R.string.ai_paid_node_blocked_country, country))
+            return
+        }
+        val access = try {
+            xrayController?.probeGeminiApiAccess(if (isCellularNetwork()) 12_000 else 9_000)
+        } catch (_: Throwable) {
+            null
+        }
+        when (access) {
+            true -> {
+                aiVerifiedPaidNodes[server.tag] = System.currentTimeMillis()
+                AppLogger.i(
+                    TAG,
+                    "Режим ИИ: платный узел ${server.tag} выходит в ${country ?: "?"}, Google отвечает"
+                )
+            }
+            false -> {
+                aiVerifiedPaidNodes[server.tag] = System.currentTimeMillis()
+                AppLogger.w(TAG, "Режим ИИ: Google отклоняет платный узел ${server.tag}")
+                AppLogger.onUserMessage(getString(R.string.ai_paid_node_rejected))
+            }
+            else -> AppLogger.w(
+                TAG,
+                "Режим ИИ: проверка Google для платного узла ${server.tag} не удалась, узел остаётся"
+            )
+        }
+    }
+
+    private fun freeNodeKey(server: VlessServer): String =
+        listOf(server.address, server.port.toString(), server.uuid).joinToString("|")
+
+    private fun pickFreeServer(servers: List<VlessServer>): VlessServer {
+        val preferred = settingsRepository.preferredFreeNodeKey
+        if (!preferred.isNullOrBlank()) {
+            val pinned = servers.firstOrNull { freeNodeKey(it) == preferred }
+            if (pinned != null && pinned.pingMs in 1..9998) {
+                AppLogger.i(TAG, "Бесплатный узел: используется выбранный ${pinned.tag} (${pinned.pingMs} мс)")
+                return pinned
+            }
+            AppLogger.w(TAG, "Бесплатный узел: выбранный узел недоступен, берём лучший автоматически")
+        }
+        return pingRepository.selectBestServer(servers)
     }
 
     private suspend fun detectExitCountryCode(): String? = withContext(Dispatchers.IO) {
@@ -858,6 +929,7 @@ class MirageVpnService : VpnService() {
 
 
     private suspend fun checkEndpointReachability(server: VlessServer) {
+        entryProbePingMs = -1L
         val reachability = pingRepository.measurePing(server, timeoutMs = 3000) { socket ->
             try {
                 protect(socket)
@@ -866,7 +938,12 @@ class MirageVpnService : VpnService() {
             }
         }
         if (reachability in 1..9998) {
+            entryProbePingMs = reachability
             AppLogger.i(TAG, "Платный вход ${server.address}:${server.port} доступен с устройства (${reachability} мс)")
+            if (_vpnState.value == VpnState.CONNECTED && _activePing.value !in 1..9998) {
+                _activePing.value = reachability
+                AppLogger.i(TAG, "Пинг сессии взят из проверки входа: ${reachability} мс")
+            }
             probeTlsHandshake(server)
         } else {
             AppLogger.w(
@@ -1027,7 +1104,6 @@ class MirageVpnService : VpnService() {
         pingJob?.cancel()
         pingJob = serviceScope.launch {
             pingSamples.clear()
-            _activePing.value.takeIf { it in 1..9998 }?.let { pingSamples.addLast(it) }
             while (isActive && _vpnState.value == VpnState.CONNECTED) {
                 val intervalSec = settingsRepository.autoPingIntervalSeconds
                 if (intervalSec <= 0) break
@@ -1042,7 +1118,7 @@ class MirageVpnService : VpnService() {
                 val ping = pingRepository.measurePing(
                     target,
                     timeoutMs = if (waitingForFirst) FIRST_PING_TIMEOUT_MS else PING_TIMEOUT_MS,
-                    samples = if (waitingForFirst) 1 else PING_SAMPLES_PER_MEASUREMENT
+                    samples = if (waitingForFirst) FIRST_PING_SAMPLES else PING_SAMPLES_PER_MEASUREMENT
                 ) { socket ->
                     try {
                         protect(socket)
@@ -1056,7 +1132,14 @@ class MirageVpnService : VpnService() {
                     val ordered = pingSamples.sorted()
                     _activePing.value = ordered[ordered.size / 2]
                 } else {
-                    AppLogger.w(TAG, "Автопинг узла ${target.tag} не ответил")
+                    AppLogger.w(
+                        TAG,
+                        if (waitingForFirst) {
+                            "Автопинг узла ${target.tag}: первая проба не ответила, повтор через ${FIRST_PING_RETRY_MS}мс"
+                        } else {
+                            "Автопинг узла ${target.tag} не ответил"
+                        }
+                    )
                     if (waitingForFirst) {
                         delay(FIRST_PING_RETRY_MS)
                         if (!isActive || _vpnState.value != VpnState.CONNECTED) break
@@ -1240,6 +1323,7 @@ class MirageVpnService : VpnService() {
     override fun onDestroy() {
         super.onDestroy()
         stopVpn()
+        serviceInstance = null
     }
 
 
@@ -1534,7 +1618,7 @@ class MirageVpnService : VpnService() {
                 } else {
                     val servers = vlessKeyRepository.getVlessServers()
                     val measured = pingRepository.measureAllPings(servers)
-                    val best = pingRepository.selectBestServer(measured)
+                    val best = pickFreeServer(measured)
                     AppLogger.i(TAG, "Выбран оптимальный бесплатный узел для переподключения: ${best.tag}")
                     best
                 }
@@ -1558,7 +1642,9 @@ class MirageVpnService : VpnService() {
                         _tunnelHealthy.value = true
                         _activeServer.value = active
                         _vpnState.value = VpnState.CONNECTED
-                        _activePing.value = active.pingMs
+                        if (active.pingMs in 1..9998) {
+                            _activePing.value = active.pingMs
+                        }
                         startSessionTimer(_sessionSeconds.value)
                         startSpeedMonitoring()
                         startPeriodicPing(active)
@@ -1599,7 +1685,10 @@ class MirageVpnService : VpnService() {
 
     companion object {
         private const val TAG = "MirageVpnService"
-        private const val PAID_TAG_PREFIX = "Франция"
+        private val PAID_TAG_PREFIXES = listOf("Франция", "Беларусь")
+
+        private fun isPaidNodeTag(tag: String): Boolean =
+            PAID_TAG_PREFIXES.any { tag.startsWith(it) }
         private const val PRIVATE_DNS_WARNING_COOLDOWN_MS = 30 * 60 * 1000L
 
          
@@ -1611,6 +1700,9 @@ class MirageVpnService : VpnService() {
         private val AI_BLOCKED_COUNTRY_CODES = setOf(
             "RU", "BY", "KZ", "UZ", "TM", "KG", "TJ", "CN", "IR", "CU", "VE", "KP"
         )
+
+        private val aiVerifiedPaidNodes = java.util.concurrent.ConcurrentHashMap<String, Long>()
+        private const val AI_VERIFY_TTL_MS = 10 * 60 * 1000L
 
         private val AI_APP_PACKAGES = listOf(
             "com.google.android.apps.bard",
@@ -1637,7 +1729,8 @@ class MirageVpnService : VpnService() {
     private const val AUTO_DNS_RETRY_MS = 3 * 60 * 1000L
     private const val PING_SAMPLES_PER_MEASUREMENT = 3
     private const val PING_HISTORY = 5
-    private const val FIRST_PING_TIMEOUT_MS = 900
+    private const val FIRST_PING_TIMEOUT_MS = 1_200
+    private const val FIRST_PING_SAMPLES = 2
     private const val FIRST_PING_RETRY_MS = 1_000L
     private const val PING_TIMEOUT_MS = 2_000
 
@@ -1662,6 +1755,18 @@ class MirageVpnService : VpnService() {
 
         private val _activeSpeed = MutableStateFlow(SpeedInfo())
         val activeSpeed: StateFlow<SpeedInfo> = _activeSpeed.asStateFlow()
+
+        private var serviceInstance: MirageVpnService? = null
+
+        fun protectSocket(socket: java.net.Socket): Boolean {
+            val service = serviceInstance ?: return false
+            return try {
+                service.protect(socket)
+            } catch (t: Throwable) {
+                Log.w(TAG, "protect(socket) не удался: ${t.message}")
+                false
+            }
+        }
 
         fun start(context: Context) {
             val intent = Intent(context, MirageVpnService::class.java).apply {
