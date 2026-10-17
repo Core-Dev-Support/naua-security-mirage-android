@@ -763,8 +763,8 @@ class MirageVpnService : VpnService() {
         }
         AppLogger.i(
             TAG,
-            "Режим ИИ: Gemini и Google AI идут через фронты обхода гео-блокировки, " +
-                    "узел ${server.tag} подходит для остального трафика"
+            "Режим ИИ: Gemini и Google AI получают обходные адреса через DNS " +
+                    "${settingsRepository.aiDnsServer}, узел ${server.tag} подходит для остального трафика"
         )
         return true
     }
@@ -797,9 +797,18 @@ class MirageVpnService : VpnService() {
             }
             return
         }
-        val frontAddress = XrayVpnController.aiFrontIpFor(AI_FRONT_PROBE_HOST)
+        val aiDnsServer = settingsRepository.aiDnsServer
+        val pinnedAddress = XrayVpnController.aiPinnedIpsFor(AI_FRONT_PROBE_HOST).firstOrNull()
+        if (pinnedAddress == null) {
+            AppLogger.w(
+                TAG,
+                "Доступ к ИИ: обходной адрес через DNS $aiDnsServer не получен, состояние ИИ неизвестно"
+            )
+            AppLogger.onUserMessage(getString(R.string.ai_geo_bypass_failed))
+            return
+        }
         val access = try {
-            xrayController?.probeGeminiApiAccess(probeTimeout, frontAddress)
+            xrayController?.probeGeminiApiAccess(probeTimeout, pinnedAddress)
         } catch (_: Throwable) {
             null
         }
@@ -808,17 +817,18 @@ class MirageVpnService : VpnService() {
             true -> {
                 AppLogger.i(
                     TAG,
-                    "Доступ к ИИ: фронт гео-обхода отвечает через ${server.tag} — Gemini и Google API должны работать"
+                    "Доступ к ИИ: DNS $aiDnsServer отдаёт рабочий обходной адрес через " +
+                            "${server.tag} — Gemini и Google API должны работать"
                 )
                 AppLogger.onUserMessage(getString(R.string.ai_geo_bypass_active))
             }
             false -> {
-                AppLogger.w(TAG, "Доступ к ИИ: фронт гео-обхода не отвечает через ${server.tag}")
+                AppLogger.w(TAG, "Доступ к ИИ: обходной адрес через DNS $aiDnsServer не отвечает")
                 AppLogger.onUserMessage(getString(R.string.ai_geo_bypass_failed))
             }
             else -> AppLogger.w(
                 TAG,
-                "Доступ к ИИ: проверка фронта гео-обхода через ${server.tag} не удалась, состояние ИИ неизвестно"
+                "Доступ к ИИ: проверка обходного адреса через ${server.tag} не удалась, состояние ИИ неизвестно"
             )
         }
     }

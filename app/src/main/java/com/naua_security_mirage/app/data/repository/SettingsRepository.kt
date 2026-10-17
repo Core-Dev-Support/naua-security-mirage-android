@@ -93,6 +93,13 @@ class SettingsRepository(context: Context) {
         get() = prefs.getBoolean(KEY_AI_MODE, false)
         set(value) = prefs.edit().putBoolean(KEY_AI_MODE, value).apply()
 
+    var aiDnsServer: String
+        get() {
+            val stored = prefs.getString(KEY_AI_DNS_SERVER, null)?.trim()
+            return if (stored.isNullOrEmpty()) DEFAULT_AI_DNS_SERVER else stored
+        }
+        set(value) = prefs.edit().putString(KEY_AI_DNS_SERVER, value.trim()).apply()
+
     var privateDnsDialogTime: Long
         get() = prefs.getLong(KEY_PRIVATE_DNS_DIALOG_TIME, 0L)
         set(value) = prefs.edit().putLong(KEY_PRIVATE_DNS_DIALOG_TIME, value).apply()
@@ -321,6 +328,7 @@ class SettingsRepository(context: Context) {
         const val UPDATE_SOURCE_UPTODOWN = "uptodown"
 
         const val PLAN_FREE = "free"
+        const val DEFAULT_AI_DNS_SERVER = "dns.comss.one"
         const val LANG_RU = "ru"
         const val LANG_EN = "en"
         const val PLAN_PREMIUM_FRANCE = "premium_france"
@@ -353,6 +361,7 @@ class SettingsRepository(context: Context) {
         private const val KEY_AUTO_START_ON_BOOT = "key_auto_start_on_boot"
         private const val KEY_DIRECT_RU = "key_direct_ru"
         private const val KEY_AI_MODE = "key_ai_mode"
+        private const val KEY_AI_DNS_SERVER = "key_ai_dns_server"
         private const val KEY_PRIVATE_DNS_DIALOG_TIME = "key_private_dns_dialog_time"
     private const val KEY_SELECTED_DNS_ID = "key_selected_dns_id"
     private const val KEY_CUSTOM_DNS_URL = "key_custom_dns_url"

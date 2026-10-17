@@ -2720,6 +2720,116 @@ class MainActivity : AppCompatActivity() {
         AnimationHelper.attachPressAnimations(root)
     }
 
+    private fun showAiDnsDialog() {
+        val dialog = Dialog(this)
+        dialog.setContentView(R.layout.dialog_tunnel_dns_custom)
+        dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+        val density = resources.displayMetrics.density
+        dialog.window?.setLayout(
+            (resources.displayMetrics.widthPixels * 0.92f).toInt(),
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        )
+
+        val hasWallpaper = !settingsRepository.customBgImagePath.isNullOrEmpty() &&
+                java.io.File(settingsRepository.customBgImagePath ?: "").exists()
+        val isLightContext = !hasWallpaper && (
+                settingsRepository.themePreset == SettingsRepository.THEME_LIGHT ||
+                        (settingsRepository.customBgColor != 0 &&
+                                ColorUtils.calculateLuminance(settingsRepository.customBgColor) > 0.5)
+                )
+        val customText = settingsRepository.customTextColor
+        val cardBg = if (isLightContext) Color.WHITE else ContextCompat.getColor(this, R.color.card)
+        val stroke = if (isLightContext) Color.parseColor("#E2E8F0")
+        else ContextCompat.getColor(this, R.color.card_stroke)
+        val titleColor = if (customText != 0) customText
+        else if (isLightContext) Color.parseColor("#0F172A")
+        else ContextCompat.getColor(this, R.color.ink)
+        val bodyColor = if (customText != 0) ColorUtils.setAlphaComponent(customText, 190)
+        else if (isLightContext) Color.parseColor("#475569")
+        else ContextCompat.getColor(this, R.color.ink_soft)
+        val accentColor = ContextCompat.getColor(this, R.color.accent)
+
+        val root = dialog.findViewById<LinearLayout>(R.id.dialogTunnelDnsCustomRoot)
+        root.background = GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            cornerRadius = 24f * density
+            setColor(cardBg)
+            setStroke((1.2f * density).toInt(), stroke)
+        }
+        val title = dialog.findViewById<TextView>(R.id.tvTunnelDnsCustomDialogTitle)
+        val body = dialog.findViewById<TextView>(R.id.tvTunnelDnsCustomDialogBody)
+        title.setText(R.string.ai_dns_dialog_title)
+        body.setText(R.string.ai_dns_dialog_body)
+        title.setTextColor(titleColor)
+        body.setTextColor(bodyColor)
+        val input = dialog.findViewById<EditText>(R.id.etTunnelDnsCustomUrl)
+        input.setText(settingsRepository.aiDnsServer)
+        input.hint = getString(R.string.ai_dns_input_hint)
+        input.setTextColor(titleColor)
+        input.setHintTextColor(bodyColor)
+
+        val cancel = dialog.findViewById<TextView>(R.id.btnTunnelDnsCustomCancel)
+        val save = dialog.findViewById<TextView>(R.id.btnTunnelDnsCustomSave)
+        cancel.setTextColor(bodyColor)
+        save.setTextColor(accentColor)
+        cancel.background = GradientDrawable().apply {
+            cornerRadius = 14f * density
+            setColor(ColorUtils.setAlphaComponent(bodyColor, 26))
+            setStroke((1.2f * density).toInt(), stroke)
+        }
+        save.background = GradientDrawable().apply {
+            cornerRadius = 14f * density
+            setColor(ColorUtils.setAlphaComponent(accentColor, 34))
+            setStroke((1.2f * density).toInt(), ColorUtils.setAlphaComponent(accentColor, 170))
+        }
+
+        cancel.setOnClickListener {
+            AnimationHelper.bounceClick(it, minScale = 0.94f, durationMs = 140) {
+                dialog.dismiss()
+            }
+        }
+        save.setOnClickListener {
+            AnimationHelper.bounceClick(it, minScale = 0.94f, durationMs = 140) {
+                val parsed = normalizeAiDnsValue(input.text.toString())
+                if (parsed == null) {
+                    Toast.makeText(this, R.string.ai_dns_invalid, Toast.LENGTH_LONG).show()
+                    return@bounceClick
+                }
+                settingsRepository.aiDnsServer = parsed
+                AppLogger.i("TunnelDns", "DNS для ИИ: ${settingsRepository.aiDnsServer}")
+                Toast.makeText(
+                    this,
+                    getString(R.string.ai_dns_saved, settingsRepository.aiDnsServer),
+                    Toast.LENGTH_LONG
+                ).show()
+                applyAiModePillTheme()
+                dialog.dismiss()
+            }
+        }
+
+        dialog.show()
+        AnimationHelper.popIn(root, durationMs = 220)
+        AnimationHelper.attachPressAnimations(root)
+    }
+
+    private fun normalizeAiDnsValue(raw: String): String? {
+        var value = raw.trim().lowercase()
+        if (value.isEmpty()) return ""
+        value = value.substringAfter("://", value)
+        value = value.substringBefore('/').substringBefore('?').substringBefore('#')
+        if (value.isEmpty()) return ""
+        if (Regex("^\\d{1,3}(\\.\\d{1,3}){3}:\\d{1,5}$").matches(value)) {
+            value = value.substringBefore(':')
+        }
+        if (value.contains(':')) return null
+        val host = Regex("^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$")
+            .matches(value)
+        val ip = Regex("^\\d{1,3}(\\.\\d{1,3}){3}$").matches(value)
+        if (!host && !ip) return null
+        if (ip && value.split('.').any { it.toIntOrNull() !in 0..255 }) return null
+        return value
+    }
+
     private fun maybeShowPrivateDnsDialog() {
         if (PrivateDnsInspector.read(this).mode != PrivateDnsInspector.Mode.STRICT) return
         if (privateDnsDialog?.isShowing == true) return
@@ -4044,6 +4154,8 @@ class MainActivity : AppCompatActivity() {
 
     private var aiModePendingView: TextView? = null
 
+    private var aiDnsRowView: TextView? = null
+
     private var aiModePending = false
 
     private var splitTunnelDirty = false
@@ -5260,9 +5372,29 @@ class MainActivity : AppCompatActivity() {
         binding.viewMain.addView(warn)
         aiModePendingView = warn
 
+        val dnsRow = TextView(this).apply {
+            id = R.id.rowAiDns
+            layoutParams = ConstraintLayout.LayoutParams(0, ConstraintLayout.LayoutParams.WRAP_CONTENT).apply {
+                startToStart = ConstraintLayout.LayoutParams.PARENT_ID
+                endToEnd = ConstraintLayout.LayoutParams.PARENT_ID
+                topToBottom = R.id.tvAiModePending
+                topMargin = (8f * density).toInt()
+                marginStart = (22f * density).toInt()
+                marginEnd = (22f * density).toInt()
+            }
+            textSize = 11.5f
+            gravity = Gravity.CENTER
+            visibility = View.GONE
+            isClickable = true
+            isFocusable = true
+        }
+        dnsRow.setOnClickListener { showAiDnsDialog() }
+        binding.viewMain.addView(dnsRow)
+        aiDnsRowView = dnsRow
+
         val supportParams = binding.btnSupport.layoutParams as? ConstraintLayout.LayoutParams
         if (supportParams != null) {
-            supportParams.topToBottom = R.id.tvAiModePending
+            supportParams.topToBottom = R.id.rowAiDns
             supportParams.topMargin = (12f * density).toInt()
             supportParams.goneTopMargin = (24f * density).toInt()
             binding.btnSupport.layoutParams = supportParams
@@ -5432,6 +5564,32 @@ class MainActivity : AppCompatActivity() {
 
         aiModePendingView?.setTextColor(ContextCompat.getColor(this, R.color.danger))
         updateAiModePendingWarning()
+        updateAiDnsRow(dimmed, accent)
+    }
+
+    private fun updateAiDnsRow(dimmed: Int, accent: Int) {
+        val row = aiDnsRowView ?: return
+        if (!settingsRepository.isAiModeEnabled) {
+            row.visibility = View.GONE
+            return
+        }
+        val head = getString(R.string.ai_dns_row_prefix, settingsRepository.aiDnsServer)
+        val action = " · " + getString(R.string.ai_dns_change)
+        val text = SpannableStringBuilder(head + action)
+        text.setSpan(
+            ForegroundColorSpan(dimmed),
+            0,
+            head.length,
+            android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+        )
+        text.setSpan(
+            ForegroundColorSpan(accent),
+            head.length,
+            text.length,
+            android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+        )
+        row.text = text
+        row.visibility = View.VISIBLE
     }
 
     private fun updateAiModePendingWarning() {

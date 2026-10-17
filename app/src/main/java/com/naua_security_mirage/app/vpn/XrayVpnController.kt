@@ -845,16 +845,26 @@ class XrayVpnController(private val vpnService: VpnService) {
                 }
             }
             if (aiGeoBypass) {
-                AI_FRONT_HOSTS.forEach { (frontHost, frontIp) ->
-                    if (!hosts.has(frontHost)) {
-                        hosts.add(frontHost, JsonArray().apply { add(frontIp) })
+                val aiDnsServer = settingsRepo.aiDnsServer
+                val resolved = AiDnsResolver.resolve(aiDnsServer, AI_RESOLVE_HOSTS)
+                aiPinnedHosts = resolved
+                resolved.forEach { (pinnedHost, pinnedIps) ->
+                    if (!hosts.has(pinnedHost)) {
+                        hosts.add(pinnedHost, JsonArray().apply { pinnedIps.forEach { add(it) } })
                     }
                 }
-                AppLogger.i(
-                    TAG,
-                    "Режим ИИ: Gemini и Google AI разрешаются через внешние фронты " +
-                            "(обход гео-блокировки Google), имён: ${AI_FRONT_HOSTS.size}"
-                )
+                if (resolved.isNotEmpty()) {
+                    AppLogger.i(
+                        TAG,
+                        "Режим ИИ: Gemini и Google AI разрешаются через DNS $aiDnsServer " +
+                                "(обход блокировки Google), имён: ${resolved.size}"
+                    )
+                } else {
+                    AppLogger.w(
+                        TAG,
+                        "Режим ИИ: DNS $aiDnsServer не ответил, домены ИИ разрешаются как обычно"
+                    )
+                }
             }
             add("hosts", hosts)
 
@@ -1279,6 +1289,21 @@ class XrayVpnController(private val vpnService: VpnService) {
             }
 
             if (settingsRepo.isAiModeEnabled) {
+                if (aiGeoBypass && aiPinnedHosts.isNotEmpty()) {
+                    val directDomains = JsonArray().apply { aiPinnedHosts.keys.forEach { add("full:$it") } }
+                    rules.add(JsonObject().apply {
+                        addProperty("type", "field")
+                        addProperty("outboundTag", "direct")
+                        addProperty("network", "tcp")
+                        add("domain", directDomains)
+                    })
+                    AppLogger.i(
+                        TAG,
+                        "Режим ИИ: ${aiPinnedHosts.size} доменов ИИ идут напрямую " +
+                                "по адресам DNS ${settingsRepo.aiDnsServer}, остальной трафик — " +
+                                "через узел ${xrayServer.tag}"
+                    )
+                }
                 val aiRule = JsonObject().apply {
                     addProperty("type", "field")
                     addProperty("outboundTag", "proxy")
@@ -1489,61 +1514,74 @@ class XrayVpnController(private val vpnService: VpnService) {
         private fun isPaidNodeTag(tag: String): Boolean =
             PAID_NODE_TAG_PREFIXES.any { tag.startsWith(it) }
 
-        private val AI_FRONT_HOSTS = listOf(
-            "geller-pa.googleapis.com" to "193.233.112.88",
-            "robinfrontend-pa.googleapis.com" to "193.233.112.88",
-            "proactivebackend-pa.googleapis.com" to "193.233.112.88",
-            "signaler-pa.clients6.google.com" to "193.233.112.88",
-            "signaler-pa.googleapis.com" to "193.233.112.88",
-            "generativelanguage.googleapis.com" to "193.233.112.88",
-            "gemini.google.com" to "193.233.112.88",
-            "gemini.google" to "193.233.112.88",
-            "bard.google.com" to "193.233.112.88",
-            "aistudio.google.com" to "193.233.112.88",
-            "apis.google.com" to "193.233.112.88",
-            "ai.google.dev" to "193.233.112.88",
-            "generativeai.google" to "193.233.112.88",
-            "geminiweb-pa.clients6.google.com" to "193.233.112.67",
-            "geminiweb-pa.clients.google.com" to "193.233.112.67",
-            "waa-pa.clients6.google.com" to "193.233.112.67",
-            "people-pa.clients6.google.com" to "193.233.112.67",
-            "alkalimakersuite-pa.clients6.google.com" to "193.233.112.67",
-            "webchannel-alkalimakersuite-pa.clients6.google.com" to "193.233.112.67",
-            "alkalicore-pa.clients6.google.com" to "193.233.112.67",
-            "assistant-s3-pa.googleapis.com" to "193.233.112.67",
-            "aisandbox-pa.googleapis.com" to "193.233.112.67",
-            "appcatalyst.pa.googleapis.com" to "193.233.112.67",
-            "o.pki.goog" to "193.233.112.68",
-            "labs.google" to "193.233.112.68",
-            "labs.google.com" to "193.233.112.68",
-            "lookerstudio.google.com" to "193.233.112.68",
-            "datastudio.google.com" to "193.233.112.68",
-            "makersuite.google.com" to "193.233.112.68",
-            "notebook.google" to "193.233.112.68",
-            "notebooklm.google" to "193.233.112.68",
-            "notebooklm.google.com" to "193.233.112.68",
-            "notebook-pa.googleapis.com" to "193.233.112.68",
-            "notebooklm-pa.googleapis.com" to "193.233.112.68",
-            "jules.google" to "193.233.112.68",
-            "jules.google.com" to "193.233.112.68",
-            "opal.google" to "193.233.112.68",
-            "opal.google.com" to "193.233.112.68",
-            "opal.withgoogle.com" to "193.233.112.68",
-            "aitestkitchen.withgoogle.com" to "193.233.112.68",
-            "stitch.withgoogle.com" to "193.233.112.68",
-            "suggestqueries.google.com" to "193.233.112.68",
-            "deepmind.google" to "193.233.112.68",
-            "deepmind.com" to "193.233.112.68",
-            "flow.google" to "193.233.112.68",
-            "flowmusic.app" to "193.233.112.68",
-            "antigravity.google" to "193.233.112.68",
-            "daily-cloudcode-pa.googleapis.com" to "193.233.112.68",
-            "developerprofiles-pa.googleapis.com" to "193.233.112.68",
-            "aicode.googleapis.com" to "193.233.112.68"
-        )
+        @Volatile
+        private var aiPinnedHosts: Map<String, List<String>> = emptyMap()
 
-        fun aiFrontIpFor(host: String): String? =
-            AI_FRONT_HOSTS.firstOrNull { it.first.equals(host, ignoreCase = true) }?.second
+        fun aiPinnedIpsFor(host: String): List<String> =
+            aiPinnedHosts[host.trim().lowercase()] ?: emptyList()
+
+        private val AI_RESOLVE_HOSTS = listOf(
+            "gemini.google.com",
+            "gemini.google",
+            "bard.google.com",
+            "generativelanguage.googleapis.com",
+            "aistudio.google.com",
+            "ai.google.dev",
+            "generativeai.google",
+            "apis.google.com",
+            "geller-pa.googleapis.com",
+            "robinfrontend-pa.googleapis.com",
+            "proactivebackend-pa.googleapis.com",
+            "signaler-pa.clients6.google.com",
+            "signaler-pa.googleapis.com",
+            "geminiweb-pa.clients6.google.com",
+            "geminiweb-pa.clients.google.com",
+            "waa-pa.clients6.google.com",
+            "people-pa.clients6.google.com",
+            "alkalimakersuite-pa.clients6.google.com",
+            "webchannel-alkalimakersuite-pa.clients6.google.com",
+            "alkalicore-pa.clients6.google.com",
+            "assistant-s3-pa.googleapis.com",
+            "aisandbox-pa.googleapis.com",
+            "appcatalyst.pa.googleapis.com",
+            "o.pki.goog",
+            "labs.google",
+            "labs.google.com",
+            "lookerstudio.google.com",
+            "datastudio.google.com",
+            "makersuite.google.com",
+            "notebook.google",
+            "notebooklm.google",
+            "notebooklm.google.com",
+            "notebook-pa.googleapis.com",
+            "notebooklm-pa.googleapis.com",
+            "jules.google",
+            "jules.google.com",
+            "opal.google",
+            "opal.google.com",
+            "opal.withgoogle.com",
+            "aitestkitchen.withgoogle.com",
+            "stitch.withgoogle.com",
+            "suggestqueries.google.com",
+            "deepmind.google",
+            "deepmind.com",
+            "flow.google",
+            "flowmusic.app",
+            "antigravity.google",
+            "daily-cloudcode-pa.googleapis.com",
+            "developerprofiles-pa.googleapis.com",
+            "aicode.googleapis.com",
+            "chatgpt.com",
+            "chat.openai.com",
+            "openai.com",
+            "oaistatic.com",
+            "oaiusercontent.com",
+            "anthropic.com",
+            "claude.ai",
+            "perplexity.ai",
+            "copilot.microsoft.com",
+            "huggingface.co"
+        )
 
         private val AI_SERVICE_SUFFIXES = listOf(
             "gemini.google.com",

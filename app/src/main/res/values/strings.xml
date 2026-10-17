@@ -63,7 +63,7 @@
     <string name="quick_tile_notify_label">Напоминания об оплате</string>
     <string name="tribute_tg_url">https://t.me/tribute/app?startapp=dS04</string>
     <string name="tribute_web_url">https://web.tribute.tg/d/S04</string>
-    <string name="ai_mode_on">Режим ИИ включён. Для Gemini и Google API включается обход гео-блокировки Google.</string>
+    <string name="ai_mode_on">Режим ИИ включён. Gemini и Google AI разрешаются через обход блокировки по частному DNS.</string>
     <string name="ai_mode_off">Режим ИИ выключен.</string>
     <string name="ai_mode_hint">Если Gemini или другой ИИ не открывается — включите «Режим ИИ».</string>
     <string name="support_chat_url">https://t.me/News_And_Updates_Apps?direct</string>
@@ -494,8 +494,15 @@
   <string name="node_status_belarus_down">Беларусь не отвечает с устройства</string>
   <string name="ai_paid_node_blocked_country">Доступ к ИИ: узел выходит в %1$s — Gemini и Google API в этом регионе не работают. Переключитесь на Францию.</string>
   <string name="ai_paid_node_rejected">Доступ к ИИ: Google не отвечает с этого узла. Попробуйте другой узел.</string>
-  <string name="ai_geo_bypass_active">Доступ к ИИ: обход гео-блокировки Google включён — Gemini и Google API должны работать.</string>
-  <string name="ai_geo_bypass_failed">Доступ к ИИ: сервер обхода гео-блокировки не отвечает. Переподключитесь или выберите другой узел.</string>
+  <string name="ai_geo_bypass_active">Доступ к ИИ: обход блокировки по частному DNS работает — Gemini и Google API должны работать.</string>
+  <string name="ai_geo_bypass_failed">Доступ к ИИ: через DNS обхода блокировки Google не отвечает. Переподключитесь или выберите другой DNS.</string>
+  <string name="ai_dns_row_prefix">DNS для ИИ: %1$s</string>
+  <string name="ai_dns_change">Изменить</string>
+  <string name="ai_dns_dialog_title">DNS для доступа к ИИ</string>
+  <string name="ai_dns_dialog_body">По умолчанию dns.comss.one: через него Gemini и Google API обходят блокировку. Можно указать свой DNS (имя хоста или IP-адрес). Пустое поле возвращает значение по умолчанию.</string>
+  <string name="ai_dns_input_hint">dns.comss.one</string>
+  <string name="ai_dns_invalid">Это не похоже на адрес DNS. Пример: dns.comss.one или 1.1.1.1</string>
+  <string name="ai_dns_saved">DNS для ИИ: %1$s. Переподключите VPN, чтобы применить.</string>
   <string name="free_server_auto">Автоматически · самый быстрый</string>
   <string name="free_server_node_format">Узел %1$d</string>
   <string name="picker_ping_format">%1$d мс</string>
