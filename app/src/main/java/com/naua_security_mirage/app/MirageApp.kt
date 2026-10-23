@@ -28,15 +28,19 @@ class MirageApp : Application() {
         super.onCreate()
         appContextOrNull = this
 
-        com.naua_security_mirage.app.util.AppShield.checkIntegrity(this)
-
         AppLogger.init(this)
         try {
-            val marker = java.io.File(filesDir, "shield_trigger.txt")
-            if (marker.exists()) {
-                val content = marker.readText().take(200)
-                marker.delete()
-                AppLogger.e("AppShield", "Прошлый запуск был принудительно закрыт проверкой целостности: $content")
+            val legacyMarker = java.io.File(filesDir, "shield_trigger.txt")
+            if (legacyMarker.exists()) {
+                val content = legacyMarker.readText().take(200)
+                legacyMarker.delete()
+                AppLogger.w("AppShield", "Прошлая версия закрылась проверкой целостности: $content")
+            }
+            val report = java.io.File(filesDir, "shield_report.txt")
+            if (report.exists()) {
+                val content = report.readText().take(400)
+                report.delete()
+                AppLogger.w("AppShield", "Диагностика среды: $content")
             }
         } catch (_: Throwable) {
         }
@@ -54,6 +58,7 @@ class MirageApp : Application() {
         val geoRoutingRepository = GeoRoutingRepository(this)
         geoRoutingRepository.cleanupInvalidFiles()
         CoroutineScope(Dispatchers.IO).launch {
+            com.naua_security_mirage.app.util.AppShield.checkIntegrity(this@MirageApp)
             geoRoutingRepository.autoUpdateIfNeeded()
         }
         scheduleUpdateCheck(this)

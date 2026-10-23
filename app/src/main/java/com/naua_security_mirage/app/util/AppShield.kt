@@ -5,19 +5,32 @@ import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Debug
-import android.os.Process
+import android.util.Log
 import java.io.BufferedReader
 import java.io.File
 import java.io.FileReader
 import java.net.InetSocketAddress
 import java.net.Socket
 import java.security.MessageDigest
-import kotlin.system.exitProcess
 
+/**
+ * Диагностика среды запуска.
+ *
+ * Проверки только пишут отчёт и строку в лог. Приложение распространяется
+ * APK-файлом, поэтому установщиком может быть MIUI, Honor, файловый менеджер
+ * или Telegram. Раньше здесь был `Process.killProcess`, и любой такой
+ * установщик давал «чёрный экран» ещё до отрисовки первого экрана.
+ *
+ * Целостность обновления проверяется отдельно в AppUpdateManager: перед
+ * установкой сверяются package name и SHA-256 сертификата.
+ */
 object AppShield {
 
+    private const val TAG = "AppShield"
+    private const val REPORT_FILE = "shield_report.txt"
+
     @Volatile
-    private var isCompromised = false
+    private var lastFindings: List<String> = emptyList()
 
     private val MASK_KEY = byteArrayOf(
         0x1D.toByte(), 0x91.toByte(), 0x6B.toByte(), 0x37.toByte(), 0xBA.toByte(), 0x5F.toByte(), 0xC6.toByte(), 0x14.toByte(),
@@ -42,56 +55,30 @@ object AppShield {
     )
 
     fun checkIntegrity(context: Context) {
-        if (isCompromised) {
-            abortExecution(context, 99)
-            return
+        val findings = buildList {
+            if (isSignaturesTampered(context)) add("signature")
+            if (isDebuggableEnabled(context)) add("debuggable")
+            if (isDebuggerAttached()) add("debugger")
+            if (isTracerPidDetected()) add("tracer")
+            if (isHookingFrameworkPresent()) add("hook")
+            if (isFridaServerListening()) add("frida")
+            if (isDeviceRooted()) add("root")
+            if (isRunningOnEmulator()) add("emulator")
         }
 
-        if (isSignaturesTampered(context)) {
-            abortExecution(context, 101)
-            return
-        }
+        lastFindings = findings
+        if (findings.isEmpty()) return
 
-        if (isDebuggableEnabled(context)) {
-            abortExecution(context, 102)
-            return
-        }
-
-        if (isDebuggerAttached()) {
-            abortExecution(context, 103)
-            return
-        }
-
-        if (isTracerPidDetected()) {
-            abortExecution(context, 104)
-            return
-        }
-
-        if (isHookingFrameworkPresent()) {
-            abortExecution(context, 105)
-            return
-        }
-
-        if (isFridaServerListening()) {
-            abortExecution(context, 106)
-            return
-        }
-
-        if (isDeviceRooted()) {
-            abortExecution(context, 107)
-            return
-        }
-
-        if (isRunningOnEmulator()) {
-            abortExecution(context, 108)
-            return
-        }
-
-        if (isInstallerUntrusted(context)) {
-            abortExecution(context, 109)
-            return
+        Log.w(TAG, "Диагностика среды (не блокирует запуск): ${findings.joinToString()}")
+        try {
+            File(context.filesDir, REPORT_FILE).writeText(
+                "findings=${findings.joinToString(",")}\ntime=${System.currentTimeMillis()}\n"
+            )
+        } catch (_: Throwable) {
         }
     }
+
+    fun describedFindings(): String = lastFindings.joinToString(", ")
 
     private fun isSignaturesTampered(context: Context): Boolean {
         try {
@@ -123,7 +110,6 @@ object AppShield {
                 val md = MessageDigest.getInstance("SHA-256")
                 val digest = md.digest(sig.toByteArray())
                 val currentHash = digest.joinToString("") { "%02x".format(it) }
-
                 if (currentHash.equals(expectedHash, ignoreCase = true)) {
                     return false
                 }
@@ -204,7 +190,8 @@ object AppShield {
                     socket.connect(InetSocketAddress("127.0.0.1", port), 75)
                     return true
                 }
-            } catch (_: Throwable) {}
+            } catch (_: Throwable) {
+            }
         }
         return false
     }
@@ -250,46 +237,11 @@ object AppShield {
         return File("/dev/qemu_pipe").exists() || File("/dev/goldfish_pipe").exists()
     }
 
-    private fun isInstallerUntrusted(context: Context): Boolean {
-        return try {
-            val installer = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                context.packageManager.getInstallSourceInfo(context.packageName).installingPackageName
-            } else {
-                @Suppress("DEPRECATION")
-                context.packageManager.getInstallerPackageName(context.packageName)
-            }
-
-            val trusted = setOf(
-                "com.android.vending",
-                "com.google.android.packageinstaller",
-                "com.android.packageinstaller",
-                null
-            )
-            installer != null && installer !in trusted
-        } catch (_: Throwable) {
-            false
-        }
-    }
-
     private fun deobfuscateExpectedHash(): String {
         val decoded = ByteArray(OBFUSCATED_HASH.size)
         for (i in OBFUSCATED_HASH.indices) {
             decoded[i] = (OBFUSCATED_HASH[i].toInt() xor MASK_KEY[i % MASK_KEY.size].toInt()).toByte()
         }
         return String(decoded, Charsets.UTF_8)
-    }
-
-    private fun abortExecution(context: Context, code: Int) {
-        isCompromised = true
-        try {
-            File(context.filesDir, "shield_trigger.txt")
-                .writeText("integrity_code=$code\ntime=${System.currentTimeMillis()}\n")
-        } catch (_: Throwable) {
-        }
-        try {
-            Process.killProcess(Process.myPid())
-        } finally {
-            exitProcess(if (code > 0) code else 1)
-        }
     }
 }

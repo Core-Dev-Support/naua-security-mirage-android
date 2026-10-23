@@ -17,7 +17,6 @@ import androidx.core.content.FileProvider
 import com.naua_security_mirage.app.BuildConfig
 import com.naua_security_mirage.app.util.AppLogger
 import com.naua_security_mirage.app.vpn.PrivateDnsInspector
-import com.naua_security_mirage.app.util.AppShield
 import com.naua_security_mirage.app.util.AnimationHelper
 import com.naua_security_mirage.app.util.AppUpdateManager
 import com.naua_security_mirage.app.data.model.DnsServer
@@ -168,7 +167,6 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        AppShield.checkIntegrity(this)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
@@ -387,7 +385,6 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        AppShield.checkIntegrity(this)
         AppUpdateManager.checkPendingInstall(this)
         if (::geoRoutingRepository.isInitialized) {
             updateGeoStatusText()
@@ -5156,12 +5153,12 @@ class MainActivity : AppCompatActivity() {
         val blocking = settingsRepository.isScreenshotBlockingEnabled
         if (blocking) {
             window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
                 setRecentsScreenshotEnabled(false)
             }
         } else {
             window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
                 setRecentsScreenshotEnabled(true)
             }
         }

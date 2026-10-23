@@ -203,7 +203,10 @@ class GeoRoutingRepository(private val context: Context) {
                 connection = (url.openConnection() as HttpURLConnection).apply {
                     connectTimeout = 20_000
                     readTimeout = 40_000
-                    instanceFollowRedirects = true
+                    // Редиректы разбираем вручную: иначе HttpURLConnection
+                    // проходит по Location сам, и проверка isAllowedGeoHost
+                    // видит только конечный ответ.
+                    instanceFollowRedirects = false
                     setRequestProperty("User-Agent", "Mozilla/5.0 (Android; Mobile; Mirage)")
                 }
 

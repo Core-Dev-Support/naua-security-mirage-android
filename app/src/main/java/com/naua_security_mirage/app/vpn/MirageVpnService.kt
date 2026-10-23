@@ -80,7 +80,6 @@ class MirageVpnService : VpnService() {
     override fun onCreate() {
         super.onCreate()
         serviceInstance = this
-        com.naua_security_mirage.app.util.AppShield.checkIntegrity(this)
         notificationManager = VpnNotificationManager(this)
         settingsRepository = SettingsRepository(this)
         vlessKeyRepository = VlessKeyRepository(this, DeviceIdRepository(this))
@@ -1282,48 +1281,119 @@ class MirageVpnService : VpnService() {
 
             networkCallback = object : ConnectivityManager.NetworkCallback() {
                 override fun onAvailable(network: Network) {
-                    val previous = lastKnownNetwork
-
-                    val switched = HandoverPolicy.shouldRestartTunnel(
-                        hadPreviousNetwork = previous != null,
-                        sameNetworkObject = previous == network,
-                        previousStillUsable = previous?.let { isStillUsable(it) } ?: true,
-                        tunnelConnected = _vpnState.value == VpnState.CONNECTED
-                    )
-                    if (switched) {
-                        AppLogger.i(TAG, "Смена активной сети (Handover). Перезапуск туннеля...")
-                        handleNetworkHandover(network)
-                    }
-                    lastKnownNetwork = network
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP_MR1) {
-                        try {
-                            setUnderlyingNetworks(arrayOf(network))
-                        } catch (e: Throwable) {
-                            Log.w(TAG, "setUnderlyingNetworks failed: ${e.message}")
-                        }
-                    }
+                    handleUnderlyingNetworkAvailable(network)
                 }
 
                 override fun onLost(network: Network) {
-                    if (lastKnownNetwork == network) {
-                        lastKnownNetwork = null
-                        if (_vpnState.value == VpnState.CONNECTED) {
-                            if (settingsRepository.isKillSwitchEnabled) {
-                                if (LockdownInspector.isOurAppLocked(this@MirageVpnService)) {
-                                    AppLogger.w(TAG, "Связь с сетью потеряна! Системная блокировка удерживает трафик, утечка предотвращена.")
-                                } else {
-                                    AppLogger.w(TAG, "Связь с сетью потеряна! Системная блокировка выключена: возможна утечка вне туннеля.")
-                                }
+                    if (lastKnownNetwork != network) return
+
+                    lastKnownNetwork = null
+                    if (_vpnState.value == VpnState.CONNECTED) {
+                        if (settingsRepository.isKillSwitchEnabled) {
+                            if (LockdownInspector.isOurAppLocked(this@MirageVpnService)) {
+                                AppLogger.w(TAG, "Связь с сетью потеряна! Системная блокировка удерживает трафик, утечка предотвращена.")
                             } else {
-                                AppLogger.w(TAG, "Связь с сетью потеряна. Ожидание восстановления соединения...")
+                                AppLogger.w(TAG, "Связь с сетью потеряна! Системная блокировка выключена: возможна утечка вне туннеля.")
                             }
+                        } else {
+                            AppLogger.w(TAG, "Связь с сетью потеряна. Ожидание восстановления соединения...")
+                        }
+                    }
+
+                    // Wi-Fi мог отключиться, а мобильная сеть уже доступна.
+                    // Без этого туннель оставался бы привязанным к потерянной сети.
+                    val replacement = pickBestUnderlyingNetwork()
+                    if (replacement != null) {
+                        lastKnownNetwork = replacement
+                        applyUnderlyingNetwork(replacement)
+                        if (_vpnState.value == VpnState.CONNECTED) {
+                            handleNetworkHandover(replacement)
                         }
                     }
                 }
             }
             cm.registerNetworkCallback(request, networkCallback!!)
+
+            // Сразу выбираем лучшую доступную сеть: Wi-Fi/Ethernet важнее
+            // мобильной. Иначе onAvailable для 4G мог привязать туннель к
+            // мобильной сети, хотя Wi-Fi уже подключён.
+            pickBestUnderlyingNetwork()?.let { network ->
+                lastKnownNetwork = network
+                applyUnderlyingNetwork(network)
+            }
         } catch (e: Throwable) {
             Log.w(TAG, "registerNetworkCallback failed: ${e.message}")
+        }
+    }
+
+    private fun handleUnderlyingNetworkAvailable(network: Network) {
+        val cm = connectivityManager ?: return
+        val previous = lastKnownNetwork
+        val previousCaps = previous?.let { cm.getNetworkCapabilities(it) }
+        val newCaps = cm.getNetworkCapabilities(network)
+        val previousUsable = previous?.let { isStillUsable(it) } ?: true
+
+        // Не переключаемся с рабочего Wi-Fi на мобильную сеть только потому,
+        // что Android сообщил о ней вторым onAvailable. Обратное направление
+        // (4G -> Wi-Fi) разрешено: там ранг сети выше.
+        if (previous != null && previous != network && previousUsable &&
+            transportRank(newCaps) <= transportRank(previousCaps)
+        ) {
+            return
+        }
+
+        val switched = HandoverPolicy.shouldRestartTunnel(
+            hadPreviousNetwork = previous != null,
+            sameNetworkObject = previous == network,
+            previousStillUsable = previousUsable,
+            tunnelConnected = _vpnState.value == VpnState.CONNECTED
+        )
+        if (switched) {
+            AppLogger.i(TAG, "Смена активной сети (Handover). Перезапуск туннеля...")
+            handleNetworkHandover(network)
+        }
+        lastKnownNetwork = network
+        applyUnderlyingNetwork(network)
+    }
+
+    private fun applyUnderlyingNetwork(network: Network) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP_MR1) {
+            try {
+                setUnderlyingNetworks(arrayOf(network))
+            } catch (e: Throwable) {
+                Log.w(TAG, "setUnderlyingNetworks failed: ${e.message}")
+            }
+        }
+    }
+
+    private fun transportRank(caps: NetworkCapabilities?): Int {
+        if (caps == null) return 0
+        return when {
+            caps.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) -> 3
+            caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> 2
+            caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) -> 1
+            else -> 0
+        }
+    }
+
+    private fun pickBestUnderlyingNetwork(): Network? {
+        val cm = connectivityManager ?: return null
+        return try {
+            val candidates = (cm.allNetworks.toList() + listOfNotNull(cm.activeNetwork)).distinct()
+            candidates
+                .mapNotNull { network ->
+                    val caps = cm.getNetworkCapabilities(network) ?: return@mapNotNull null
+                    if (!caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) ||
+                        !caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN)
+                    ) {
+                        return@mapNotNull null
+                    }
+                    network to transportRank(caps)
+                }
+                .maxByOrNull { it.second }
+                ?.first
+        } catch (_: Throwable) {
+            null
         }
     }
 
