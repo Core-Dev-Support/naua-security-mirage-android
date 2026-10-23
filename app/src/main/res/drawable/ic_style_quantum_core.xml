@@ -1,0 +1,76 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="20dp"
+    android:height="20dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+
+    <!-- Orbit 1: 0° Horizontal (Electric Amber) -->
+    <group
+        android:pivotX="12"
+        android:pivotY="12"
+        android:rotation="0">
+        <path
+            android:pathData="M3,12a9,3.2 0 1,0 18,0a9,3.2 0 1,0 -18,0"
+            android:strokeWidth="1.5"
+            android:strokeColor="#FF9100" />
+        <path
+            android:pathData="M21,12m-1.8,0a1.8,1.8 0 1,0 3.6,0a1.8,1.8 0 1,0 -3.6,0"
+            android:fillColor="#FF9100"
+            android:fillAlpha="0.45" />
+        <path
+            android:pathData="M21,12m-1,0a1,1 0 1,0 2,0a1,1 0 1,0 -2,0"
+            android:fillColor="#FFFFFF" />
+    </group>
+
+    <!-- Orbit 2: 60° (Cyan Plasma) -->
+    <group
+        android:pivotX="12"
+        android:pivotY="12"
+        android:rotation="60">
+        <path
+            android:pathData="M3,12a9,3.2 0 1,0 18,0a9,3.2 0 1,0 -18,0"
+            android:strokeWidth="1.5"
+            android:strokeColor="#00E5FF" />
+        <path
+            android:pathData="M21,12m-1.8,0a1.8,1.8 0 1,0 3.6,0a1.8,1.8 0 1,0 -3.6,0"
+            android:fillColor="#00E5FF"
+            android:fillAlpha="0.45" />
+        <path
+            android:pathData="M21,12m-1,0a1,1 0 1,0 2,0a1,1 0 1,0 -2,0"
+            android:fillColor="#FFFFFF" />
+    </group>
+
+    <!-- Orbit 3: 120° (Quantum Violet) -->
+    <group
+        android:pivotX="12"
+        android:pivotY="12"
+        android:rotation="120">
+        <path
+            android:pathData="M3,12a9,3.2 0 1,0 18,0a9,3.2 0 1,0 -18,0"
+            android:strokeWidth="1.5"
+            android:strokeColor="#D500F9" />
+        <path
+            android:pathData="M21,12m-1.8,0a1.8,1.8 0 1,0 3.6,0a1.8,1.8 0 1,0 -3.6,0"
+            android:fillColor="#D500F9"
+            android:fillAlpha="0.45" />
+        <path
+            android:pathData="M21,12m-1,0a1,1 0 1,0 2,0a1,1 0 1,0 -2,0"
+            android:fillColor="#FFFFFF" />
+    </group>
+
+    <!-- Central Quantum Singularity Core -->
+    <path
+        android:pathData="M12,12m-4.2,0a4.2,4.2 0 1,0 8.4,0a4.2,4.2 0 1,0 -8.4,0"
+        android:fillColor="#FF9100"
+        android:fillAlpha="0.25" />
+    <path
+        android:pathData="M12,12m-2.8,0a2.8,2.8 0 1,0 5.6,0a2.8,2.8 0 1,0 -5.6,0"
+        android:fillColor="#FF6D00" />
+    <path
+        android:pathData="M12,12m-1.6,0a1.6,1.6 0 1,0 3.2,0a1.6,1.6 0 1,0 -3.2,0"
+        android:fillColor="#FFD54F" />
+    <!-- 4-point Quantum Sparkle -->
+    <path
+        android:pathData="M12,9.5L12.7,11.3L14.5,12L12.7,12.7L12,14.5L11.3,12.7L9.5,12L11.3,11.3Z"
+        android:fillColor="#FFFFFF" />
+</vector>

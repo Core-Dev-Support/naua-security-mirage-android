@@ -1,0 +1,8 @@
+# Git attributes: keep line-endings and diffs consistent.
+* text=auto eol=lf
+*.kt linguist-language=Kotlin
+*.kts linguist-language=Kotlin
+*.apk binary
+*.jks binary
+*.png binary
+*.jpg binary
