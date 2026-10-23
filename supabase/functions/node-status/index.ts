@@ -21,6 +21,28 @@ const CORS = {
 
 const MAX_EVENTS = 200;
 
+// The watchdog sends raw Xray logs in `detail`. They can contain a client UUID,
+// an e-mail, a VLESS link or an address, and this endpoint is readable with the
+// public anon key that ships inside the APK. Never persist or return those raw:
+// a leaked UUID plus the public Reality key is a working paid-node credential.
+const UUID_RE = /[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/g;
+const EMAIL_RE = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g;
+const VLESS_RE = /vless:\/\/[^\s"'<>]+/gi;
+const JWT_RE = /eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}/g;
+const IPV4_RE = /\b(?:\d{1,3}\.){3}\d{1,3}\b/g;
+
+function sanitizeDetail(value: string | null): string | null {
+  if (!value) return null;
+  const redacted = value
+    .slice(0, 512)
+    .replace(VLESS_RE, "<redacted-link>")
+    .replace(UUID_RE, "<redacted-id>")
+    .replace(EMAIL_RE, "<redacted-email>")
+    .replace(JWT_RE, "<redacted-token>")
+    .replace(IPV4_RE, "<redacted-ip>");
+  return redacted.slice(0, 400);
+}
+
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
@@ -63,7 +85,7 @@ async function readState(node: string) {
   return {
     node: row.node,
     state: row.state,
-    detail: row.detail ?? null,
+    detail: sanitizeDetail(row.detail ?? null),
     core: row.core ?? null,
     changed_at: row.changed_at,
     reported_at: row.reported_at,
@@ -91,7 +113,7 @@ async function writeState(req: Request) {
     ? payload.state.trim().slice(0, 32)
     : "unknown";
   const detail = typeof payload.detail === "string" && payload.detail.trim()
-    ? payload.detail.trim().slice(0, 512)
+    ? sanitizeDetail(payload.detail.trim())
     : null;
   const core = typeof payload.core === "string" && payload.core.trim()
     ? payload.core.trim().slice(0, 512)
@@ -164,9 +186,12 @@ serve(async (req: Request) => {
 
     if (url.searchParams.get("history") === "1") {
       const limit = Math.min(Number(url.searchParams.get("limit") || "10") || 10, 50);
+      // History only needs the state and timestamps for the in-app incident
+      // list. `detail` is deliberately not selected: older rows still contain
+      // raw Xray logs with client identifiers, and the app never displays it.
       const { data, error } = await db
         .from("node_events")
-        .select("node,state,detail,core,changed_at,created_at")
+        .select("node,state,core,changed_at,created_at")
         .eq("node", node)
         .order("created_at", { ascending: false })
         .limit(limit);
