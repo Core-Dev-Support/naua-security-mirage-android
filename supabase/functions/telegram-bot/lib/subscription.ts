@@ -7,9 +7,13 @@
 export const TOKEN_LENGTH = 32;
 
 async function hmacHex(value: string, secret: string): Promise<string> {
+  // Fail closed: подпись с публичным значением по умолчанию можно подделать,
+  // а ссылка подписки открывает платные ключи. Если секрет не задан — это
+  // ошибка конфигурации, а не повод подписывать общеизвестной строкой.
+  if (!secret) throw new Error("subscription signing secret is not configured");
   const key = await crypto.subtle.importKey(
     "raw",
-    new TextEncoder().encode(secret || "mirage-subscription"),
+    new TextEncoder().encode(secret),
     { name: "HMAC", hash: "SHA-256" },
     false,
     ["sign"],

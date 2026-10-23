@@ -14,15 +14,21 @@ function toHex(buffer: ArrayBuffer): string {
     .join("");
 }
 
-async function hmacHex(value: string, secret: string): Promise<string> {
-  const key = await crypto.subtle.importKey(
+function hmacHex(value: string, secret: string): Promise<string> {
+  // Fail closed: подпись с публичным значением по умолчанию можно подделать,
+  // а ссылка подписки открывает платные ключи. Если секрет не задан — это
+  // ошибка конфигурации, а не повод подписывать общеизвестной строкой.
+  if (!secret) return Promise.reject(new Error("subscription signing secret is not configured"));
+  const keyPromise = crypto.subtle.importKey(
     "raw",
-    new TextEncoder().encode(secret || "mirage-subscription"),
+    new TextEncoder().encode(secret),
     { name: "HMAC", hash: "SHA-256" },
     false,
     ["sign"],
   );
-  return toHex(await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(value)));
+  return keyPromise.then(async (key) =>
+    toHex(await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(value)))
+  );
 }
 
 // Подпись Telegram-аккаунта: HMAC-SHA256 от tg_id, первые 32 hex-символа.

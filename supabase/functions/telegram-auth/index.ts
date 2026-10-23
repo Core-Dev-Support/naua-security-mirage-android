@@ -21,8 +21,12 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.8";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") || "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
-const TELEGRAM_TOKEN = Deno.env.get("TELEGRAM_TOKEN") || "";
 const BOT_USERNAME = Deno.env.get("BOT_USERNAME") || "NAUA_Security_Mirage_Bot";
+// Общий секрет бота и функции. `action=start` принимает tg_id из URL, поэтому
+// без него любой мог бы выписать себе ссылку входа для чужого Telegram и
+// привязать к ней Google-аккаунт жертвы (login CSRF), а `action=status`
+// раскрывал бы email по любому tg_id.
+const BOT_SECRET = (Deno.env.get("BOT_INTERNAL_SECRET") || "").trim();
 
 // Куда GoTrue возвращает пользователя после входа.
 const AUTH_REDIRECT_URL =
@@ -38,9 +42,22 @@ const PKCE_ALPHABET =
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-bot-secret",
   "Access-Control-Allow-Methods": "GET, OPTIONS",
 };
+
+// Сравнение без раннего выхода: секрет приходит по сети, и по времени ответа
+// не должно быть видно, сколько первых символов совпало.
+function botAuthorized(req: Request): boolean {
+  if (!BOT_SECRET) return false;
+  const provided = req.headers.get("x-bot-secret") ?? "";
+  if (provided.length !== BOT_SECRET.length) return false;
+  let mismatch = 0;
+  for (let i = 0; i < BOT_SECRET.length; i++) {
+    mismatch |= BOT_SECRET.charCodeAt(i) ^ provided.charCodeAt(i);
+  }
+  return mismatch === 0;
+}
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -212,9 +229,21 @@ async function linkAccount(
   const db = service();
   const now = new Date().toISOString();
 
-  // Один Google-аккаунт не может быть привязан к двум Telegram-аккаунтам:
-  // прежняя привязка снимается.
-  await db.from("telegram_accounts").delete().eq("user_id", userId).neq("tg_id", tgId);
+  // Один Google-аккаунт не может быть привязан к двум Telegram-аккаунтам.
+  // Раньше прежняя привязка молча удалялась. Это позволяло чужой ссылкой
+  // входа перевесить Google-аккаунт жертвы на Telegram злоумышленника,
+  // поэтому теперь такой вход отклоняется: сначала нужно отвязать аккаунт
+  // в своём чате.
+  const { data: otherLinks, error: otherError } = await db
+    .from("telegram_accounts")
+    .select("tg_id")
+    .eq("user_id", userId)
+    .neq("tg_id", tgId)
+    .limit(1);
+  if (otherError) throw new Error(`Не удалось проверить привязку: ${otherError.message}`);
+  if (otherLinks && otherLinks.length > 0) {
+    throw new Error("Google account is already linked to another Telegram account");
+  }
 
   const { error } = await db.from("telegram_accounts").upsert({
     tg_id: tgId,
@@ -252,49 +281,7 @@ async function linkAccount(
   await db.from("subscriptions").upsert(row, { onConflict: "user_id" });
 }
 
-// Уведомление в чат Telegram о завершении входа.
-//
-// Вместе с подтверждением уходят кнопки навигации, чтобы после входа не
-// пришлось ничего искать: подключиться, профиль, поддержка, рефералка.
-// Язык текста берём из bot_users.lang — он уже выбран при первом входе.
-async function notifyTelegram(
-  tgId: number,
-  text: string,
-  buttons: unknown[] | null,
-): Promise<void> {
-  if (!TELEGRAM_TOKEN) return;
-  try {
-    const payload: Record<string, unknown> = {
-      chat_id: tgId,
-      text,
-      parse_mode: "HTML",
-      disable_web_page_preview: true,
-    };
-    if (buttons && buttons.length > 0) {
-      payload.reply_markup = { inline_keyboard: buttons };
-    }
-    await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-  } catch {
-    // Уведомление — не критично: главное, что привязка сохранена.
-  }
-}
-
-// Язык пользователя (для текста подтверждения).
-async function userLang(tgId: number): Promise<"ru" | "en"> {
-  const { data } = await service()
-    .from("bot_users")
-    .select("lang")
-    .eq("id", tgId)
-    .limit(1);
-  const row = (data && data[0]) as { lang: string | null } | undefined;
-  return row?.lang === "en" ? "en" : "ru";
-}
-
-
+// ===================== Точка входа =====================
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
@@ -313,6 +300,7 @@ serve(async (req) => {
 
     // ---- Шаг 1: выдать ссылку на вход -------------------------------------
     if (action === "start") {
+      if (!botAuthorized(req)) return json({ error: "forbidden" }, 403);
       const tgId = Number(url.searchParams.get("tg_id"));
       if (!Number.isFinite(tgId) || tgId <= 0) {
         return json({ error: "Некорректный tg_id" }, 400);
@@ -360,6 +348,7 @@ serve(async (req) => {
 
     // ---- Шаг 2: статус привязки -------------------------------------------
     if (action === "status") {
+      if (!botAuthorized(req)) return json({ error: "forbidden" }, 403);
       const tgId = Number(url.searchParams.get("tg_id"));
       if (!Number.isFinite(tgId) || tgId <= 0) {
         return json({ error: "Некорректный tg_id" }, 400);
@@ -407,7 +396,6 @@ serve(async (req) => {
     };
     let attempt: (typeof candidates)[number] | null = null;
     let session: Session | null = null;
-    let reason = "обмен не выполнен";
     for (const candidate of candidates) {
       const result = await exchangeCode(String(code), candidate.code_verifier);
       if (result.ok) {
@@ -415,20 +403,12 @@ serve(async (req) => {
         session = result;
         break;
       }
-      reason = result.reason;
     }
     if (!attempt || !session) {
-      for (const candidate of candidates) {
-        await service().from("telegram_oauth_attempts").delete().eq("state", candidate.state);
-      }
-      const failLang = await userLang(candidates[0].tg_id);
-      const failText = failLang === "en"
-        ? `⚠️ <b>Google sign-in failed</b>\n\n${reason}\n\nPlease try again.`
-        : `⚠️ <b>Вход через Google не удался</b>\n\n${reason}\n\nПопробуй ещё раз.`;
-      const failButtons = failLang === "en"
-        ? [[{ text: "🔐 Sign in with Google", callback_data: "google_login" }]]
-        : [[{ text: "🔐 Войти в Google-аккаунт", callback_data: "google_login" }]];
-      await notifyTelegram(candidates[0].tg_id, failText, failButtons);
+      // Не удаляем попытки других пользователей: этот обработчик публичный, и
+      // случайный code от anyone иначе стирал бы свежие попытки входа всех
+      // пользователей. Просроченные записи убирает dropExpiredAttempts() при
+      // следующем action=start.
       return redirectToBot("link_failed_exchange", 302);
     }
 

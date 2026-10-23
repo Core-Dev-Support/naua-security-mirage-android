@@ -251,12 +251,17 @@ serve(async (req) => {
     }
 
     const paidUntil = row.paid_until ? new Date(row.paid_until) : null;
-    if (paidUntil && paidUntil.getTime() <= Date.now()) {
+    // Строка без срока (например, старый free с is_active=true) не должна
+    // открывать платный узел: ключ выдаётся только на оплаченный период.
+    if (!paidUntil || !Number.isFinite(paidUntil.getTime())) {
+      return json({ error: "Subscription has no expiry" }, 403);
+    }
+    if (paidUntil.getTime() <= Date.now()) {
       return json({ error: "Subscription expired" }, 403);
     }
 
     const cookie = await loginTo3xUi();
-    const expiryMs = paidUntil ? paidUntil.getTime() : Date.now() + 30 * 24 * 60 * 60 * 1000;
+    const expiryMs = paidUntil.getTime();
     const { uuid, flow, trafficSeen } = await ensureClient(cookie, userId, email, row, expiryMs);
     const key = vlessUrl(uuid);
 

@@ -177,7 +177,7 @@ select cron.schedule(
 | Функция | Кто вызывает | Доступ | Назначение |
 |---|---|---|---|
 | `telegram-bot` | Telegram | секрет вебхука | Экраны, подписка, поддержка, рефералка, админка, крон |
-| `telegram-auth` | браузер, бот | публичный GET | Google-вход, привязка, пробник, экран ошибки |
+| `telegram-auth` | браузер, бот | публичный GET; `start`/`status` — только с `x-bot-secret` | Google-вход, привязка, пробник, экран ошибки |
 | `telegram-subscription` | VPN-клиент, приложение | подпись `tg_id` (с версией ссылки) или JWT | Одна base64-ссылка: Франция + Беларусь (+ бесплатный обход по подписанной `?free=…`, только Happ) |
 | `yoomoney-webhook` | YooMoney | подпись YooMoney | Начисление дней, реферальный бонус, журнал платежей |
 | `france-config` | приложение | JWT пользователя | Узел 3X-UI для оплатившего |
@@ -185,11 +185,24 @@ select cron.schedule(
 | `register-device` | приложение | JWT пользователя | Токен FCM для пушей |
 | `send-release-push` | CI | `x-push-secret` | Пуш о релизе |
 | `latest-release` | приложение | публичный | Кэш версий поверх GitHub Releases |
-| `node-status` | приложение, watchdog | чтение открыто, запись по `x-node-token` | Состояние узлов и история сбоев |
+| `node-status` | приложение, watchdog | чтение по anon-ключу (без `detail`), запись по `x-node-token` | Состояние узлов и история сбоев |
 
-`france-config` и `belarus-config` не отдают узлы без валидной сессии: иначе
-anon-ключ из APK читал бы чужие подписки. `telegram-subscription` принимает либо
-`?user=<tg_id>_<HMAC>`, либо `Authorization: Bearer <JWT>`.
+`telegram-auth?action=start` принимает `tg_id` из URL, поэтому бот передаёт
+`x-bot-secret` (`BOT_INTERNAL_SECRET`). Без него любой мог бы выписать ссылку
+входа для чужого Telegram. `action=status` закрыт тем же заголовком: иначе по
+`tg_id` раскрывался email привязки.
+
+`france-config` и `belarus-config` не отдают узлы без валидной сессии и без
+`paid_until` в будущем: запись `is_active=true` с пустым сроком больше не
+открывает платный узел. `telegram-subscription` принимает либо
+`?user=<tg_id>_<HMAC>`, либо `Authorization: Bearer <JWT>`. Подпись не
+подставляется публичным значением по умолчанию: без `SUBSCRIPTION_SECRET`
+функция падает, а не выдаёт подделываемые ссылки.
+
+Права `public` выдаются явно: у `subscriptions` — только `SELECT` для
+`authenticated` (RLS `auth.uid() = user_id`); `anon` не читает таблицу. Для
+новых объектов `anon`/`authenticated` больше не получают права по умолчанию —
+это закреплено миграцией `20261101000000_tighten_public_privileges.sql`.
 
 ## Схема данных
 
@@ -265,7 +278,7 @@ deno test --allow-read --allow-env \
 Секреты — только в окружении Supabase: `TELEGRAM_TOKEN`,
 `TELEGRAM_SECRET_TOKEN`, `ADMIN_ID`, `BOT_USERNAME`, `SUPABASE_*`,
 `YOOMONEY_WALLET`, `YOOMONEY_SECRET`, `SUBSCRIPTION_SECRET`, `SUB_SECRET`,
-`CRON_KEY`, `THREE_X_UI_*`, `H1CLOUD_*`, `PUSH_SEND_SECRET`,
+`BOT_INTERNAL_SECRET`, `CRON_KEY`, `THREE_X_UI_*`, `H1CLOUD_*`, `PUSH_SEND_SECRET`,
 `NODE_STATUS_TOKEN`.
 
 ## CI/CD

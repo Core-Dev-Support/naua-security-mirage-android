@@ -239,7 +239,12 @@ serve(async (req) => {
     }
 
     const paidUntil = row.paid_until ? new Date(row.paid_until) : null;
-    if (paidUntil && paidUntil.getTime() <= Date.now()) {
+    // Без срока платного периода ключ не выдаём: запись с is_active=true и
+    // paid_until=null иначе открывала бы узел бессрочно.
+    if (!paidUntil || !Number.isFinite(paidUntil.getTime())) {
+      return json({ error: "Subscription has no expiry" }, 403);
+    }
+    if (paidUntil.getTime() <= Date.now()) {
       return json({ error: "Subscription expired" }, 403);
     }
 

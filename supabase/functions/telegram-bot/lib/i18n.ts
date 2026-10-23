@@ -52,7 +52,8 @@ const ru: Record<string, string> = {
     "<b>🇫🇷 Франция и 🇧🇾 Беларусь в одной подписке. Безлимитный трафик. " +
     "Одна подписка — и для бота, и для приложения.</b>",
   "welcome.hint":
-    "🔐 Войди через Google — это привяжет к тебе подписку и узлы.",
+    "🔐 Войди через Google — это привяжет подписку к этому Telegram. " +
+    "Ссылку входа никому не пересылай.",
   "welcome.login": "🔐 Войти в Google-аккаунт",
 
   // --- главное меню ---
@@ -320,7 +321,8 @@ const en: Record<string, string> = {
     "<b>🇫🇷 France and 🇧🇾 Belarus in one subscription. Unlimited traffic. " +
     "One subscription — for the bot and for the app.</b>",
   "welcome.hint":
-    "🔐 Sign in with Google — this links your subscription and nodes to you.",
+    "🔐 Sign in with Google — this links the subscription to this Telegram. " +
+    "Never forward the sign-in link.",
   "welcome.login": "🔐 Sign in with Google",
 
   // --- main menu ---

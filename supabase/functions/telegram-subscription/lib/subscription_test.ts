@@ -22,6 +22,16 @@ const EXPECTED = "7f59481e1dd46403058381df0f39126b";
 // subscription_test.ts — правила должны совпадать.
 const FREE_EXPECTED = "51b0cfd328b27da9f48c9782153f500b";
 
+Deno.test("пустой секрет подписи отклоняется", async () => {
+  let rejected = false;
+  try {
+    await subscriptionSignature(1, "");
+  } catch {
+    rejected = true;
+  }
+  if (!rejected) throw new Error("подпись с пустым секретом не отклонена");
+});
+
 Deno.test("подпись детерминирована для одного и того же аккаунта", async () => {
   const first = await subscriptionSignature(123456789, SIGNING_VALUE);
   const second = await subscriptionSignature(123456789, SIGNING_VALUE);

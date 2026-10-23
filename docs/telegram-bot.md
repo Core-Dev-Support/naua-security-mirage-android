@@ -63,7 +63,7 @@ service-role ключ, anon-ключ их не видит.
 
 Как это работает:
 
-- бот передаёт id экрана в ссылку (путь `telegram-auth?action=start&tg_id=<тог>&screen_msg=<id>`);
+- бот передаёт id экрана в ссылку (путь `telegram-auth?action=start&tg_id=<тог>&screen_msg=<id>`) и заголовок `x-bot-secret` (`BOT_INTERNAL_SECRET`); без него `start` и `status` отвечают `403`;
 - функция после входа пишет этот id в `screen_message_id` и **не шлёт** ни одного сообщения в чат;
 - бот получает `/start linked` и **переписывает** тот самый пузырь — подтверждением и главным меню. Новых сообщений не появляется.
 
@@ -168,6 +168,7 @@ choice sticks — you can change it later in your profile.
 ```
 Бот: «🔐 Войти в Google-аккаунт»
   └─ GET telegram-auth?action=start&tg_id=<id>
+       (заголовок x-bot-secret: BOT_INTERNAL_SECRET)
        └─ функция готовит state + PKCE-верификатор, кладёт их в
           telegram_oauth_attempts и отдаёт ссылку на
           /auth/v1/authorize?provider=google&flow_type=pkce
@@ -191,6 +192,12 @@ https://orwwaptbxmwxvfwfqavc.supabase.co/functions/v1/telegram-auth
 > возвращает на `redirect_to` уже без нашего `state`. Поэтому `telegram-auth`
 > перебирает свежие попытки входа и останавливается на той, чей PKCE-верификатор
 > подошёл. Сам `state` хранится в `telegram_oauth_attempts` 10 минут.
+>
+> Ссылку входа нельзя пересылать: она привязывает Google-аккаунт к тому
+> Telegram, для которого бот её выписал. Функция не перевешивает Google-аккаунт,
+> уже привязанный к другому Telegram: сначала нужно отвязать его в своём чате.
+> Неудачный callback не удаляет чужие попытки входа — иначе случайный `code`
+> сбрасывал бы вход всем пользователям.
 
 ---
 
@@ -588,8 +595,10 @@ Authorization: Bearer <supabase-jwt>
 ```
 
 Подпись — HMAC-SHA256 от `tg_id` с секретом `SUBSCRIPTION_SECRET`, первые 32
-hex-символа. Без Google-аккаунта отдаются только бесплатные обходы — и только
-по ссылке с валидной `free`-подписью.
+hex-символа. Если секрет не задан, подпись не вычисляется: публичное значение
+по умолчанию позволило бы подделать ссылку с платными ключами. Без
+Google-аккаунта отдаются только бесплатные обходы — и только по ссылке с
+валидной `free`-подписью.
 
 ### Страница подключения
 

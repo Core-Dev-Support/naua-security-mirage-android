@@ -607,6 +607,7 @@ async function googleLoginUrl(
         headers: {
           apikey: Deno.env.get("SUPABASE_ANON_KEY") || "",
           Authorization: `Bearer ${Deno.env.get("SUPABASE_ANON_KEY") || ""}`,
+          "x-bot-secret": Deno.env.get("BOT_INTERNAL_SECRET") || "",
         },
       },
     );
