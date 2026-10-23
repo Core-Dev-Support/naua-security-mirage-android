@@ -17,7 +17,8 @@ const CORS = {
 
 const CLIENT_DEVICES = 0;
 const CLIENT_TRAFFIC_GB = 0;
-const API_TIMEOUT_MS = 20_000;
+const API_TIMEOUT_MS = 8_000;
+const TOTAL_PANEL_BUDGET_MS = 14_000;
 const UUID_PATTERN =
   /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
 
@@ -49,6 +50,7 @@ type SubscriptionRow = {
   paid_until: string | null;
   belarus_vless_key: string | null;
   belarus_client_uuid: string | null;
+  belarus_client_name: string | null;
 };
 
 function json(body: unknown, status = 200): Response {
@@ -58,21 +60,45 @@ function json(body: unknown, status = 200): Response {
   });
 }
 
+/**
+ * Keeps the whole panel interaction inside the app's HTTP timeout. A slow
+ * panel must end with a clear 502 instead of a client-side SocketTimeout.
+ */
+class PanelBudget {
+  private readonly deadline: number;
+
+  constructor(totalMs: number) {
+    this.deadline = Date.now() + totalMs;
+  }
+
+  remaining(): number {
+    return this.deadline - Date.now();
+  }
+
+  expired(): boolean {
+    return this.remaining() <= 300;
+  }
+}
+
 async function panelCall(
   method: string,
   path: string,
   token: string | null,
-  body?: unknown,
+  body: unknown,
+  budget: PanelBudget,
 ): Promise<{ status: number; parsed: Record<string, unknown> }> {
   if (!H1CLOUD_BASE_URL) throw new Error("H1Cloud panel address is not configured");
+  if (budget.expired()) throw new Error("H1Cloud did not respond in time");
+
   const headers: Record<string, string> = { Accept: "application/json" };
   if (token) headers.Authorization = `Bearer ${token}`;
   if (body !== undefined) headers["Content-Type"] = "application/json";
+
   const response = await fetch(`${H1CLOUD_BASE_URL}/api${path}`, {
     method,
     headers,
     body: body === undefined ? undefined : JSON.stringify(body),
-    signal: AbortSignal.timeout(API_TIMEOUT_MS),
+    signal: AbortSignal.timeout(Math.min(API_TIMEOUT_MS, budget.remaining())),
   });
   const text = await response.text();
   let parsed: Record<string, unknown> = {};
@@ -84,14 +110,18 @@ async function panelCall(
   return { status: response.status, parsed };
 }
 
-async function loginToPanel(): Promise<string> {
+function asClient(value: unknown): H1Client | null {
+  return value && typeof value === "object" ? (value as H1Client) : null;
+}
+
+async function loginToPanel(budget: PanelBudget): Promise<string> {
   if (!H1CLOUD_USERNAME || !H1CLOUD_PASSWORD) {
     throw new Error("H1Cloud panel credentials are incomplete");
   }
   const { status, parsed } = await panelCall("POST", "/auth/login", null, {
     username: H1CLOUD_USERNAME,
     password: H1CLOUD_PASSWORD,
-  });
+  }, budget);
   const token = typeof parsed.token === "string" ? parsed.token : "";
   if (status !== 200 || !token) {
     throw new Error(`H1Cloud login was rejected with HTTP ${status}`);
@@ -99,13 +129,13 @@ async function loginToPanel(): Promise<string> {
   return token;
 }
 
-async function resolvePanelToken(): Promise<string> {
+async function resolvePanelToken(budget: PanelBudget): Promise<string> {
   if (H1CLOUD_API_TOKEN) return H1CLOUD_API_TOKEN;
-  return await loginToPanel();
+  return await loginToPanel(budget);
 }
 
-async function listClients(token: string): Promise<H1Client[]> {
-  const { status, parsed } = await panelCall("GET", "/clients", token);
+async function listClients(token: string, budget: PanelBudget): Promise<H1Client[]> {
+  const { status, parsed } = await panelCall("GET", "/clients", token, undefined, budget);
   if (status !== 200 || parsed.ok === false) {
     throw new Error(`H1Cloud client list failed with HTTP ${status}`);
   }
@@ -113,10 +143,27 @@ async function listClients(token: string): Promise<H1Client[]> {
   return Array.isArray(clients) ? (clients as H1Client[]) : [];
 }
 
+async function fetchClient(
+  token: string,
+  name: string,
+  budget: PanelBudget,
+): Promise<H1Client | null> {
+  const { status, parsed } = await panelCall(
+    "GET",
+    `/info?name=${encodeURIComponent(name)}`,
+    token,
+    undefined,
+    budget,
+  );
+  if (status !== 200 || parsed.ok === false) return null;
+  return asClient(parsed.client);
+}
+
 async function createPanelClient(
   token: string,
   name: string,
   days: number,
+  budget: PanelBudget,
 ): Promise<{ client: H1Client | null; nameTaken: boolean }> {
   const { status, parsed } = await panelCall("POST", "/create", token, {
     name,
@@ -124,7 +171,7 @@ async function createPanelClient(
     devices: CLIENT_DEVICES,
     traffic_gb: CLIENT_TRAFFIC_GB,
     manual: 1,
-  });
+  }, budget);
   if (status === 409) {
     return { client: null, nameTaken: true };
   }
@@ -133,23 +180,89 @@ async function createPanelClient(
       `H1Cloud refused to create a client with HTTP ${status}: ${String(parsed.error ?? "unknown")}`,
     );
   }
-  const client = parsed.client;
-  return {
-    client: client && typeof client === "object" ? (client as H1Client) : null,
-    nameTaken: false,
-  };
+  return { client: asClient(parsed.client), nameTaken: false };
+}
+
+async function extendPanelClient(
+  token: string,
+  name: string,
+  days: number,
+  budget: PanelBudget,
+): Promise<H1Client> {
+  const { status, parsed } = await panelCall("PATCH", "/edit", token, {
+    name,
+    days,
+  }, budget);
+  if (status !== 200) {
+    throw new Error(
+      `H1Cloud refused to extend a client with HTTP ${status}: ${String(parsed.error ?? "unknown")}`,
+    );
+  }
+  const client = asClient(parsed.client);
+  if (!client) throw new Error("H1Cloud did not return the extended client");
+  return client;
+}
+
+/**
+ * `left_days` is rounded differently by different panel endpoints. Comparing
+ * `expires_at` with the subscription end avoids an `/edit` on every request
+ * while still keeping the client valid for the whole paid period.
+ */
+function needsExtension(client: H1Client, days: number, paidUntilMs: number): boolean {
+  if (client.banned === true) return false;
+  const status = (client.status || "").toLowerCase();
+  if (status !== "active") return true;
+
+  const expiresAt = typeof client.expires_at === "number" ? client.expires_at * 1000 : 0;
+  if (expiresAt > 0) {
+    return expiresAt < paidUntilMs - 6 * 60 * 60 * 1000;
+  }
+
+  const left = typeof client.left_days === "number" ? client.left_days : Number(client.left_days);
+  return !Number.isFinite(left) || left < days;
+}
+
+async function ensureClientCoversSubscription(
+  token: string,
+  client: H1Client,
+  days: number,
+  paidUntilMs: number,
+  budget: PanelBudget,
+): Promise<H1Client> {
+  if (!client.name) throw new Error("H1Cloud returned a client without a name");
+  if (!needsExtension(client, days, paidUntilMs)) return client;
+  try {
+    return await extendPanelClient(token, client.name, days, budget);
+  } catch (error) {
+    // If the panel cannot extend the client, a still-active client is better
+    // than a 502. An expired one will be rejected by findLink below.
+    console.warn(
+      "belarus-config: could not extend the H1Cloud client:",
+      error instanceof Error ? error.message : error,
+    );
+    return client;
+  }
 }
 
 function clientNameCandidates(baseName: string): string[] {
-  return [baseName, `${baseName}_v2`, `${baseName}_v3`, `${baseName}_v4`, `${baseName}_v5`];
+  return [
+    baseName,
+    `${baseName}_v2`,
+    `${baseName}_v3`,
+    `${baseName}_v4`,
+    `${baseName}_v5`,
+    `${baseName}_v6`,
+  ];
 }
 
 async function findOrCreateClient(
   token: string,
   baseName: string,
   days: number,
-): Promise<H1Client> {
-  const clients = await listClients(token);
+  paidUntilMs: number,
+  budget: PanelBudget,
+): Promise<{ client: H1Client; name: string }> {
+  const clients = await listClients(token, budget);
   const byName = new Map<string, H1Client>();
   for (const client of clients) {
     if (client.name) byName.set(client.name.toLowerCase(), client);
@@ -157,15 +270,29 @@ async function findOrCreateClient(
 
   for (const candidate of clientNameCandidates(baseName)) {
     const existing = byName.get(candidate.toLowerCase());
-    if (existing) return existing;
+    let client = existing ?? null;
 
-    const result = await createPanelClient(token, candidate, days);
-    if (result.client) return result.client;
-    if (!result.nameTaken) {
-      throw new Error("The H1Cloud client could not be created or found");
+    if (!client) {
+      const result = await createPanelClient(token, candidate, days, budget);
+      if (result.client) {
+        client = result.client;
+      } else if (result.nameTaken) {
+        // 409 name_taken_by_inbound_client: имя занято клиентом, которого нет
+        // в /clients (обычно старый inbound-клиент). Пробуем следующий суффикс.
+        continue;
+      } else {
+        throw new Error("The H1Cloud client could not be created or found");
+      }
     }
-    // 409 name_taken_by_inbound_client: имя занято клиентом, которого нет
-    // в /clients (обычно старый inbound-клиент). Пробуем следующий суффикс.
+
+    const ensured = await ensureClientCoversSubscription(
+      token,
+      client,
+      days,
+      paidUntilMs,
+      budget,
+    );
+    return { client: ensured, name: ensured.name || candidate };
   }
 
   throw new Error("The H1Cloud client could not be created or found");
@@ -192,8 +319,18 @@ function pickLink(client: Record<string, unknown>): string {
   return "";
 }
 
-async function findLink(token: string, name: string): Promise<{ link: string; uuid: string } | null> {
-  const { status, parsed } = await panelCall("GET", `/info?name=${encodeURIComponent(name)}`, token);
+async function findLink(
+  token: string,
+  name: string,
+  budget: PanelBudget,
+): Promise<{ link: string; uuid: string } | null> {
+  const { status, parsed } = await panelCall(
+    "GET",
+    `/info?name=${encodeURIComponent(name)}`,
+    token,
+    undefined,
+    budget,
+  );
   if (status !== 200 || parsed.ok === false) return null;
   const client = parsed.client;
   if (!client || typeof client !== "object") return null;
@@ -268,7 +405,9 @@ serve(async (req) => {
 
     const { data: rows, error: subError } = await service
       .from("subscriptions")
-      .select("user_id,email,is_active,plan,paid_until,belarus_vless_key,belarus_client_uuid")
+      .select(
+        "user_id,email,is_active,plan,paid_until,belarus_vless_key,belarus_client_uuid,belarus_client_name",
+      )
       .eq("user_id", userId)
       .limit(1);
     if (subError) throw new Error(`Subscription lookup failed: ${subError.message}`);
@@ -291,13 +430,39 @@ serve(async (req) => {
     const days = daysUntil(row.paid_until);
     if (days <= 0) return json({ error: "Subscription expired" }, 403);
 
-    const panelToken = await resolvePanelToken();
+    const budget = new PanelBudget(TOTAL_PANEL_BUDGET_MS);
+    const panelToken = await resolvePanelToken(budget);
     const wantedName = clientNameFor(email);
+    const paidUntilMs = paidUntil.getTime();
 
-    const client = await findOrCreateClient(panelToken, wantedName, days);
-    const clientName = client.name || wantedName;
+    let client: H1Client | null = null;
+    const storedName = (row.belarus_client_name || "").trim();
+    if (storedName) {
+      const existing = await fetchClient(panelToken, storedName, budget);
+      if (existing) {
+        client = await ensureClientCoversSubscription(
+          panelToken,
+          existing,
+          days,
+          paidUntilMs,
+          budget,
+        );
+      }
+    }
 
-    const resolved = await findLink(panelToken, clientName);
+    if (!client) {
+      const found = await findOrCreateClient(
+        panelToken,
+        wantedName,
+        days,
+        paidUntilMs,
+        budget,
+      );
+      client = found.client;
+    }
+
+    const clientName = client.name || storedName || wantedName;
+    const resolved = await findLink(panelToken, clientName, budget);
     if (!resolved) {
       throw new Error("The H1Cloud client carries no VLESS link yet");
     }
@@ -308,12 +473,17 @@ serve(async (req) => {
       encodeURIComponent("NAUA Security Mirage Беларусь (Платный)")
     }`;
 
-    if (row.belarus_client_uuid !== resolved.uuid || row.belarus_vless_key !== namedLink) {
+    if (
+      row.belarus_client_uuid !== resolved.uuid ||
+      row.belarus_vless_key !== namedLink ||
+      row.belarus_client_name !== clientName
+    ) {
       await service
         .from("subscriptions")
         .update({
           belarus_client_uuid: resolved.uuid,
           belarus_vless_key: namedLink,
+          belarus_client_name: clientName,
           email,
           updated_at: new Date().toISOString(),
         })

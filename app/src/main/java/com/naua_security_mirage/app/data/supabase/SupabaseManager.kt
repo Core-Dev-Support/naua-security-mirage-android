@@ -1271,11 +1271,11 @@ class SupabaseManager private constructor() {
         }
     }
 
-    suspend fun ensureBelarusVlessKey(): String? = withContext(Dispatchers.IO) {
+    suspend fun ensureBelarusVlessKey(force: Boolean = false): String? = withContext(Dispatchers.IO) {
         if (!hasActiveSubscription()) return@withContext null
         _currentUser.value ?: return@withContext null
 
-        if (isCacheFresh()) {
+        if (!force && isCacheFresh()) {
             val cached = getActiveBelarusVlessKey()
             if (!cached.isNullOrBlank()) {
                 AppLogger.i(
@@ -1284,6 +1284,8 @@ class SupabaseManager private constructor() {
                 )
                 return@withContext cached
             }
+        } else if (force) {
+            AppLogger.i(TAG, "Принудительное обновление ключа Беларуси у панели")
         } else {
             AppLogger.w(
                 TAG,

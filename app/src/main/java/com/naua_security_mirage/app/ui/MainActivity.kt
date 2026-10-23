@@ -46,7 +46,9 @@ import com.naua_security_mirage.app.data.repository.PingRepository
 import com.naua_security_mirage.app.data.repository.SettingsRepository
 import com.naua_security_mirage.app.data.repository.VlessKeyRepository
 import com.naua_security_mirage.app.databinding.ActivityMainBinding
+import com.naua_security_mirage.app.vpn.BelarusNodeMonitor
 import com.naua_security_mirage.app.vpn.MirageVpnService
+import com.naua_security_mirage.app.vpn.NodeEventStore
 import android.content.res.ColorStateList
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -2036,7 +2038,11 @@ class MainActivity : AppCompatActivity() {
                 try {
                     val hasPaid = com.naua_security_mirage.app.data.supabase.SupabaseManager.instance
                         .hasActiveSubscription()
-                    if (hasPaid) {
+                    val paidPlan = settingsRepository.selectedServerPlan
+                    val isPaidPlan = settingsRepository.isPaidPlan(paidPlan)
+                    val isBelarusPlan = paidPlan == SettingsRepository.PLAN_PREMIUM_BELARUS
+
+                    if (hasPaid && !isBelarusPlan) {
                         val freshKey = runCatching {
                             com.naua_security_mirage.app.data.supabase.SupabaseManager.instance
                                 .ensureFranceVlessKey()
@@ -2046,27 +2052,36 @@ class MainActivity : AppCompatActivity() {
                             if (freshKey != null) "Ключ платного узла обновлён"
                             else "Ключ платного узла не обновлён, используется кэш"
                         )
+                    } else if (hasPaid) {
+                        AppLogger.i(
+                            "DataRefresh",
+                            "Ключ Беларуси обновляется параллельно с замером задержки"
+                        )
                     } else {
                         AppLogger.d("DataRefresh", "Нет активной подписки, платный узел пропущен")
                     }
-                    val paidPlan = settingsRepository.selectedServerPlan
-                    val isPaidPlan = settingsRepository.isPaidPlan(paidPlan)
-                    val francePingJob = if (isPaidPlan) {
+
+                    val paidPingJob = if (isPaidPlan && hasPaid) {
                         async {
                             runCatching {
-                                val manager = com.naua_security_mirage.app.data.supabase.SupabaseManager.instance
-                                val server = if (paidPlan == SettingsRepository.PLAN_PREMIUM_BELARUS) {
-                                    manager.ensureBelarusVlessKey()?.let { key ->
-                                        com.naua_security_mirage.app.data.model.VlessServer
-                                            .fromUri(key, com.naua_security_mirage.app.data.supabase.SupabaseConfig.BELARUS_LABEL)
+                                if (isBelarusPlan) {
+                                    val probe = BelarusNodeMonitor.probe(
+                                        this@MainActivity,
+                                        forceRefresh = true
+                                    )
+                                    when {
+                                        probe.server == null -> getString(R.string.refresh_paid_no_key)
+                                        probe.reachable -> "${probe.pingMs} ms"
+                                        else -> getString(R.string.ping_timeout)
                                     }
                                 } else {
+                                    val manager = com.naua_security_mirage.app.data.supabase.SupabaseManager.instance
                                     val uuid = manager.getActiveClientUuid()
-                                    com.naua_security_mirage.app.data.supabase.SupabaseConfig
+                                    val server = com.naua_security_mirage.app.data.supabase.SupabaseConfig
                                         .getFranceServer(uuid, manager.getActiveClientFlow(uuid))
+                                    val p = pingRepository.measurePing(server, timeoutMs = 1800)
+                                    if (p in 1..9998) "$p ms" else getString(R.string.ping_timeout)
                                 }
-                                val p = server?.let { pingRepository.measurePing(it, timeoutMs = 1800) } ?: -1L
-                                if (p in 1..9998) "$p ms" else getString(R.string.ping_timeout)
                             }.getOrNull() ?: getString(R.string.ping_timeout)
                         }
                     } else {
@@ -2081,13 +2096,13 @@ class MainActivity : AppCompatActivity() {
                     }
                     val best = pingRepository.selectBestServer(measured)
                     val pingText = if (best.pingMs in 1..9998) "${best.pingMs} ms" else getString(R.string.ping_timeout)
-                    val francePingText = francePingJob?.await()
+                    val paidPingText = paidPingJob?.await()
 
-                    val statusText = if (francePingText != null) francePingText else pingText
+                    val statusText = if (paidPingText != null) paidPingText else pingText
                     AppLogger.i(
                         "DataRefresh",
-                        if (isPaidPlan) {
-                            "Обновление завершено. Показан пинг Франции $francePingText, бесплатные обновлены: ${best.tag} $pingText"
+                        if (paidPingText != null) {
+                            "Обновление завершено. Показан пинг платного узла $paidPingText, бесплатные обновлены: ${best.tag} $pingText"
                         } else {
                             "Обновление завершено. Показан пинг бесплатного ${best.tag} $pingText"
                         }
@@ -2230,74 +2245,82 @@ class MainActivity : AppCompatActivity() {
             settingsRepository.lastPaidPlan
         }
 
+        val isBelarusPlan = trackedPlan == SettingsRepository.PLAN_PREMIUM_BELARUS
+
         nodeStatusJob = lifecycleScope.launch {
             if (!com.naua_security_mirage.app.data.supabase.SupabaseManager.instance.hasActiveSubscription()) {
                 if (gen != nodeStatusGen) return@launch
                 stateView.text = getString(R.string.node_status_no_subscription)
                 stateView.setTextColor(themedSubtitle())
-            } else if (trackedPlan == SettingsRepository.PLAN_PREMIUM_BELARUS) {
-                refreshBelarusState(stateView, gen)
-                if (gen != nodeStatusGen) return@launch
-                historyView?.text = getString(R.string.node_history_untracked)
-                return@launch
+            } else if (isBelarusPlan) {
+                refreshBelarusState(stateView, gen, forceRefresh = force)
             } else {
                 refreshFranceState(stateView, gen)
             }
 
-            val events = com.naua_security_mirage.app.vpn.NodeStatusReporter.history(limit = 5)
+            if (gen != nodeStatusGen) return@launch
+            val history: List<NodeHistoryRow>? = if (isBelarusPlan) {
+                withContext(Dispatchers.IO) {
+                    NodeEventStore.history(
+                        this@MainActivity,
+                        NodeEventStore.NODE_BELARUS,
+                        limit = 5
+                    )
+                }.map { NodeHistoryRow(it.state, it.at, it.detail) }
+            } else {
+                com.naua_security_mirage.app.vpn.NodeStatusReporter.history(limit = 5)
+                    ?.map { NodeHistoryRow(it.state, it.changedAt, null) }
+            }
             if (gen != nodeStatusGen) return@launch
             if (historyView != null) {
                 historyView.text = when {
-                    events == null -> getString(R.string.node_history_failed)
-                    events.isEmpty() -> getString(R.string.node_history_empty)
-                    else -> events.joinToString("\n") { ev ->
+                    history == null -> getString(R.string.node_history_failed)
+                    history.isEmpty() -> getString(R.string.node_history_empty)
+                    else -> history.joinToString("\n") { row ->
                         getString(
                             R.string.node_history_entry,
-                            ev.changedAt?.let { formatNodeSince(it) } ?: "?",
-                            nodeStateLabel(ev.state)
+                            row.at?.let { formatNodeSince(it) } ?: "?",
+                            nodeHistoryStateLabel(row.state, row.detail)
                         )
                     }
                 }
                 AppLogger.i(
                     "NodeStatus",
-                    if (events == null) "История сбоев: загрузить не удалось"
-                    else "История сбоев: записей ${events.size}"
+                    if (history == null) "История сбоев: загрузить не удалось"
+                    else "История сбоев: записей ${history.size}"
                 )
             }
         }
     }
 
-    private suspend fun refreshBelarusState(stateView: TextView, gen: Int) {
-        val manager = com.naua_security_mirage.app.data.supabase.SupabaseManager.instance
-        val server = withContext(Dispatchers.IO) {
-            val key = manager.getActiveBelarusVlessKey()?.takeIf { it.isNotBlank() }
-                ?: runCatching { manager.ensureBelarusVlessKey() }
-                    .getOrNull()
-                    ?.takeIf { it.isNotBlank() }
-            key?.let {
-                com.naua_security_mirage.app.data.model.VlessServer.fromUri(
-                    it,
-                    com.naua_security_mirage.app.data.supabase.SupabaseConfig.BELARUS_LABEL
-                )
-            }
-        }
+    private suspend fun refreshBelarusState(stateView: TextView, gen: Int, forceRefresh: Boolean) {
+        val probe = BelarusNodeMonitor.probe(this@MainActivity, forceRefresh = forceRefresh)
         if (gen != nodeStatusGen) return
-        if (server == null) {
-            stateView.text = getString(R.string.node_status_fetch_failed)
+
+        if (probe.reason == "no_subscription") {
+            stateView.text = getString(R.string.node_status_no_subscription)
             stateView.setTextColor(themedSubtitle())
-            AppLogger.w("NodeStatus", "Беларусь: ключ узла не получен, проверка не выполнена")
             return
         }
-        val pingMs = pingRepository.measurePing(server, timeoutMs = 3000) { socket ->
-            com.naua_security_mirage.app.vpn.MirageVpnService.protectSocket(socket)
+
+        val server = probe.server
+        if (server == null) {
+            stateView.text = getString(R.string.node_status_belarus_no_key)
+            stateView.setTextColor(nodeColor(true))
+            AppLogger.w(
+                "NodeStatus",
+                "Беларусь: ключ узла не получен (${probe.reason}), проверка не выполнена"
+            )
+            return
         }
-        if (gen != nodeStatusGen) return
-        if (pingMs in 1..9998) {
-            stateView.text = getString(R.string.node_status_belarus_up, pingMs)
+
+        if (probe.reachable) {
+            stateView.text = getString(R.string.node_status_belarus_up, probe.pingMs)
             stateView.setTextColor(themedSubtitle())
             AppLogger.i(
                 "NodeStatus",
-                "Беларусь: узел отвечает с устройства за ${pingMs} мс (${server.address}:${server.port})"
+                "Беларусь: узел отвечает с устройства за ${probe.pingMs} мс " +
+                        "(${server.address}:${server.port})"
             )
         } else {
             stateView.text = getString(R.string.node_status_belarus_down)
@@ -2341,6 +2364,20 @@ class MainActivity : AppCompatActivity() {
                     status
                 )
             }
+    }
+
+    private data class NodeHistoryRow(
+        val state: String,
+        val at: Long?,
+        val detail: String?
+    )
+
+    private fun nodeHistoryStateLabel(state: String, detail: String?): String = when (detail) {
+        "no_key" -> getString(R.string.node_history_state_no_key)
+        "bad_key" -> getString(R.string.node_history_state_bad_key)
+        "no_ping" -> getString(R.string.node_history_state_no_ping)
+        "tunnel" -> getString(R.string.node_history_state_tunnel_failed)
+        else -> nodeStateLabel(state)
     }
 
     private fun nodeStateLabel(state: String): String = when (state) {

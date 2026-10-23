@@ -218,7 +218,6 @@ class MirageVpnService : VpnService() {
 
                 var premeasuredFree: List<VlessServer> = emptyList()
                 var franceRefresh: Deferred<String?>? = null
-                var belarusRefresh: Deferred<String?>? = null
                 var freeLoadedCount = 0
                 var freeAnyReachable = false
                 var freePanelReachable = false
@@ -274,7 +273,6 @@ class MirageVpnService : VpnService() {
                         com.naua_security_mirage.app.data.supabase.SupabaseManager.instance
                             .ensureBelarusVlessKey()
                     }
-                    belarusRefresh = refresh
                     resolveBelarusServer(refresh)
                 } else {
 
@@ -385,32 +383,67 @@ class MirageVpnService : VpnService() {
 
 
                 if (tunnelAttempt?.first == null && onPaidNode) {
-                    val pendingRefresh = if (isBelarusPlan) belarusRefresh else franceRefresh
                     val retryLabel = if (isBelarusPlan) {
                         com.naua_security_mirage.app.data.supabase.SupabaseConfig.BELARUS_LABEL
                     } else {
                         "Франция (Платный)"
                     }
-                    if (pendingRefresh != null && !pendingRefresh.isCompleted) {
-                        val freshKey = withTimeoutOrNull(CACHED_KEY_BUDGET_MS) { pendingRefresh.await() }
-                        val retryServer = freshKey
-                            ?.let { com.naua_security_mirage.app.data.model.VlessServer.fromUri(it, retryLabel) }
-                            ?.let { applyFingerprintPreference(it) }
-                        if (retryServer != null) {
-                            AppLogger.w(TAG, "Повтор платного подключения с ключом, полученным после обновления панели")
-                            tunnelAttempt = withTimeoutOrNull(tunnelBudgetMs) {
-                                openWorkingTunnel(retryServer, true, pfd, emptyList())
-                            }
+                    if (isBelarusPlan) {
+                        // Кэшированный ключ мог устареть после ротации на панели.
+                        // После неудачи один раз принудительно перечитываем его.
+                        NodeEventStore.record(
+                            this@MirageVpnService,
+                            NodeEventStore.NODE_BELARUS,
+                            NodeEventStore.STATE_DOWN,
+                            "tunnel"
+                        )
+                    }
+                    val freshKey = if (isBelarusPlan) {
+                        withTimeoutOrNull(BELARUS_KEY_BUDGET_MS) {
+                            com.naua_security_mirage.app.data.supabase.SupabaseManager.instance
+                                .ensureBelarusVlessKey(force = true)
+                        }
+                    } else {
+                        val pendingRefresh = franceRefresh
+                        if (pendingRefresh != null && !pendingRefresh.isCompleted) {
+                            withTimeoutOrNull(CACHED_KEY_BUDGET_MS) { pendingRefresh.await() }
+                        } else {
+                            null
+                        }
+                    }
+                    val retryServer = freshKey
+                        ?.let { com.naua_security_mirage.app.data.model.VlessServer.fromUri(it, retryLabel) }
+                        ?.let { applyFingerprintPreference(it) }
+                    if (retryServer != null) {
+                        AppLogger.w(TAG, "Повтор платного подключения с ключом, полученным после обновления панели")
+                        tunnelAttempt = withTimeoutOrNull(tunnelBudgetMs) {
+                            openWorkingTunnel(retryServer, true, pfd, emptyList())
                         }
                     }
                 }
                 if (tunnelAttempt == null) {
+                    if (isBelarusPlan) {
+                        NodeEventStore.record(
+                            this@MirageVpnService,
+                            NodeEventStore.NODE_BELARUS,
+                            NodeEventStore.STATE_DOWN,
+                            "tunnel"
+                        )
+                    }
                     AppLogger.e(TAG, "Превышен лимит времени проверки VPN-узлов — VPN отключается.")
                     stopVpn(cancelConnectionJob = false)
                     return@launch
                 }
                 val (workingServer, _) = tunnelAttempt
                 if (workingServer == null) {
+                    if (isBelarusPlan) {
+                        NodeEventStore.record(
+                            this@MirageVpnService,
+                            NodeEventStore.NODE_BELARUS,
+                            NodeEventStore.STATE_DOWN,
+                            "tunnel"
+                        )
+                    }
                     if (LockdownInspector.isOurAppLocked(this@MirageVpnService)) {
                         AppLogger.e(TAG, "Подключение невозможно: включена системная блокировка сети без VPN")
                         AppLogger.onUserMessage(getString(R.string.vpn_error_lockdown))
@@ -432,6 +465,15 @@ class MirageVpnService : VpnService() {
                 }
                 _tunnelHealthy.value = true
                 val activeServer = workingServer
+
+                if (isBelarusPlan) {
+                    NodeEventStore.record(
+                        this@MirageVpnService,
+                        NodeEventStore.NODE_BELARUS,
+                        NodeEventStore.STATE_UP,
+                        null
+                    )
+                }
 
                 _activeServer.value = activeServer
                 _sessionSeconds.value = 0L
@@ -505,12 +547,24 @@ class MirageVpnService : VpnService() {
         }
         if (server == null) {
             AppLogger.w(TAG, "belarus-config не выдал ключ, узел Беларусь пропущен")
+            NodeEventStore.record(
+                this@MirageVpnService,
+                NodeEventStore.NODE_BELARUS,
+                NodeEventStore.STATE_DOWN,
+                "no_key"
+            )
             return null
         }
         if (!com.naua_security_mirage.app.data.supabase.FranceAccessPolicy
                 .mayBuildPaidTunnel(server.uuid)
         ) {
             AppLogger.w(TAG, "У узла Беларусь некорректный UUID, платный узел пропущен")
+            NodeEventStore.record(
+                this@MirageVpnService,
+                NodeEventStore.NODE_BELARUS,
+                NodeEventStore.STATE_DOWN,
+                "bad_key"
+            )
             return null
         }
         AppLogger.i(
@@ -1540,6 +1594,14 @@ class MirageVpnService : VpnService() {
                 val pfd = vpnInterface
                 val reconnectTarget = newServer
                 if (pfd != null && reconnectTarget == null) {
+                    if (isBelarusPlan) {
+                        NodeEventStore.record(
+                            this@MirageVpnService,
+                            NodeEventStore.NODE_BELARUS,
+                            NodeEventStore.STATE_DOWN,
+                            "no_key"
+                        )
+                    }
                     AppLogger.e(TAG, "Платный узел недоступен для переподключения")
                     AppLogger.onUserMessage(getString(R.string.paid_unavailable_later))
                     _vpnState.value = VpnState.DISCONNECTED
@@ -1553,6 +1615,14 @@ class MirageVpnService : VpnService() {
                     }
                     val active = tunnelAttempt?.first
                     if (active != null) {
+                        if (isBelarusPlan) {
+                            NodeEventStore.record(
+                                this@MirageVpnService,
+                                NodeEventStore.NODE_BELARUS,
+                                NodeEventStore.STATE_UP,
+                                null
+                            )
+                        }
                         _tunnelHealthy.value = true
                         _activeServer.value = active
                         _vpnState.value = VpnState.CONNECTED
@@ -1576,6 +1646,14 @@ class MirageVpnService : VpnService() {
                         )
                         AppLogger.i(TAG, "VPN успешно переподключен на узел: ${active.tag}")
                     } else {
+                        if (isBelarusPlan) {
+                            NodeEventStore.record(
+                                this@MirageVpnService,
+                                NodeEventStore.NODE_BELARUS,
+                                NodeEventStore.STATE_DOWN,
+                                "tunnel"
+                            )
+                        }
                         AppLogger.e(TAG, "Ни один узел не пропускает трафик при переподключении, полный перезапуск...")
                         stopVpn(cancelConnectionJob = false, stopService = false)
                         delay(300)

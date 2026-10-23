@@ -513,6 +513,12 @@
   <string name="node_history_untracked">Сбои этого узла не собираются</string>
   <string name="node_status_belarus_up">Беларусь отвечает с устройства · %1$d мс</string>
   <string name="node_status_belarus_down">Беларусь не отвечает с устройства</string>
+  <string name="node_status_belarus_no_key">Беларусь: ключ узла не получен</string>
+  <string name="refresh_paid_no_key">ключ узла не получен</string>
+  <string name="node_history_state_no_key">ключ не получен</string>
+  <string name="node_history_state_bad_key">некорректный ключ</string>
+  <string name="node_history_state_no_ping">не отвечал</string>
+  <string name="node_history_state_tunnel_failed">туннель не поднялся</string>
   <string name="free_server_auto">Автоматически · самый быстрый</string>
   <string name="free_server_node_format">Узел %1$d</string>
   <string name="picker_ping_format">%1$d мс</string>
