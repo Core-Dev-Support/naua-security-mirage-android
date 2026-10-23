@@ -182,7 +182,7 @@ select cron.schedule(
 | `yoomoney-webhook` | YooMoney | подпись YooMoney | Начисление дней, реферальный бонус, журнал платежей |
 | `france-config` | приложение | JWT пользователя | Узел 3X-UI для оплатившего |
 | `belarus-config` | приложение | JWT пользователя | Узел H1Cloud для оплатившего |
-| `register-device` | приложение | JWT пользователя | Токен FCM для пушей |
+| `register-device` | приложение | без JWT; при наличии JWT привязывает токен к аккаунту | Токен FCM для пушей |
 | `send-release-push` | CI | `x-push-secret` | Пуш о релизе |
 | `latest-release` | приложение | публичный | Кэш версий поверх GitHub Releases |
 | `node-status` | приложение, watchdog | чтение по anon-ключу (без `detail`), запись по `x-node-token` | Состояние узлов и история сбоев |
