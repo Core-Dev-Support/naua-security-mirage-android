@@ -733,8 +733,31 @@ class SupabaseManager private constructor() {
         }
     }
 
-    private fun refreshAccessToken(): Boolean {
-        val token = refreshToken ?: return false
+    /**
+     * Обновляет access token ровно один раз, даже если 401 одновременно
+     * получили несколько запросов. Supabase выдаёт новый refresh token при
+     * каждом обновлении, поэтому параллельные обновления одним и тем же
+     * токеном приводили к `refresh_token_already_used` и молчаливому
+     * разлогину.
+     *
+     * Если за время ожидания другой поток уже обновил токен, повторный
+     * запрос не нужен: достаточно сообщить вызывающему, что можно повторить
+     * запрос с новым access token.
+     */
+    @Synchronized
+    private fun refreshAccessToken(staleAccessToken: String?): Boolean {
+        val currentAccess = accessToken
+        if (!staleAccessToken.isNullOrEmpty() &&
+            !currentAccess.isNullOrEmpty() &&
+            currentAccess != staleAccessToken
+        ) {
+            return true
+        }
+
+        val token = refreshToken ?: run {
+            onSessionExpired("refresh token отсутствует")
+            return false
+        }
         return try {
             val body = JsonObject().apply { addProperty("refresh_token", token) }
                 .toString()
@@ -746,19 +769,64 @@ class SupabaseManager private constructor() {
                 .post(body)
                 .build()
             val response = httpClient.newCall(request).execute()
-            if (!response.isSuccessful) return false
-            val json = gson.fromJson(response.body?.string().orEmpty(), JsonObject::class.java)
-            val newAccess = json.get("access_token")?.asString ?: return false
-            accessToken = newAccess
-            json.get("refresh_token")?.asString?.let { newRefresh ->
-                refreshToken = newRefresh
-                prefs?.edit()?.putString(KEY_REFRESH_TOKEN, newRefresh)?.apply()
+            val responseBody = response.body?.string().orEmpty()
+            if (!response.isSuccessful) {
+                val errorJson = try {
+                    gson.fromJson(responseBody, JsonObject::class.java)
+                } catch (_: Exception) {
+                    null
+                }
+                val errorCode = errorJson?.get("error_code")?.asString
+                    ?: errorJson?.get("error")?.asString
+                AppLogger.w(
+                    TAG,
+                    "Access token refresh failed: HTTP ${response.code}" +
+                            (errorCode?.let { " ($it)" } ?: "")
+                )
+                if (response.code == 400 && (
+                            errorCode == "refresh_token_not_found" ||
+                                    errorCode == "invalid_grant" ||
+                                    errorCode == "refresh_token_revoked" ||
+                                    errorCode == "refresh_token_already_used"
+                            )
+                ) {
+                    // `already_used` может быть гонкой двух обновлений. Если
+                    // access token уже сменился, сессия жива, и выходить не
+                    // нужно.
+                    if (!accessToken.isNullOrEmpty() && accessToken != staleAccessToken) {
+                        return true
+                    }
+                    onSessionExpired(errorCode ?: "refresh token отклонён")
+                }
+                return false
             }
-            prefs?.edit()?.putString(KEY_ACCESS_TOKEN, newAccess)?.apply()
+            val json = gson.fromJson(responseBody, JsonObject::class.java)
+            val newAccess = json.get("access_token")?.asString ?: return false
+            val newRefresh = json.get("refresh_token")?.asString
+            accessToken = newAccess
+            if (newRefresh != null) refreshToken = newRefresh
+            val editor = prefs?.edit()?.putString(KEY_ACCESS_TOKEN, newAccess)
+            if (newRefresh != null) editor?.putString(KEY_REFRESH_TOKEN, newRefresh)
+            editor?.apply()
             true
         } catch (e: Exception) {
             AppLogger.w(TAG, "Access token refresh failed: ${e.message}")
             false
+        }
+    }
+
+    /**
+     * Сессия больше не восстанавливается: refresh token отозван, истёк или
+     * удалён на сервере. Держать пользователя в состоянии «подписка есть, но
+     * ключ не выдаётся» нельзя — он должен увидеть вход и войти заново.
+     */
+    @Synchronized
+    private fun onSessionExpired(reason: String) {
+        if (_currentUser.value == null) return
+        AppLogger.w(TAG, "Сессия истекла ($reason), требуется повторный вход")
+        signOut()
+        appContext?.let { ctx ->
+            AppLogger.onUserMessage(ctx.getString(R.string.auth_session_expired))
         }
     }
 
@@ -880,7 +948,7 @@ class SupabaseManager private constructor() {
             }
 
             var response = call(token)
-            if (response.code == 401 && refreshAccessToken()) {
+            if (response.code == 401 && refreshAccessToken(token)) {
                 val refreshed = accessToken
                 if (refreshed.isNullOrEmpty()) {
                     return@withContext Result.failure(Exception("токен не обновился"))
@@ -936,12 +1004,14 @@ class SupabaseManager private constructor() {
             }
 
             var response = call(token)
-            if (response.code == 401 && refreshAccessToken()) {
+            if (response.code == 401 && refreshAccessToken(token)) {
                 val refreshed = accessToken
                 if (refreshed.isNullOrEmpty()) {
                     return@withContext FranceConfigResult.Unavailable("токен не обновился")
                 }
                 response = call(refreshed)
+            } else if (response.code == 401 && _currentUser.value == null) {
+                return@withContext FranceConfigResult.Unavailable("сессия истекла")
             }
 
             val body = response.body?.string().orEmpty()
@@ -981,8 +1051,9 @@ class SupabaseManager private constructor() {
             return response.code to response.body?.string().orEmpty()
         }
 
+        val staleToken = accessToken
         val first = execute()
-        return if (first.first == 401 && refreshAccessToken()) execute() else first
+        return if (first.first == 401 && refreshAccessToken(staleToken)) execute() else first
     }
 
     private fun fetchOptionalFlow(userId: String): String? {
@@ -1062,6 +1133,11 @@ class SupabaseManager private constructor() {
                     AppLogger.w(TAG, "Сервер недоступен при обновлении: ${cfg.reason}")
             }
 
+            // Обновление токена могло выяснить, что сессия отозвана.
+            // После signOut нельзя записывать подписку от имени старого
+            // пользователя — иначе UI снова покажет оплаченный план.
+            if (_currentUser.value == null) return@withContext
+
             if (subFrom3XUi != null) {
 
                 val realClientUuid = subFrom3XUi.clientUuid?.takeIf { it.isNotBlank() }
@@ -1124,6 +1200,8 @@ class SupabaseManager private constructor() {
             } catch (e: Exception) {
                 AppLogger.w(TAG, "Supabase subscription query failed: ${e.message}")
             }
+
+            if (_currentUser.value == null) return@withContext
 
             if (SubscriptionPolicy.shouldClearCache(
                     hasActiveCache = _subscription.value?.isActive == true,
@@ -1302,6 +1380,11 @@ class SupabaseManager private constructor() {
 
         AppLogger.w(TAG, "belarus-config недоступен, узел Беларусь не будет подключён")
 
+        if (_currentUser.value == null) {
+            AppLogger.w(TAG, "Сессия истекла, ключ Беларуси не будет взят из кэша")
+            return@withContext null
+        }
+
         val cachedKey = _subscription.value?.belarusVlessKey
             ?: prefs?.getString(KEY_SUB_BELARUS_VLESS_KEY, null)
         if (!cachedKey.isNullOrBlank()) {
@@ -1381,13 +1464,15 @@ class SupabaseManager private constructor() {
                 resetHttpConnections()
                 call(token)
             }
-            if (response.code == 401 && refreshAccessToken()) {
+            if (response.code == 401 && refreshAccessToken(token)) {
                 val refreshed = accessToken
                 if (refreshed.isNullOrEmpty()) {
                     return@withContext BelarusConfigResult.Unavailable("токен не обновился")
                 }
                 resetHttpConnections()
                 response = call(refreshed)
+            } else if (response.code == 401 && _currentUser.value == null) {
+                return@withContext BelarusConfigResult.Unavailable("сессия истекла")
             }
 
             val body = response.body?.string().orEmpty()

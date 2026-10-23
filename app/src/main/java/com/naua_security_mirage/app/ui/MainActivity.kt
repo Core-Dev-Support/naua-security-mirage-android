@@ -2070,6 +2070,8 @@ class MainActivity : AppCompatActivity() {
                                         forceRefresh = true
                                     )
                                     when {
+                                        probe.reason == "no_session" ->
+                                            getString(R.string.refresh_paid_login_required)
                                         probe.server == null -> getString(R.string.refresh_paid_no_key)
                                         probe.reachable -> "${probe.pingMs} ms"
                                         else -> getString(R.string.ping_timeout)
@@ -2248,7 +2250,12 @@ class MainActivity : AppCompatActivity() {
         val isBelarusPlan = trackedPlan == SettingsRepository.PLAN_PREMIUM_BELARUS
 
         nodeStatusJob = lifecycleScope.launch {
-            if (!com.naua_security_mirage.app.data.supabase.SupabaseManager.instance.hasActiveSubscription()) {
+            val manager = com.naua_security_mirage.app.data.supabase.SupabaseManager.instance
+            if (manager.currentUser.value == null) {
+                if (gen != nodeStatusGen) return@launch
+                stateView.text = getString(R.string.node_status_login_required)
+                stateView.setTextColor(themedSubtitle())
+            } else if (!manager.hasActiveSubscription()) {
                 if (gen != nodeStatusGen) return@launch
                 stateView.text = getString(R.string.node_status_no_subscription)
                 stateView.setTextColor(themedSubtitle())
@@ -2296,6 +2303,13 @@ class MainActivity : AppCompatActivity() {
     private suspend fun refreshBelarusState(stateView: TextView, gen: Int, forceRefresh: Boolean) {
         val probe = BelarusNodeMonitor.probe(this@MainActivity, forceRefresh = forceRefresh)
         if (gen != nodeStatusGen) return
+
+        if (probe.reason == "no_session") {
+            stateView.text = getString(R.string.node_status_login_required)
+            stateView.setTextColor(nodeColor(true))
+            AppLogger.w("NodeStatus", "Беларусь: требуется вход в аккаунт")
+            return
+        }
 
         if (probe.reason == "no_subscription") {
             stateView.text = getString(R.string.node_status_no_subscription)
@@ -2373,6 +2387,7 @@ class MainActivity : AppCompatActivity() {
     )
 
     private fun nodeHistoryStateLabel(state: String, detail: String?): String = when (detail) {
+        "no_session" -> getString(R.string.node_history_state_no_session)
         "no_key" -> getString(R.string.node_history_state_no_key)
         "bad_key" -> getString(R.string.node_history_state_bad_key)
         "no_ping" -> getString(R.string.node_history_state_no_ping)

@@ -383,6 +383,7 @@
     <string name="toast_storage_denied">Разрешение на запись файлов не предоставлено</string>
     <string name="toast_google_signed_in_fmt">Вход через Google выполнен: %1$s</string>
     <string name="auth_error_default">Ошибка авторизации Google</string>
+    <string name="auth_session_expired">Сессия истекла. Войдите снова, чтобы получить ключ узла.</string>
     <string name="auth_google_open_fail">Не удалось открыть вход через Google</string>
     <string name="auth_response_mismatch">Ответ авторизации не соответствует начатому входу. Попробуйте войти заново.</string>
     <string name="auth_start_over">Вход устарел: приложение не нашло начатую попытку. Нажмите «Войти» и попробуйте снова.</string>
@@ -514,7 +515,10 @@
   <string name="node_status_belarus_up">Беларусь отвечает с устройства · %1$d мс</string>
   <string name="node_status_belarus_down">Беларусь не отвечает с устройства</string>
   <string name="node_status_belarus_no_key">Беларусь: ключ узла не получен</string>
+  <string name="node_status_login_required">Войдите в аккаунт, чтобы проверить узел</string>
+  <string name="refresh_paid_login_required">войдите в аккаунт</string>
   <string name="refresh_paid_no_key">ключ узла не получен</string>
+  <string name="node_history_state_no_session">требуется вход</string>
   <string name="node_history_state_no_key">ключ не получен</string>
   <string name="node_history_state_bad_key">некорректный ключ</string>
   <string name="node_history_state_no_ping">не отвечал</string>

@@ -383,6 +383,7 @@
     <string name="toast_storage_denied">File write permission not granted</string>
     <string name="toast_google_signed_in_fmt">Signed in with Google: %1$s</string>
     <string name="auth_error_default">Google sign-in error</string>
+    <string name="auth_session_expired">Your session has expired. Sign in again to get the node key.</string>
     <string name="auth_google_open_fail">Could not open Google sign-in</string>
     <string name="auth_response_mismatch">The auth response doesn’t match the started sign-in. Try signing in again.</string>
     <string name="auth_start_over">The sign-in attempt has expired: the app could not find it. Tap Sign in and try again.</string>
@@ -514,7 +515,10 @@
   <string name="node_status_belarus_up">Belarus responds from this device · %1$d ms</string>
   <string name="node_status_belarus_down">Belarus does not respond from this device</string>
   <string name="node_status_belarus_no_key">Belarus: node key was not issued</string>
+  <string name="node_status_login_required">Sign in to check the node</string>
+  <string name="refresh_paid_login_required">sign in to your account</string>
   <string name="refresh_paid_no_key">node key not issued</string>
+  <string name="node_history_state_no_session">sign-in required</string>
   <string name="node_history_state_no_key">key not issued</string>
   <string name="node_history_state_bad_key">invalid key</string>
   <string name="node_history_state_no_ping">was silent</string>

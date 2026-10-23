@@ -36,6 +36,10 @@ object BelarusNodeMonitor {
 
     suspend fun probe(context: Context, forceRefresh: Boolean = false): Probe {
         val manager = SupabaseManager.instance
+        if (manager.currentUser.value == null) {
+            record(context, NodeEventStore.STATE_DOWN, "no_session")
+            return Probe(null, TIMEOUT_PING, "no_session")
+        }
         if (!manager.hasActiveSubscription()) {
             return Probe(null, TIMEOUT_PING, "no_subscription")
         }
@@ -45,8 +49,9 @@ object BelarusNodeMonitor {
             ?.takeIf { it.isNotBlank() }
             ?: manager.getActiveBelarusVlessKey()?.takeIf { it.isNotBlank() }
         if (key == null) {
-            record(context, NodeEventStore.STATE_DOWN, "no_key")
-            return Probe(null, TIMEOUT_PING, "no_key")
+            val reason = if (manager.currentUser.value == null) "no_session" else "no_key"
+            record(context, NodeEventStore.STATE_DOWN, reason)
+            return Probe(null, TIMEOUT_PING, reason)
         }
 
         val server = VlessServer.fromUri(key, SupabaseConfig.BELARUS_LABEL)
