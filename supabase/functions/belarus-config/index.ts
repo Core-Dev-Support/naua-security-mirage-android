@@ -113,7 +113,11 @@ async function listClients(token: string): Promise<H1Client[]> {
   return Array.isArray(clients) ? (clients as H1Client[]) : [];
 }
 
-async function createPanelClient(token: string, name: string, days: number): Promise<H1Client | null> {
+async function createPanelClient(
+  token: string,
+  name: string,
+  days: number,
+): Promise<{ client: H1Client | null; nameTaken: boolean }> {
   const { status, parsed } = await panelCall("POST", "/create", token, {
     name,
     days,
@@ -121,14 +125,50 @@ async function createPanelClient(token: string, name: string, days: number): Pro
     traffic_gb: CLIENT_TRAFFIC_GB,
     manual: 1,
   });
-  if (status === 409) return null;
+  if (status === 409) {
+    return { client: null, nameTaken: true };
+  }
   if (status !== 200 && status !== 201) {
     throw new Error(
       `H1Cloud refused to create a client with HTTP ${status}: ${String(parsed.error ?? "unknown")}`,
     );
   }
   const client = parsed.client;
-  return client && typeof client === "object" ? (client as H1Client) : null;
+  return {
+    client: client && typeof client === "object" ? (client as H1Client) : null,
+    nameTaken: false,
+  };
+}
+
+function clientNameCandidates(baseName: string): string[] {
+  return [baseName, `${baseName}_v2`, `${baseName}_v3`, `${baseName}_v4`, `${baseName}_v5`];
+}
+
+async function findOrCreateClient(
+  token: string,
+  baseName: string,
+  days: number,
+): Promise<H1Client> {
+  const clients = await listClients(token);
+  const byName = new Map<string, H1Client>();
+  for (const client of clients) {
+    if (client.name) byName.set(client.name.toLowerCase(), client);
+  }
+
+  for (const candidate of clientNameCandidates(baseName)) {
+    const existing = byName.get(candidate.toLowerCase());
+    if (existing) return existing;
+
+    const result = await createPanelClient(token, candidate, days);
+    if (result.client) return result.client;
+    if (!result.nameTaken) {
+      throw new Error("The H1Cloud client could not be created or found");
+    }
+    // 409 name_taken_by_inbound_client: имя занято клиентом, которого нет
+    // в /clients (обычно старый inbound-клиент). Пробуем следующий суффикс.
+  }
+
+  throw new Error("The H1Cloud client could not be created or found");
 }
 
 function pickLink(client: Record<string, unknown>): string {
@@ -176,11 +216,11 @@ async function findLink(token: string, name: string): Promise<{ link: string; uu
 }
 
 function daysUntil(paidUntil: string | null): number {
-  if (!paidUntil) return 30;
+  if (!paidUntil) return 0;
   const target = new Date(paidUntil).getTime();
-  if (!Number.isFinite(target)) return 30;
+  if (!Number.isFinite(target)) return 0;
   const remaining = target - Date.now();
-  if (remaining <= 0) throw new Error("Subscription expired");
+  if (remaining <= 0) return 0;
   return Math.max(1, Math.ceil(remaining / 86_400_000));
 }
 
@@ -249,24 +289,13 @@ serve(async (req) => {
     }
 
     const days = daysUntil(row.paid_until);
+    if (days <= 0) return json({ error: "Subscription expired" }, 403);
+
     const panelToken = await resolvePanelToken();
     const wantedName = clientNameFor(email);
 
-    const existing = (await listClients(panelToken))
-      .find((client) => (client.name || "").toLowerCase() === wantedName.toLowerCase());
-    let clientName = existing?.name || wantedName;
-
-    if (!existing) {
-      const created = await createPanelClient(panelToken, wantedName, days);
-      if (!created) {
-        const raced = (await listClients(panelToken))
-          .find((client) => (client.name || "").toLowerCase() === wantedName.toLowerCase());
-        if (!raced) throw new Error("The H1Cloud client could not be created or found");
-        clientName = raced.name;
-      } else {
-        clientName = created.name;
-      }
-    }
+    const client = await findOrCreateClient(panelToken, wantedName, days);
+    const clientName = client.name || wantedName;
 
     const resolved = await findLink(panelToken, clientName);
     if (!resolved) {
