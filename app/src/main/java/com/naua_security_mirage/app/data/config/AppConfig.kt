@@ -1,6 +1,5 @@
 package com.naua_security_mirage.app.data.config
 
-import com.google.gson.annotations.SerializedName
 import java.util.Locale
 
 /**
@@ -108,32 +107,5 @@ data class AppConfig(
         )
     }
 }
-
-internal data class AppConfigDto(
-    @SerializedName("version") val version: String? = null,
-    @SerializedName("plans") val plans: List<PlanDto>? = null,
-    @SerializedName("paid_nodes") val paidNodes: List<NodeDto>? = null,
-    @SerializedName("min_price_rub") val minPriceRub: Int? = null,
-    @SerializedName("fallback") val fallback: Boolean = false
-)
-
-internal data class PlanDto(
-    @SerializedName("id") val id: String? = null,
-    @SerializedName("days") val days: Int? = null,
-    @SerializedName("price_rub") val priceRub: Int? = null,
-    @SerializedName("badge") val badge: String? = null,
-    @SerializedName("label_ru") val labelRu: String? = null,
-    @SerializedName("label_en") val labelEn: String? = null
-)
-
-internal data class NodeDto(
-    @SerializedName("id") val id: String? = null,
-    @SerializedName("kind") val kind: String? = null,
-    @SerializedName("label_ru") val labelRu: String? = null,
-    @SerializedName("label_en") val labelEn: String? = null,
-    @SerializedName("flag") val flag: String? = null,
-    @SerializedName("config_function") val configFunction: String? = null,
-    @SerializedName("sort") val sort: Int? = null
-)
 
 internal fun isEnglish(): Boolean = Locale.getDefault().language == "en"

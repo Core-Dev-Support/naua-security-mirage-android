@@ -2,7 +2,6 @@ package com.naua_security_mirage.app.data.config
 
 import android.content.Context
 import android.content.SharedPreferences
-import com.google.gson.Gson
 import com.naua_security_mirage.app.data.repository.SettingsRepository
 import com.naua_security_mirage.app.data.supabase.SupabaseConfig
 import com.naua_security_mirage.app.util.AppLogger
@@ -32,7 +31,6 @@ object AppConfigRepository {
     private const val KEY_FETCHED_AT = "fetched_at"
     private const val CACHE_TTL_MS = 60 * 1000L
 
-    private val gson = Gson()
     private val scope = CoroutineScope(Dispatchers.IO)
     private val httpClient = OkHttpClient.Builder()
         .connectTimeout(10, TimeUnit.SECONDS)
@@ -93,14 +91,13 @@ object AppConfigRepository {
                     return
                 }
                 val body = response.body?.string().orEmpty()
-                val dto = gson.fromJson(body, AppConfigDto::class.java)
-                if (dto?.fallback == true && lastFetchAt > 0L) {
+                if (isAppConfigFallback(body) && lastFetchAt > 0L) {
                     // app-config is up but its database read failed. Keep the last
                     // good catalogue instead of replacing Finland with defaults.
                     AppLogger.w(TAG, "app-config вернул запасной конфиг, кэш сохранён")
                     return
                 }
-                val parsed = dto?.toConfig(System.currentTimeMillis())
+                val parsed = parseAppConfig(body, System.currentTimeMillis())
                 if (parsed == null) {
                     AppLogger.w(TAG, "app-config вернул некорректный ответ, используется кэш")
                     return
@@ -127,8 +124,7 @@ object AppConfigRepository {
         val raw = prefs?.getString(KEY_JSON, null)?.takeIf { it.isNotBlank() } ?: return
         val fetchedAt = prefs?.getLong(KEY_FETCHED_AT, 0L) ?: 0L
         try {
-            val parsed = gson.fromJson(raw, AppConfigDto::class.java)
-                ?.toConfig(fetchedAt)
+            val parsed = parseAppConfig(raw, fetchedAt)
             if (parsed != null) {
                 _config.value = parsed
                 lastFetchAt = fetchedAt
@@ -156,63 +152,5 @@ object AppConfigRepository {
             settings.lastPaidPlan = fallback
             AppLogger.i(TAG, "Последний платный узел переключён на '$fallback'")
         }
-    }
-
-    private fun AppConfigDto.toConfig(fetchedAt: Long): AppConfig? {
-        val planSource = plans ?: return null
-        val seenPlans = HashSet<String>()
-        val parsedPlans = ArrayList<SubscriptionPlan>(planSource.size)
-        for (item in planSource) {
-            val id = item.id?.trim().orEmpty()
-            val days = item.days ?: 0
-            val price = item.priceRub ?: 0
-            if (id.isBlank() || days !in 1..3650 || price !in 1..100_000) continue
-            if (!seenPlans.add(id)) continue
-            parsedPlans += SubscriptionPlan(
-                id = id,
-                days = days,
-                priceRub = price,
-                badge = item.badge?.trim()?.takeIf { it.isNotEmpty() },
-                labelRu = item.labelRu?.trim()?.takeIf { it.isNotEmpty() } ?: "$days дней",
-                labelEn = item.labelEn?.trim()?.takeIf { it.isNotEmpty() } ?: "$days days"
-            )
-        }
-        if (parsedPlans.isEmpty()) return null
-        parsedPlans.sortWith(compareBy({ it.days }, { it.priceRub }))
-
-        // null means the field is absent: keep built-in nodes. An empty array is
-        // a deliberate "no paid nodes" state and must stay empty.
-        val nodeSource = paidNodes
-        val parsedNodes: List<PaidNode>
-        if (nodeSource == null) {
-            parsedNodes = AppConfig.DEFAULT_NODES
-        } else {
-            val seenNodes = HashSet<String>()
-            val list = ArrayList<PaidNode>(nodeSource.size)
-            for (item in nodeSource) {
-                val id = item.id?.trim().orEmpty()
-                val configFunction = item.configFunction?.trim().orEmpty()
-                if (id.isBlank() || configFunction.isBlank()) continue
-                if (!seenNodes.add(id)) continue
-                list += PaidNode(
-                    id = id,
-                    kind = PaidNode.Kind.from(item.kind),
-                    labelRu = item.labelRu?.trim()?.takeIf { it.isNotEmpty() } ?: id,
-                    labelEn = item.labelEn?.trim()?.takeIf { it.isNotEmpty() } ?: id,
-                    flag = item.flag?.trim()?.takeIf { it.isNotEmpty() } ?: "generic",
-                    configFunction = configFunction,
-                    sort = item.sort ?: 100
-                )
-            }
-            parsedNodes = list.sortedWith(compareBy({ it.sort }, { it.id }))
-        }
-
-        return AppConfig(
-            plans = parsedPlans,
-            paidNodes = parsedNodes,
-            minPriceRub = parsedPlans.minOf { it.priceRub },
-            version = version,
-            fetchedAt = fetchedAt
-        )
     }
 }
