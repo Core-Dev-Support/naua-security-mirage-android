@@ -122,7 +122,7 @@ export function formatDate(value: string | null | undefined): string {
   return `${day}.${month}.${parsed.getUTCFullYear()}`;
 }
 
-// formatAmount — сумма платежа: 40 ₽.
+// formatAmount — сумма платежа: 50 ₽.
 export function formatAmount(value: string | null | undefined): string {
   const num = Number((value ?? "").replace(",", ".").trim());
   if (!Number.isFinite(num)) return "";

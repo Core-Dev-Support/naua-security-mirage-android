@@ -5,10 +5,10 @@ import { PLANS, buildPaymentUrl, parsePlansPayload } from "./plans.ts";
 // каталогами supabase/functions/* не деплоится, поэтому списки продублированы,
 // а эти тесты держат одинаковые значения в обоих местах.
 const EXPECTED: Array<[amount: number, days: number]> = [
-  [40, 30],
-  [110, 90],
-  [200, 180],
-  [330, 365],
+  [50, 30],
+  [140, 90],
+  [250, 180],
+  [410, 365],
 ];
 
 Deno.test("the tariff table matches the webhook contract", () => {

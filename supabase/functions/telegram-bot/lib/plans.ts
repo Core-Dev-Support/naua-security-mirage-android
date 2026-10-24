@@ -17,10 +17,10 @@ export type Plan = {
 };
 
 export const PLANS: Plan[] = [
-  { amountRub: 40, days: 30, labelRu: "1 месяц", labelEn: "1 month" },
-  { amountRub: 110, days: 90, labelRu: "3 месяца", labelEn: "3 months" },
-  { amountRub: 200, days: 180, labelRu: "6 месяцев", labelEn: "6 months" },
-  { amountRub: 330, days: 365, labelRu: "1 год", labelEn: "1 year" },
+  { amountRub: 50, days: 30, labelRu: "1 месяц", labelEn: "1 month" },
+  { amountRub: 140, days: 90, labelRu: "3 месяца", labelEn: "3 months" },
+  { amountRub: 250, days: 180, labelRu: "6 месяцев", labelEn: "6 months" },
+  { amountRub: 410, days: 365, labelRu: "1 год", labelEn: "1 year" },
 ];
 
 // parsePlansPayload — тарифы из строки app_config.subscription_plans.

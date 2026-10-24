@@ -136,7 +136,7 @@
     <string name="sub_free_status">Базовый план (Бесплатный)</string>
     <string name="sub_renew_short">Продлить подписку</string>
     <string name="sub_buy_button">Оплатить подписку</string>
-    <string name="sub_price_from">от 40 ₽</string>
+    <string name="sub_price_from">от 50 ₽</string>
     <string name="sub_price_from_fmt">от %1$d ₽</string>
     <string name="sub_plan_days_fmt">От %1$d дней доступа</string>
     <string name="sub_options_title">Продлить подписку</string>
