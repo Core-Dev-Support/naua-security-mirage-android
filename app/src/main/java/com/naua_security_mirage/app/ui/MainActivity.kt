@@ -40,8 +40,10 @@ import androidx.lifecycle.lifecycleScope
 import com.naua_security_mirage.app.R
 import com.naua_security_mirage.app.data.model.VpnState
 import com.naua_security_mirage.app.data.model.VlessServer
+import com.naua_security_mirage.app.data.config.AppConfig
 import com.naua_security_mirage.app.data.config.AppConfigRepository
 import com.naua_security_mirage.app.data.config.PaidNode
+import com.naua_security_mirage.app.data.config.SubscriptionPlan
 import com.naua_security_mirage.app.data.repository.DeviceIdRepository
 import com.naua_security_mirage.app.data.repository.GeoRoutingRepository
 import com.naua_security_mirage.app.data.repository.PingRepository
@@ -1374,9 +1376,6 @@ class MainActivity : AppCompatActivity() {
         isRenewal: Boolean,
         onPick: (amountRub: Int, days: Int) -> Unit
     ) {
-        AppConfigRepository.refresh()
-        val plans = AppConfigRepository.config.value.plans
-            .ifEmpty { com.naua_security_mirage.app.data.config.AppConfig.DEFAULT_PLANS }
         val dialog = Dialog(this)
         val optionsBinding = com.naua_security_mirage.app.databinding.DialogPaymentOptionsBinding
             .inflate(layoutInflater)
@@ -1403,38 +1402,48 @@ class MainActivity : AppCompatActivity() {
             setTextColor(pal.subtitle)
         }
 
-        optionsBinding.containerPayOptions.removeAllViews()
-        for (plan in plans) {
-            val row = layoutInflater.inflate(
-                R.layout.item_payment_option,
-                optionsBinding.containerPayOptions,
-                false
-            )
-            // Фон строки брался из @drawable/bg_card (тёмный): в светлой теме
-            // название срока на нём не читалось. Красим в цвет карточки окна.
-            row.background = GradientDrawable().apply {
-                shape = GradientDrawable.RECTANGLE
-                cornerRadius = 16f * pal.density
-                setColor(pal.cardBg)
-                setStroke((1f * pal.density).toInt(), pal.stroke)
+        fun renderPlans(plans: List<SubscriptionPlan>) {
+            optionsBinding.containerPayOptions.removeAllViews()
+            for (plan in plans) {
+                val row = layoutInflater.inflate(
+                    R.layout.item_payment_option,
+                    optionsBinding.containerPayOptions,
+                    false
+                )
+                // Фон строки брался из @drawable/bg_card (тёмный): в светлой теме
+                // название срока на нём не читалось. Красим в цвет карточки окна.
+                row.background = GradientDrawable().apply {
+                    shape = GradientDrawable.RECTANGLE
+                    cornerRadius = 16f * pal.density
+                    setColor(pal.cardBg)
+                    setStroke((1f * pal.density).toInt(), pal.stroke)
+                }
+                row.findViewById<TextView>(R.id.tvPayOptionTitle).apply {
+                    text = plan.label()
+                    setTextColor(pal.title)
+                }
+                row.findViewById<TextView>(R.id.tvPayOptionPrice).apply {
+                    text = plan.badge?.let {
+                        getString(R.string.sub_option_price_discount, plan.priceRub, it)
+                    } ?: getString(R.string.sub_option_price, plan.priceRub)
+                    setTextColor(Color.parseColor("#E8A33D"))
+                }
+                row.setOnClickListener {
+                    AnimationHelper.bounceClick(row, minScale = 0.97f, durationMs = 160)
+                    dialog.dismiss()
+                    onPick(plan.priceRub, plan.days)
+                }
+                optionsBinding.containerPayOptions.addView(row)
             }
-            row.findViewById<TextView>(R.id.tvPayOptionTitle).apply {
-                text = plan.label()
-                setTextColor(pal.title)
-            }
-            row.findViewById<TextView>(R.id.tvPayOptionPrice).apply {
-                text = plan.badge?.let {
-                    getString(R.string.sub_option_price_discount, plan.priceRub, it)
-                } ?: getString(R.string.sub_option_price, plan.priceRub)
-                setTextColor(Color.parseColor("#E8A33D"))
-            }
-            row.setOnClickListener {
-                AnimationHelper.bounceClick(row, minScale = 0.97f, durationMs = 160)
-                dialog.dismiss()
-                onPick(plan.priceRub, plan.days)
-            }
-            optionsBinding.containerPayOptions.addView(row)
         }
+        renderPlans(AppConfigRepository.config.value.plans.ifEmpty { AppConfig.DEFAULT_PLANS })
+        AppConfigRepository.refresh()
+        val configJob = lifecycleScope.launch {
+            AppConfigRepository.config.collect { config ->
+                renderPlans(config.plans.ifEmpty { AppConfig.DEFAULT_PLANS })
+            }
+        }
+        dialog.setOnDismissListener { configJob.cancel() }
         optionsBinding.btnPayOptionsCancel.apply {
             applySecondaryButtonStyle(this, pal)
         }
@@ -1544,15 +1553,21 @@ class MainActivity : AppCompatActivity() {
         dialogBinding.btnSubPay.setTextColor(Color.WHITE)
 
         val manager = com.naua_security_mirage.app.data.supabase.SupabaseManager.instance
-        val appConfig = AppConfigRepository.config.value
-        val minPlan = appConfig.plans.minByOrNull { it.days } ?: appConfig.plans.firstOrNull()
-        if (minPlan != null) {
-            dialogBinding.tvSubPrice.text =
-                getString(R.string.sub_price_from_fmt, appConfig.minPriceRub)
-            dialogBinding.tvSubPlanPeriod.text =
-                getString(R.string.sub_plan_days_fmt, minPlan.days)
+        fun renderPlanSummary(config: AppConfig) {
+            val minPlan = config.plans.minByOrNull { it.days } ?: config.plans.firstOrNull()
+            if (minPlan != null) {
+                dialogBinding.tvSubPrice.text =
+                    getString(R.string.sub_price_from_fmt, config.minPriceRub)
+                dialogBinding.tvSubPlanPeriod.text =
+                    getString(R.string.sub_plan_days_fmt, minPlan.days)
+            }
         }
+        renderPlanSummary(AppConfigRepository.config.value)
         AppConfigRepository.refresh(force = true)
+        val configJob = lifecycleScope.launch {
+            AppConfigRepository.config.collect { renderPlanSummary(it) }
+        }
+        dialog.setOnDismissListener { configJob.cancel() }
         val subscription = manager.subscription.value
         val hasActive = manager.hasActiveSubscription()
         if (hasActive && subscription != null) {
