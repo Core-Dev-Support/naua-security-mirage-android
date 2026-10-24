@@ -179,10 +179,11 @@ select cron.schedule(
 |---|---|---|---|
 | `telegram-bot` | Telegram | секрет вебхука | Экраны, подписка, поддержка, рефералка, админка, крон |
 | `telegram-auth` | браузер, бот | публичный GET; `start`/`status` — только с `x-bot-secret` | Google-вход, привязка, пробник, экран ошибки |
-| `telegram-subscription` | VPN-клиент, приложение | подпись `tg_id` (с версией ссылки) или JWT | Одна base64-ссылка: Франция + Беларусь (+ бесплатный обход по подписанной `?free=…`, только Happ) |
+| `telegram-subscription` | VPN-клиент, приложение | подпись `tg_id` (с версией ссылки) или JWT | Одна base64-ссылка: все узлы из `app_config.paid_nodes` (+ бесплатный обход по подписанной `?free=…`, только Happ) |
 | `yoomoney-webhook` | YooMoney | подпись YooMoney | Начисление дней, реферальный бонус, журнал платежей |
 | `france-config` | приложение | JWT пользователя | Узел 3X-UI для оплатившего |
 | `belarus-config` | приложение | JWT пользователя | Узел H1Cloud для оплатившего |
+| `finland-config` | приложение, `telegram-subscription` | JWT пользователя | Тестовый VLESS-узел; пока без `FINLAND_*` выдаёт ключ Франции |
 | `register-device` | приложение | без JWT; при наличии JWT привязывает токен к аккаунту | Токен FCM для пушей |
 | `send-release-push` | CI | `x-push-secret` | Пуш о релизе |
 | `latest-release` | приложение | публичный | Кэш версий поверх GitHub Releases |
@@ -231,10 +232,24 @@ set payload = payload || jsonb_build_array(jsonb_build_object(
 where id = 'paid_nodes';
 ```
 
-`finland-config` должна принимать пользовательский JWT и возвращать
+`finland-config` принимает пользовательский JWT и возвращает
 `{"vlessKey": "vless://…", "clientUuid": "…"}` — как `france-config`. Если узел
 на другом протоколе (WireGuard, Shadowsocks, Trojan), приложение его не
 разберёт без обновления.
+
+Пока реальной финской панели нет, `finland-config` работает в режиме
+`source=france-fallback`: берёт панель и адрес Франции, но остаётся отдельной
+функцией со своим кэшем ключа по `node.id`. Это позволяет проверить весь
+серверный путь (кнопка → `config_function` → VLESS-ключ → туннель) без
+пересборки APK. Когда появится финская панель, достаточно задать секреты
+`FINLAND_3X_UI_*` и `FINLAND_*` (`HOST`, `PORT`, `PBK`, `SNI`); код приложения
+и `app_config` менять не нужно.
+
+Каждая выдача ключа пишет в лог функции одну JSON-строку с `fn`, `node`,
+`source` и `event` (`authorized`, `key-issued`, `denied`, `failed`), без самого
+ключа, UUID и адреса панели. В приложении тот же путь виден по строкам
+`Ключ узла premium_finland_test выдан finland-config` и
+`Выбран платный узел: Финляндия (Тест)`.
 
 `node-status` собирает серверную историю только по Франции. Беларусь
 проверяется с устройства, потому что её доступность зависит от сети; переходы

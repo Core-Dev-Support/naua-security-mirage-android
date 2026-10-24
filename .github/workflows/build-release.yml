@@ -97,6 +97,9 @@ jobs:
       - name: Type-check france-config edge function
         run: deno check supabase/functions/france-config/index.ts
 
+      - name: Type-check finland-config edge function
+        run: deno check supabase/functions/finland-config/index.ts
+
       - name: Type-check free-trial edge function
         run: deno check supabase/functions/free-trial/index.ts
 
