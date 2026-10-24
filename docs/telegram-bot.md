@@ -570,7 +570,6 @@ deno test --allow-read supabase/functions/
 |---|---|---|
 | Франция | 3X-UI (`THREE_X_UI_*`, `FRANCE_*`) | `france-config` |
 | Беларусь | H1Cloud (`H1CLOUD_*`) | `belarus-config` |
-| Финляндия (тест) | пока панель Франции, позже `FINLAND_*` | `finland-config` |
 
 Список не зашит в функцию: она читает `app_config.paid_nodes` и для каждой
 записи вызывает её `config_function`. Поэтому добавленная в таблицу Финляндия
@@ -578,10 +577,11 @@ deno test --allow-read supabase/functions/
 Франция и Беларусь остаются значениями по умолчанию на случай недоступности
 таблицы.
 
-`finland-config` — отдельная функция, поэтому у тестового узла свой кэш ключа
-и свои записи в логах (`fn=finland-config`, `node=premium_finland_test`,
-`source=france-fallback`). Пока `FINLAND_*` не заданы, она выдаёт ключ Франции;
-после добавления секретов начнёт выдавать финский ключ без обновления APK.
+`finland-config` — заготовка для будущей Финляндии: отдельная функция со своим
+кэшем ключа и логами (`fn=finland-config`, `source=france-fallback`). Тестовый
+узел `premium_finland_test` после проверки удалён из `app_config.paid_nodes`,
+поэтому в текущей подписке его нет. Когда появится финская панель, добавьте
+запись в каталог и задайте `FINLAND_*` — APK менять не нужно.
 
 Логика выдачи узлов **не дублируется**: `telegram-subscription` запрашивает
 готовые ссылки у `france-config`, `belarus-config` и других config-функций по
