@@ -235,12 +235,22 @@ async function fetchNode(
         },
       },
     );
-    if (!response.ok) return null;
+    if (!response.ok) {
+      console.warn("paid node config failed", { functionName, status: response.status });
+      return null;
+    }
     const parsed = await response.json();
     const link = String(parsed?.vlessKey || "");
-    if (!link.startsWith("vless://")) return null;
+    if (!link.startsWith("vless://")) {
+      console.warn("paid node config returned no VLESS link", { functionName });
+      return null;
+    }
     return { link, uuid: String(parsed?.clientUuid || "") };
-  } catch {
+  } catch (error) {
+    console.warn("paid node config request failed", {
+      functionName,
+      error: error instanceof Error ? error.message : error,
+    });
     return null;
   }
 }
