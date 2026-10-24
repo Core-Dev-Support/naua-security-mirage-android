@@ -8,6 +8,7 @@ import {
   makeVlessUrl,
   nextPaidUntil,
   parseDate,
+  parsePaymentLabel,
   PLANS,
   planDaysForPayment,
   rfc3986,
@@ -147,6 +148,27 @@ Deno.test("VLESS URL keeps Reality and flow parameters", () => {
   assertStringIncludes(link, "sni=cdn.example");
   assertStringIncludes(link, "sid=abcd");
   assertStringIncludes(link, "flow=xtls-rprx-vision");
+});
+
+Deno.test("the label carries the payer and the chosen term", () => {
+  const id = "c8bed4ce-6110-495e-be78-9595caed51da";
+  const parsed = parsePaymentLabel(`${id}:90`);
+  assertEquals(parsed.userId, id);
+  assertEquals(parsed.days, 90);
+  const legacy = parsePaymentLabel(id);
+  assertEquals(legacy.userId, id);
+  assertEquals(legacy.days, null);
+  assertEquals(parsePaymentLabel("").userId, "");
+});
+
+Deno.test("a labeled term must match both the price and the term", () => {
+  assertEquals(planDaysForPayment("30", null, 30), 30);
+  assertEquals(planDaysForPayment("30", null, 365), null);
+  assertEquals(planDaysForPayment("80", null, 90), 90);
+  assertEquals(planDaysForPayment("80", null, 30), null);
+  const custom = [{ amountRub: 35, days: 30 }];
+  assertEquals(planDaysForPayment("35", null, 30, custom), 30);
+  assertEquals(planDaysForPayment("30", null, null, custom), null);
 });
 
 Deno.test("a tariff amount resolves to its number of days", () => {

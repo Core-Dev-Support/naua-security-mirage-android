@@ -1,12 +1,11 @@
-// Оплата подписки в боте: тарифы и ссылка YooMoney.
+// Тарифы подписки NAUA.
 //
-// Тарифы те же, что и в вебхуке (supabase/functions/yoomoney-webhook/contract.ts):
-// 30 ₽ -> 30 дней, 80 ₽ -> 90, 150 ₽ -> 180, 250 ₽ -> 365.
-// Кросс-импорты между каталогами supabase/functions/* не деплоятся, поэтому
-// список продублирован; тесты в обоих местах держат одинаковые значения.
+// Источник — таблица app_config в Supabase (её же читает приложение).
+// Встроенный список ниже нужен только как запасной: если конфиг недоступен,
+// бот продолжает продавать по известным ценам, а не остаётся без оплаты.
 //
-// В ссылке оплаты label — это auth.users.id владельца аккаунта: вебхук
-// находит плательщика именно по нему и начисляет подписку в общей таблице.
+// label ссылки оплаты — `<auth.users.id>:<дней>`: вебхук находит плательщика
+// по id и проверяет, что сумма соответствует выбранному сроку.
 
 export type Plan = {
   amountRub: number;
@@ -23,6 +22,33 @@ export const PLANS: Plan[] = [
   { amountRub: 150, days: 180, labelRu: "6 месяцев", labelEn: "6 months" },
   { amountRub: 250, days: 365, labelRu: "1 год", labelEn: "1 year" },
 ];
+
+// parsePlansPayload — тарифы из строки app_config.subscription_plans.
+//
+// Пустой или испорченный список означает «используй встроенный»: продавать
+// по устаревшей цене лучше, чем не продавать вовсе.
+export function parsePlansPayload(payload: unknown): Plan[] {
+  if (!Array.isArray(payload)) return PLANS;
+  const plans: Plan[] = [];
+  for (const raw of payload) {
+    if (!raw || typeof raw !== "object") continue;
+    const item = raw as Record<string, unknown>;
+    const amountRub = Number(item.price_rub);
+    const days = Number(item.days);
+    if (!Number.isInteger(amountRub) || amountRub <= 0) continue;
+    if (!Number.isInteger(days) || days <= 0) continue;
+    if (plans.some((plan) => plan.amountRub === amountRub && plan.days === days)) continue;
+    const labelRu = typeof item.label_ru === "string" && item.label_ru.trim()
+      ? item.label_ru.trim()
+      : `${days} дней`;
+    const labelEn = typeof item.label_en === "string" && item.label_en.trim()
+      ? item.label_en.trim()
+      : `${days} days`;
+    plans.push({ amountRub, days, labelRu, labelEn });
+  }
+  if (!plans.length) return PLANS;
+  return plans.sort((a, b) => a.days - b.days || a.amountRub - b.amountRub);
+}
 
 // envOr — переменная окружения с запасным значением.
 //
@@ -41,19 +67,22 @@ export function pricePerDay(plan: Plan): number {
   return plan.amountRub / plan.days;
 }
 
-// savingPercent — на сколько процентов тариф дешевле месячного по цене дня.
+// savingPercent — на сколько процентов тариф дешевле самого короткого.
 //
-// Считается от самого короткого тарифа: 30 ₽ за 30 дней — это 1 ₽ в день,
-// с ним сравниваем остальные.
-export function savingPercent(plan: Plan): number {
-  const base = pricePerDay(PLANS[0]);
+// Считается от тарифа с наименьшим сроком: с ним сравниваем остальные.
+export function savingPercent(plan: Plan, plans: Plan[] = PLANS): number {
+  const basePlan = plans.reduce(
+    (best, item) => (item.days < best.days ? item : best),
+    plans[0] ?? plan,
+  );
+  const base = pricePerDay(basePlan);
   if (base <= 0) return 0;
   return Math.round((1 - pricePerDay(plan) / base) * 100);
 }
 
 // bestSaving — максимальная выгода среди тарифов (0, если выгоды нет).
-export function bestSaving(): number {
-  return Math.max(...PLANS.map((plan) => savingPercent(plan)));
+export function bestSaving(plans: Plan[] = PLANS): number {
+  return Math.max(...plans.map((plan) => savingPercent(plan, plans)));
 }
 
 // yoomoneyWallet — номер кошелька из окружения.
@@ -140,7 +169,9 @@ export function buildPaymentUrl(
   params.set("targets", purpose);
   params.set("paymentType", "AC");
   params.set("sum", String(plan.amountRub));
-  params.set("label", authUserId);
+  // Срок в метке: вебхук проверит и сумму, и срок, поэтому цена может
+  // измениться без выпуска новой версии приложения.
+  params.set("label", `${authUserId}:${plan.days}`);
   if (PAYMENT_SUCCESS_URL) params.set("successURL", PAYMENT_SUCCESS_URL);
   return `https://yoomoney.ru/quickpay/confirm.xml?${params.toString()}`;
 }

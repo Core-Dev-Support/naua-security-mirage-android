@@ -50,6 +50,7 @@ class MirageApp : Application() {
         com.naua_security_mirage.app.util.CrashReporter.install(this)
         com.naua_security_mirage.app.util.CrashReporter.replayPending(this)
         com.naua_security_mirage.app.data.supabase.SupabaseManager.instance.init(this)
+        com.naua_security_mirage.app.data.config.AppConfigRepository.init(this)
 
         val settingsRepository = SettingsRepository(this)
         val telemetryEnabled = settingsRepository.isAnonymousTelemetryEnabled

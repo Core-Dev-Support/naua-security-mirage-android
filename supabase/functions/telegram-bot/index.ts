@@ -61,8 +61,10 @@ import {
   TRIBUTE_WEB_URL,
   bestSaving,
   buildPaymentUrl,
+  parsePlansPayload,
   savingPercent,
   yoomoneyWallet,
+  type Plan,
 } from "./lib/plans.ts";
 import {
   LANG_LABEL,
@@ -1108,6 +1110,39 @@ function subscriptionStatusLine(
 }
 
 // showSubscription — экран подписки: что входит, статус, тарифы, поддержка.
+let plansCache: { at: number; plans: Plan[] } | null = null;
+
+// activePlans — тарифы из app_config с коротким кэшем.
+//
+// Один и тот же список читают приложение, бот и вебхук. Кэш на минуту
+// избавляет от запроса к базе на каждое нажатие, но не мешает цене
+// обновиться почти сразу после правки в Supabase.
+async function activePlans(): Promise<Plan[]> {
+  const now = Date.now();
+  if (plansCache && now - plansCache.at < 60_000) return plansCache.plans;
+  try {
+    const { data, error } = await supabase()
+      .from("app_config")
+      .select("payload")
+      .eq("id", "subscription_plans")
+      .maybeSingle();
+    if (error) {
+      console.warn("app_config plans unavailable, using built-in plans", { error: error.message });
+      return plansCache?.plans ?? PLANS;
+    }
+    const plans = parsePlansPayload(
+      (data as { payload?: unknown } | null)?.payload,
+    );
+    plansCache = { at: now, plans };
+    return plans;
+  } catch (error) {
+    console.warn("app_config plans lookup failed, using built-in plans", {
+      error: error instanceof Error ? error.message : error,
+    });
+    return plansCache?.plans ?? PLANS;
+  }
+}
+
 async function showSubscription(
   ctx: BotContext,
   chatId: number,
@@ -1137,15 +1172,16 @@ async function showSubscription(
   } else {
     // Подсказка — часть текста, а не кнопка: Telegram не принимает кнопки
     // без callback_data/url и отвергает всю клавиатуру целиком.
-    const best = bestSaving();
+    const plans = await activePlans();
+    const best = bestSaving(plans);
     lines.push("", t(lang, "sub.choose"));
     if (best > 0) {
       lines.push(t(lang, "sub.choose.hint", { saving: best }));
     }
     lines.push("", t(lang, "sub.pay.hint"));
-    for (const plan of PLANS) {
+    for (const plan of plans) {
       const period = lang === "en" ? plan.labelEn : plan.labelRu;
-      const saving = savingPercent(plan);
+      const saving = savingPercent(plan, plans);
       // Выгода показывается у каждого тарифа, лучший помечается огоньком.
       const badge = saving <= 0
         ? ""
@@ -1193,7 +1229,7 @@ async function showPayment(
     );
     return;
   }
-  const plan = PLANS.find((item) => item.amountRub === amountRub);
+  const plan = (await activePlans()).find((item) => item.amountRub === amountRub);
   if (!plan) {
     await renderScreen(
       chatId,

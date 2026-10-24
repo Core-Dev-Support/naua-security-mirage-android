@@ -37,10 +37,72 @@ const FREE_NODES_LIMIT = Number(Deno.env.get("FREE_NODES_LIMIT") || "2");
 const FREE_API_URL = Deno.env.get("FREE_API_URL") || "";
 
 // Названия узлов. Одно место, чтобы в клиенте не было служебных имён
-// панелей вроде «mrge_<почта>_<хэш>».
-const FRANCE_NAME = "NAUA Security Mirage Франция (Платный)";
-const BELARUS_NAME = "NAUA Security Mirage Беларусь (Платный)";
+// панелей вроде «mrge_<почта>_<хэш>». Бесплатный узел не входит в обычную
+// подписку и выдаётся только по отдельной подписи.
 const FREE_NAME = "NAUA Security Mirage Бесплатный";
+
+type PaidNodeConfig = {
+  id: string;
+  label: string;
+  configFunction: string;
+  sort: number;
+};
+
+const DEFAULT_PAID_NODES: PaidNodeConfig[] = [
+  { id: "premium_france", label: "Франция (Платная)", configFunction: "france-config", sort: 10 },
+  { id: "premium_belarus", label: "Беларусь (Платная)", configFunction: "belarus-config", sort: 20 },
+];
+
+// loadPaidNodes — каталог платных узлов из app_config.
+//
+// Один и тот же список читают приложение и бот-подписка. Пустой массив —
+// осознанное «платных узлов нет»; ошибка или отсутствие строки — запасной
+// список Франция/Беларусь, чтобы подписка не опустела из-за сбоя базы.
+async function loadPaidNodes(): Promise<PaidNodeConfig[]> {
+  try {
+    const { data, error } = await service()
+      .from("app_config")
+      .select("payload")
+      .eq("id", "paid_nodes")
+      .maybeSingle();
+    if (error) {
+      console.warn("app_config paid_nodes unavailable, using built-in nodes", {
+        error: error.message,
+      });
+      return DEFAULT_PAID_NODES;
+    }
+    const payload = (data as { payload?: unknown } | null)?.payload;
+    if (!Array.isArray(payload)) return DEFAULT_PAID_NODES;
+    if (payload.length === 0) return [];
+
+    const nodes: PaidNodeConfig[] = [];
+    for (const raw of payload) {
+      if (!raw || typeof raw !== "object") continue;
+      const item = raw as Record<string, unknown>;
+      if (item.enabled === false) continue;
+      const id = String(item.id || "").trim();
+      const configFunction = String(item.config_function || "").trim();
+      if (!id || !configFunction) continue;
+      if (!/^[a-z0-9][a-z0-9-]{1,63}$/.test(configFunction)) continue;
+      if (nodes.some((node) => node.id === id)) continue;
+      const label = String(item.label_ru || item.label_en || id).trim() || id;
+      const sort = Number(item.sort);
+      nodes.push({
+        id,
+        label,
+        configFunction,
+        sort: Number.isFinite(sort) ? sort : 100,
+      });
+    }
+    if (nodes.length === 0) return DEFAULT_PAID_NODES;
+    return nodes.sort((a, b) => a.sort - b.sort || a.id.localeCompare(b.id));
+  } catch (error) {
+    console.warn("app_config paid_nodes lookup failed, using built-in nodes", {
+      error: error instanceof Error ? error.message : error,
+    });
+    return DEFAULT_PAID_NODES;
+  }
+}
 
 // withNodeName — заменяет подпись узла (всё после #), не трогая сам конфиг.
 function withNodeName(link: string, name: string): string {
@@ -406,23 +468,25 @@ serve(async (req) => {
       return json({ error: "Нет активной подписки" }, 402);
     }
 
-    // Два хоста — два набора нод.
-    const [france, belarus] = userToken
-      ? await Promise.all([
-        fetchNode("france-config", userToken),
-        fetchNode("belarus-config", userToken),
-      ])
-      : [null, null];
+    // Каталог платных узлов серверный: Франция и Беларусь — лишь значения
+    // по умолчанию. Новая Финляндия появляется в подписке без пересборки.
+    const paidNodeConfigs = await loadPaidNodes();
+    const paidNodes = userToken
+      ? await Promise.all(
+        paidNodeConfigs.map(async (node) => ({
+          node,
+          result: await fetchNode(node.configFunction, userToken),
+        })),
+      )
+      : [];
 
     const links: string[] = [];
     const nodes: Record<string, unknown>[] = [];
-    if (france) {
-      links.push(withNodeName(france.link, FRANCE_NAME));
-      nodes.push({ host: "france", label: FRANCE_NAME, uuid: france.uuid });
-    }
-    if (belarus) {
-      links.push(withNodeName(belarus.link, BELARUS_NAME));
-      nodes.push({ host: "belarus", label: BELARUS_NAME, uuid: belarus.uuid });
+    for (const { node, result } of paidNodes) {
+      if (!result) continue;
+      const label = `NAUA Security Mirage ${node.label}`;
+      links.push(withNodeName(result.link, label));
+      nodes.push({ host: node.id, label, uuid: result.uuid });
     }
 
     // Бесплатный узел — только по ссылке с валидной подписью free. Её бот

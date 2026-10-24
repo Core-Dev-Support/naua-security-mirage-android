@@ -30,6 +30,25 @@ export const PLANS: Plan[] = [
   { amountRub: 250, days: 365 },
 ];
 
+/**
+ * Parses the payment label written by the app and the bot.
+ *
+ * New links carry both the payer id and the chosen term: `<uuid>:<days>`.
+ * Links issued before the server-driven plans used only the uuid, and are
+ * still accepted so an already-open payment page keeps working.
+ */
+export function parsePaymentLabel(label: string): {
+  userId: string;
+  days: number | null;
+} {
+  const [rawUserId, rawDays] = label.trim().split(":");
+  const userId = (rawUserId || "").trim();
+  const days = /^\d{1,4}$/.test((rawDays || "").trim())
+    ? Number(rawDays)
+    : null;
+  return { userId, days: days && days > 0 ? days : null };
+}
+
 // Сколько дней начислить за оплаченную сумму.
 //
 // YooMoney присылает amount (за вычетом комиссии) и commission отдельно, и
@@ -40,6 +59,8 @@ export const PLANS: Plan[] = [
 export function planDaysForPayment(
   charged: string,
   commission: string | null,
+  requestedDays: number | null = null,
+  plans: Plan[] = PLANS,
 ): number | null {
   const chargedKopecks = parseAmountToKopecks(charged);
   if (chargedKopecks === null) return null;
@@ -48,9 +69,16 @@ export function planDaysForPayment(
   const candidates = [chargedKopecks];
   if (feeKopecks !== null) candidates.push(chargedKopecks + feeKopecks);
 
+  // The term in the label selects the plan, but the amount must still match
+  // that plan. Otherwise a payer could label a 30 ₽ transfer as a year.
+  const wantedDays = requestedDays && Number.isInteger(requestedDays) && requestedDays > 0
+    ? requestedDays
+    : null;
+
   for (const kopecks of candidates) {
     const rub = kopecks / 100;
-    for (const plan of PLANS) {
+    for (const plan of plans) {
+      if (wantedDays !== null && plan.days !== wantedDays) continue;
       // Полурубля допускаем: YooMoney иногда присылает сумму с копейками.
       if (Math.abs(rub - plan.amountRub) < 0.005) return plan.days;
     }

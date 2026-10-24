@@ -162,10 +162,10 @@ class SettingsRepository(context: Context) {
     var lastPaidPlan: String
         get() {
             val stored = prefs.getString(KEY_LAST_PAID_PLAN, PLAN_PREMIUM_FRANCE) ?: PLAN_PREMIUM_FRANCE
-            return if (stored == PLAN_PREMIUM_BELARUS) PLAN_PREMIUM_BELARUS else PLAN_PREMIUM_FRANCE
+            return if (stored.isBlank() || stored == PLAN_FREE) PLAN_PREMIUM_FRANCE else stored
         }
         set(value) {
-            if (value == PLAN_PREMIUM_BELARUS || value == PLAN_PREMIUM_FRANCE) {
+            if (value.isNotBlank() && value != PLAN_FREE) {
                 prefs.edit().putString(KEY_LAST_PAID_PLAN, value).apply()
             }
         }
@@ -175,7 +175,7 @@ class SettingsRepository(context: Context) {
         set(value) = prefs.edit().putString(KEY_PREFERRED_FREE_NODE, value).apply()
 
     fun isPaidPlan(plan: String = selectedServerPlan): Boolean {
-        return plan == PLAN_PREMIUM_FRANCE || plan == PLAN_PREMIUM_BELARUS
+        return plan.isNotBlank() && plan != PLAN_FREE
     }
 
     fun isAppProxied(packageName: String): Boolean {

@@ -20,6 +20,12 @@ object PaymentManager {
             "UTF-8"
         )
         val successUrl = URLEncoder.encode("mirage://payment/success", "UTF-8")
+        // The webhook needs the term to credit the right number of days when a
+        // price changes. Older app versions sent only the user id; the webhook
+        // still accepts that legacy format by matching the amount. A UUID and
+        // digits are URL-safe, so the colon is left as-is: YooMoney echoes the
+        // label back exactly, and an encoded %3A would hide the term.
+        val label = "$userId:$days"
 
         return "https://yoomoney.ru/quickpay/confirm.xml" +
                 "?receiver=${SupabaseConfig.yooMoneyWallet}" +
@@ -27,7 +33,7 @@ object PaymentManager {
                 "&targets=$targets" +
                 "&paymentType=AC" +
                 "&sum=$amountRub" +
-                "&label=$userId" +
+                "&label=$label" +
                 "&successURL=$successUrl"
     }
 

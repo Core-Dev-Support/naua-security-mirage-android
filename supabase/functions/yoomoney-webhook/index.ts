@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.8";
 import { crypto } from "https://deno.land/std@0.168.0/crypto/mod.ts";
 import {
+  PLANS as FALLBACK_PLANS,
   REFERRAL_BONUS_DAYS,
   REFERRAL_MILESTONE_DAYS,
   REFERRAL_MILESTONE_EVERY,
@@ -12,7 +13,9 @@ import {
   isRubleCurrency,
   makeVlessUrl,
   nextPaidUntil,
+  parsePaymentLabel,
   planDaysForPayment,
+  type Plan,
 } from "./contract.ts";
 
 type SubscriptionRow = {
@@ -432,6 +435,48 @@ async function creditReferralBonus(
 //
 // Failures here are swallowed: this is a diagnostic, and a webhook that fails because its own
 // bookkeeping failed would turn a paid customer into an unpaid one.
+// loadPaymentPlans — тарифы из app_config.
+//
+// Цена и срок живут в одной таблице, поэтому изменение цены в Supabase
+// подхватывают и приложение, и бот, и этот вебхук без пересборки APK.
+// Если таблица недоступна, остаётся встроенный список: принять оплату
+// важнее, чем показать новую цену.
+async function loadPaymentPlans(
+  load: () => Promise<{
+    data: { payload?: unknown } | null;
+    error: { message: string } | null;
+  }>,
+): Promise<Plan[]> {
+  try {
+    const { data, error } = await load();
+    if (error) {
+      console.warn("app_config plans unavailable, using built-in plans", { error: error.message });
+      return FALLBACK_PLANS;
+    }
+    const payload = data?.payload;
+    if (!Array.isArray(payload)) return FALLBACK_PLANS;
+
+    const plans: Plan[] = [];
+    for (const raw of payload) {
+      if (!raw || typeof raw !== "object") continue;
+      const item = raw as Record<string, unknown>;
+      const amountRub = Number(item.price_rub);
+      const days = Number(item.days);
+      if (!Number.isInteger(amountRub) || amountRub <= 0) continue;
+      if (!Number.isInteger(days) || days <= 0) continue;
+      if (plans.some((plan) => plan.amountRub === amountRub && plan.days === days)) continue;
+      plans.push({ amountRub, days });
+    }
+    if (!plans.length) return FALLBACK_PLANS;
+    return plans.sort((a, b) => a.amountRub - b.amountRub || a.days - b.days);
+  } catch (error) {
+    console.warn("app_config plans lookup failed, using built-in plans", {
+      error: error instanceof Error ? error.message : error,
+    });
+    return FALLBACK_PLANS;
+  }
+}
+
 async function recordArrival(fields: Record<string, unknown>): Promise<void> {
   try {
     if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) return;
@@ -503,18 +548,8 @@ serve(async (req) => {
     // charged figure is the one that must match the price, so it is preferred when present.
     const charged = withdrawAmount || amount;
 
-    // Сначала ищем сумму в таблице тарифов: из неё берётся и допуск, и число
-    // дней. Так оплата тарифа из бота (80/150/250 ₽) начисляет столько же,
-    // сколько оплата приложения (30 ₽).
-    const planDays = planDaysForPayment(charged, field("commission"));
-    if (planDays === null) {
-      // Суммы вне тарифов принимаем только по старому правилу (ожидаемая сумма
-      // с допуском) — как это было до появления тарифов.
-      if (!isExpectedPaymentAmount(charged, field("commission"), YOOMONEY_EXPECTED_AMOUNT_RUB, YOOMONEY_AMOUNT_TOLERANCE_KOPECKS)) {
-        await recordArrival({ ...arrival, outcome: "invalid_amount" });
-        return new Response("Invalid amount", { status: 400 });
-      }
-    }
+    // Сумму проверяем после подписи: тарифы читаются из app_config, а без
+    // проверенного уведомления нельзя даже записывать попытку в журнал.
     if (!isRubleCurrency(currency)) {
       await recordArrival({ ...arrival, outcome: "unsupported_currency" });
       return new Response("Unsupported currency", { status: 400 });
@@ -528,7 +563,47 @@ serve(async (req) => {
     }
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-    const { data: userData, error: userError } = await supabase.auth.admin.getUserById(label);
+    const plans = await loadPaymentPlans(async () => {
+      const { data, error } = await supabase
+        .from("app_config")
+        .select("payload")
+        .eq("id", "subscription_plans")
+        .maybeSingle();
+      return {
+        data: (data as { payload?: unknown } | null) ?? null,
+        error,
+      };
+    });
+    const { userId, days: requestedDays } = parsePaymentLabel(label);
+    if (!userId) {
+      await recordArrival({ ...arrival, outcome: "missing_operation_id_or_label" });
+      return new Response("operation_id and label are required", { status: 400 });
+    }
+    // Новые ссылки несут срок в label, поэтому смена цены не требует нового
+    // APK. Старые ссылки без срока по-прежнему сопоставляются по сумме.
+    const planDays = planDaysForPayment(
+      charged,
+      field("commission"),
+      requestedDays,
+      plans,
+    );
+    if (planDays === null) {
+      // Новая ссылка всегда несёт срок. Если цена изменилась между открытием
+      // страницы и оплатой, сумма и срок перестанут совпадать: такую оплату
+      // лучше отклонить, чем начислить меньше оплаченного.
+      if (requestedDays !== null) {
+        await recordArrival({ ...arrival, outcome: "stale_plan" });
+        return new Response("Plan changed, please pay again", { status: 400 });
+      }
+      // Старые ссылки без срока принимаем по прежнему правилу (ожидаемая
+      // сумма с допуском) — как это было до появления тарифов.
+      if (!isExpectedPaymentAmount(charged, field("commission"), YOOMONEY_EXPECTED_AMOUNT_RUB, YOOMONEY_AMOUNT_TOLERANCE_KOPECKS)) {
+        await recordArrival({ ...arrival, outcome: "invalid_amount" });
+        return new Response("Invalid amount", { status: 400 });
+      }
+    }
+
+    const { data: userData, error: userError } = await supabase.auth.admin.getUserById(userId);
     if (userError || !userData.user?.email) {
       await recordArrival({ ...arrival, outcome: "unknown_payer" });
       return new Response("Unknown payer account", { status: 400 });
@@ -538,7 +613,7 @@ serve(async (req) => {
     const { data: existingRows, error: existingError } = await supabase
       .from("subscriptions")
       .select("user_id,email,is_active,plan,paid_until,vless_key,client_uuid,flow,operation_id")
-      .eq("user_id", label)
+      .eq("user_id", userId)
       .limit(1);
     if (existingError) throw new Error(`Subscription lookup failed: ${existingError.message}`);
 
@@ -553,12 +628,12 @@ serve(async (req) => {
     if (!Number.isFinite(expiryMs)) throw new Error("Invalid subscription expiry");
 
     const cookie = await loginTo3xUi();
-    const client = await ensure3xClient(cookie, label, email, existing, expiryMs);
+    const client = await ensure3xClient(cookie, userId, email, existing, expiryMs);
     const key = vlessUrl(client.uuid, client.flow);
     const { error: upsertError } = await supabase
       .from("subscriptions")
       .upsert({
-        user_id: label,
+        user_id: userId,
         email,
         is_active: true,
         plan: "premium",
@@ -573,7 +648,7 @@ serve(async (req) => {
 
     await recordArrival({ ...arrival, outcome: "credited" });
     // Бонус пригласившему — после того, как подписка плательщика начислена.
-    await creditReferralBonus(label, operationId);
+    await creditReferralBonus(userId, operationId);
     return new Response("OK", { status: 200 });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Webhook processing error";

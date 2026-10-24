@@ -137,6 +137,8 @@
     <string name="sub_renew_short">Renew subscription</string>
     <string name="sub_buy_button">Pay for subscription</string>
     <string name="sub_price_from">from 30 ₽</string>
+    <string name="sub_price_from_fmt">from %1$d ₽</string>
+    <string name="sub_plan_days_fmt">Access from %1$d days</string>
     <string name="sub_options_title">Extend subscription</string>
     <string name="sub_options_title_buy">Buy subscription</string>
     <string name="sub_options_subtitle">Pick a term: the days are added to your current subscription</string>

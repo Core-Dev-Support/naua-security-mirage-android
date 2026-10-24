@@ -13,6 +13,8 @@ import android.os.Build
 import android.os.ParcelFileDescriptor
 import android.util.Log
 import com.naua_security_mirage.app.R
+import com.naua_security_mirage.app.data.config.AppConfigRepository
+import com.naua_security_mirage.app.data.config.PaidNode
 import com.naua_security_mirage.app.data.model.VlessServer
 import com.naua_security_mirage.app.data.model.VpnState
 import com.naua_security_mirage.app.data.repository.DeviceIdRepository
@@ -212,68 +214,19 @@ class MirageVpnService : VpnService() {
                 val selectedPlan = settingsRepository.selectedServerPlan
                 val hasSubscription =
                     com.naua_security_mirage.app.data.supabase.SupabaseManager.instance.hasActiveSubscription()
-                val isFrancePlan = selectedPlan == SettingsRepository.PLAN_PREMIUM_FRANCE && hasSubscription
-                val isBelarusPlan = selectedPlan == SettingsRepository.PLAN_PREMIUM_BELARUS && hasSubscription
-                val isPaidPlan = settingsRepository.isPaidPlan(selectedPlan) && hasSubscription
+                // The catalogue is server-driven: a paid plan is whatever node id
+                // app_config returned. France and Belarus keep their dedicated
+                // key paths; every other kind is a generic VLESS node.
+                val paidNode = if (hasSubscription) AppConfigRepository.node(selectedPlan) else null
+                val isPaidPlan = paidNode != null
+                val isBelarusPlan = paidNode?.kind == PaidNode.Kind.BELARUS
 
                 var premeasuredFree: List<VlessServer> = emptyList()
-                var franceRefresh: Deferred<String?>? = null
                 var freeLoadedCount = 0
                 var freeAnyReachable = false
                 var freePanelReachable = false
-                val bestServer = if (isFrancePlan) {
-                    val manager = com.naua_security_mirage.app.data.supabase.SupabaseManager.instance
-
-                    val cachedKey = manager.getActiveVlessKey()
-                    franceRefresh = serviceScope.async(Dispatchers.IO) { manager.ensureFranceVlessKey() }
-                    val keyBudgetMs =
-                        if (cachedKey.isNullOrBlank()) FRANCE_KEY_BUDGET_MS else CACHED_KEY_BUDGET_MS
-                    val liveKey = withTimeoutOrNull(keyBudgetMs) { franceRefresh.await() }
-                    if (liveKey.isNullOrBlank()) {
-                        AppLogger.w(
-                            TAG,
-                            "Панель не ответила за ${keyBudgetMs}мс, используется кэшированный ключ; " +
-                                    "обновление продолжится в фоне"
-                        )
-                    }
-                    val activeKey = manager.getActiveVlessKey()
-                    val parsedServer = if (!activeKey.isNullOrBlank()) {
-                        com.naua_security_mirage.app.data.model.VlessServer.fromUri(activeKey, "Франция (Платный)")
-                    } else null
-
-
-                    val france = parsedServer ?: run {
-                        val clientUuid = manager.getActiveClientUuid()
-                        if (!com.naua_security_mirage.app.data.supabase.FranceAccessPolicy
-                                .mayBuildPaidTunnel(clientUuid)
-                        ) {
-                            AppLogger.w(
-                                TAG,
-                                "У сервера нет ключа для этого аккаунта, платный узел пропущен"
-                            )
-                            null
-                        } else {
-                            val clientFlow = manager.getActiveClientFlow(clientUuid)
-                            com.naua_security_mirage.app.data.supabase.SupabaseConfig
-                                .getFranceServer(clientUuid, clientFlow)
-                        }
-                    }
-                    val franceReady = france?.let { applyFingerprintPreference(it) }
-
-                    franceReady?.let {
-                        AppLogger.i(
-                            TAG,
-                            "Выбран платный узел: ${it.tag} (${it.address}:${it.port}), " +
-                                    "flow: '${it.flow}', uuid: ${redactUuid(it.uuid)}"
-                        )
-                    }
-                    franceReady
-                } else if (isBelarusPlan) {
-                    val refresh = serviceScope.async(Dispatchers.IO) {
-                        com.naua_security_mirage.app.data.supabase.SupabaseManager.instance
-                            .ensureBelarusVlessKey()
-                    }
-                    resolveBelarusServer(refresh)
+                val bestServer = if (paidNode != null) {
+                    resolvePaidNode(paidNode)
                 } else {
 
                     val servers = vlessKeyRepository.getVlessServers()
@@ -383,11 +336,6 @@ class MirageVpnService : VpnService() {
 
 
                 if (tunnelAttempt?.first == null && onPaidNode) {
-                    val retryLabel = if (isBelarusPlan) {
-                        com.naua_security_mirage.app.data.supabase.SupabaseConfig.BELARUS_LABEL
-                    } else {
-                        "Франция (Платный)"
-                    }
                     if (isBelarusPlan) {
                         // Кэшированный ключ мог устареть после ротации на панели.
                         // После неудачи один раз принудительно перечитываем его.
@@ -398,22 +346,7 @@ class MirageVpnService : VpnService() {
                             "tunnel"
                         )
                     }
-                    val freshKey = if (isBelarusPlan) {
-                        withTimeoutOrNull(BELARUS_KEY_BUDGET_MS) {
-                            com.naua_security_mirage.app.data.supabase.SupabaseManager.instance
-                                .ensureBelarusVlessKey(force = true)
-                        }
-                    } else {
-                        val pendingRefresh = franceRefresh
-                        if (pendingRefresh != null && !pendingRefresh.isCompleted) {
-                            withTimeoutOrNull(CACHED_KEY_BUDGET_MS) { pendingRefresh.await() }
-                        } else {
-                            null
-                        }
-                    }
-                    val retryServer = freshKey
-                        ?.let { com.naua_security_mirage.app.data.model.VlessServer.fromUri(it, retryLabel) }
-                        ?.let { applyFingerprintPreference(it) }
+                    val retryServer = paidNode?.let { resolvePaidNode(it, force = true) }
                     if (retryServer != null) {
                         AppLogger.w(TAG, "Повтор платного подключения с ключом, полученным после обновления панели")
                         tunnelAttempt = withTimeoutOrNull(tunnelBudgetMs) {
@@ -524,7 +457,114 @@ class MirageVpnService : VpnService() {
         }
     }
 
-    private suspend fun resolveBelarusServer(refresh: Deferred<String?>): VlessServer? {
+    /**
+     * Resolves any node listed in `app_config.paid_nodes`.
+     *
+     * France and Belarus have dedicated key paths because their providers
+     * differ. Any other node is generic VLESS: its key is issued by the edge
+     * function named in the config, so adding a node is a database change.
+     */
+    private suspend fun resolvePaidNode(node: PaidNode, force: Boolean = false): VlessServer? {
+        val manager = com.naua_security_mirage.app.data.supabase.SupabaseManager.instance
+        if (!manager.hasActiveSubscription()) return null
+        return when (node.kind) {
+            PaidNode.Kind.FRANCE -> resolveFranceServer(node.label())
+            PaidNode.Kind.BELARUS -> {
+                val refresh = serviceScope.async(Dispatchers.IO) {
+                    manager.ensureBelarusVlessKey(force = force)
+                }
+                resolveBelarusServer(refresh, node.label())
+            }
+            PaidNode.Kind.VLESS -> resolveGenericServer(node, force)
+        }
+    }
+
+    private suspend fun resolveFranceServer(label: String): VlessServer? {
+        val manager = com.naua_security_mirage.app.data.supabase.SupabaseManager.instance
+        val cachedKey = manager.getActiveVlessKey()
+        val refresh = serviceScope.async(Dispatchers.IO) { manager.ensureFranceVlessKey() }
+        val keyBudgetMs = if (cachedKey.isNullOrBlank()) FRANCE_KEY_BUDGET_MS else CACHED_KEY_BUDGET_MS
+        val liveKey = withTimeoutOrNull(keyBudgetMs) { refresh.await() }
+        if (liveKey.isNullOrBlank()) {
+            AppLogger.w(
+                TAG,
+                "Панель не ответила за ${keyBudgetMs}мс, используется кэшированный ключ; " +
+                        "обновление продолжится в фоне"
+            )
+        }
+        val activeKey = manager.getActiveVlessKey()
+        val parsedServer = if (!activeKey.isNullOrBlank()) {
+            VlessServer.fromUri(activeKey, label)
+        } else null
+
+        val server = parsedServer ?: run {
+            val clientUuid = manager.getActiveClientUuid()
+            if (!com.naua_security_mirage.app.data.supabase.FranceAccessPolicy
+                    .mayBuildPaidTunnel(clientUuid)
+            ) {
+                AppLogger.w(TAG, "У сервера нет ключа для этого аккаунта, платный узел пропущен")
+                null
+            } else {
+                val clientFlow = manager.getActiveClientFlow(clientUuid)
+                com.naua_security_mirage.app.data.supabase.SupabaseConfig
+                    .getFranceServer(clientUuid, clientFlow)
+            }
+        }
+        return server?.let { applyFingerprintPreference(it) }?.also {
+            AppLogger.i(
+                TAG,
+                "Выбран платный узел: ${it.tag} (${it.address}:${it.port}), " +
+                        "flow: '${it.flow}', uuid: ${redactUuid(it.uuid)}"
+            )
+        }
+    }
+
+    private suspend fun resolveGenericServer(node: PaidNode, force: Boolean): VlessServer? {
+        val manager = com.naua_security_mirage.app.data.supabase.SupabaseManager.instance
+        val cachedKey = manager.getNodeVlessKey(node.id)
+        val refresh = serviceScope.async(Dispatchers.IO) {
+            manager.ensureNodeVlessKey(node, force = force)
+        }
+        val budgetMs = if (cachedKey.isNullOrBlank()) FRANCE_KEY_BUDGET_MS else CACHED_KEY_BUDGET_MS
+        val liveKey = withTimeoutOrNull(budgetMs) { refresh.await() }
+        if (liveKey.isNullOrBlank() && !cachedKey.isNullOrBlank()) {
+            AppLogger.w(
+                TAG,
+                "Панель не ответила за ${budgetMs}мс, используется кэшированный ключ узла ${node.id}; " +
+                        "обновление продолжится в фоне"
+            )
+        }
+        val key = liveKey?.takeIf { it.isNotBlank() }
+            ?: manager.getNodeVlessKey(node.id)
+            ?: cachedKey
+        if (key.isNullOrBlank()) {
+            AppLogger.w(TAG, "${node.configFunction} не выдал ключ, узел ${node.id} пропущен")
+            return null
+        }
+        val server = VlessServer.fromUri(key, node.label())
+        if (server == null) {
+            AppLogger.w(TAG, "У узла ${node.id} некорректная VLESS-ссылка, узел пропущен")
+            return null
+        }
+        if (!com.naua_security_mirage.app.data.supabase.FranceAccessPolicy
+                .mayBuildPaidTunnel(server.uuid)
+        ) {
+            AppLogger.w(TAG, "У узла ${node.id} некорректный UUID, узел пропущен")
+            return null
+        }
+        AppLogger.i(
+            TAG,
+            "Выбран платный узел: ${server.tag} (${server.address}:${server.port}), " +
+                    "network=${server.network}, security=${server.security}, " +
+                    "uuid: ${redactUuid(server.uuid)}"
+        )
+        return applyFingerprintPreference(server)
+    }
+
+    private suspend fun resolveBelarusServer(
+        refresh: Deferred<String?>,
+        label: String = com.naua_security_mirage.app.data.supabase.SupabaseConfig.BELARUS_LABEL
+    ): VlessServer? {
         val manager = com.naua_security_mirage.app.data.supabase.SupabaseManager.instance
         val cachedKey = manager.getActiveBelarusVlessKey()
         val budgetMs = if (cachedKey.isNullOrBlank()) BELARUS_KEY_BUDGET_MS else CACHED_KEY_BUDGET_MS
@@ -540,7 +580,7 @@ class MirageVpnService : VpnService() {
         val server = if (!key.isNullOrBlank()) {
             com.naua_security_mirage.app.data.model.VlessServer.fromUri(
                 key,
-                com.naua_security_mirage.app.data.supabase.SupabaseConfig.BELARUS_LABEL
+                label
             )
         } else {
             null
@@ -619,7 +659,7 @@ class MirageVpnService : VpnService() {
         for ((index, candidate) in candidates.withIndex()) {
             val server = candidate
 
-            if (isPaidPlan && isPaidNodeTag(server.tag)) {
+            if (isPaidPlan) {
 
                 serviceScope.launch { checkEndpointReachability(server) }
             }
@@ -1532,57 +1572,19 @@ class MirageVpnService : VpnService() {
                 val reconnectPlan = settingsRepository.selectedServerPlan
                 val reconnectHasSubscription =
                     com.naua_security_mirage.app.data.supabase.SupabaseManager.instance.hasActiveSubscription()
-                val isFrancePlan = reconnectPlan == SettingsRepository.PLAN_PREMIUM_FRANCE && reconnectHasSubscription
-                val isBelarusPlan = reconnectPlan == SettingsRepository.PLAN_PREMIUM_BELARUS && reconnectHasSubscription
-                val isPaidPlan = settingsRepository.isPaidPlan(reconnectPlan) && reconnectHasSubscription
+                val reconnectNode =
+                    if (reconnectHasSubscription) AppConfigRepository.node(reconnectPlan) else null
+                val isPaidPlan = reconnectNode != null
+                val isBelarusPlan = reconnectNode?.kind == PaidNode.Kind.BELARUS
 
-                val newServer = if (isFrancePlan) {
-                    val keyManager = com.naua_security_mirage.app.data.supabase.SupabaseManager.instance
-                    val cachedKey = keyManager.getActiveVlessKey()
-                    val keyRefresh = serviceScope.async(Dispatchers.IO) { keyManager.ensureFranceVlessKey() }
-                    val keyBudgetMs =
-                        if (cachedKey.isNullOrBlank()) FRANCE_KEY_BUDGET_MS else CACHED_KEY_BUDGET_MS
-                    if (withTimeoutOrNull(keyBudgetMs) { keyRefresh.await() }.isNullOrBlank() &&
-                        !cachedKey.isNullOrBlank()
-                    ) {
-                        AppLogger.w(
-                            TAG,
-                            "Панель не ответила за ${keyBudgetMs}мс при переподключении, " +
-                                    "используется кэшированный ключ Франции"
-                        )
-                    }
-                    val activeKey = keyManager.getActiveVlessKey()
-                    val parsedServer = if (!activeKey.isNullOrBlank()) {
-                        com.naua_security_mirage.app.data.model.VlessServer.fromUri(activeKey, "Франция (Платный)")
-                    } else null
-
-                    val manager = com.naua_security_mirage.app.data.supabase.SupabaseManager.instance
-                    val clientUuid = manager.getActiveClientUuid()
-                    val france = if (!com.naua_security_mirage.app.data.supabase.FranceAccessPolicy
-                            .mayBuildPaidTunnel(clientUuid)
-                    ) {
-                        null
-                    } else {
-                        applyFingerprintPreference(parsedServer ?: run {
-                            val clientFlow = manager.getActiveClientFlow(clientUuid)
-                            com.naua_security_mirage.app.data.supabase.SupabaseConfig.getFranceServer(clientUuid, clientFlow)
-                        })
-                    }
-                    france?.let {
+                val newServer = if (reconnectNode != null) {
+                    resolvePaidNode(reconnectNode)?.also {
                         AppLogger.i(
                             TAG,
                             "Выбран платный узел для переподключения: ${it.tag} " +
-                                    "(${it.address}:${it.port}), flow: '${it.flow}', " +
-                                    "uuid: ${redactUuid(it.uuid)}"
+                                    "(${it.address}:${it.port}), uuid: ${redactUuid(it.uuid)}"
                         )
                     }
-                    france
-                } else if (isBelarusPlan) {
-                    val refresh = serviceScope.async(Dispatchers.IO) {
-                        com.naua_security_mirage.app.data.supabase.SupabaseManager.instance
-                            .ensureBelarusVlessKey()
-                    }
-                    resolveBelarusServer(refresh)
                 } else {
                     val servers = vlessKeyRepository.getVlessServers()
                     val measured = pingRepository.measureAllPings(servers)
@@ -1677,10 +1679,6 @@ class MirageVpnService : VpnService() {
 
     companion object {
         private const val TAG = "MirageVpnService"
-        private val PAID_TAG_PREFIXES = listOf("Франция", "Беларусь")
-
-        private fun isPaidNodeTag(tag: String): Boolean =
-            PAID_TAG_PREFIXES.any { tag.startsWith(it) }
         private const val PRIVATE_DNS_WARNING_COOLDOWN_MS = 30 * 60 * 1000L
 
          

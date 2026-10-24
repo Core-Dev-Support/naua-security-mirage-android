@@ -40,6 +40,8 @@ import androidx.lifecycle.lifecycleScope
 import com.naua_security_mirage.app.R
 import com.naua_security_mirage.app.data.model.VpnState
 import com.naua_security_mirage.app.data.model.VlessServer
+import com.naua_security_mirage.app.data.config.AppConfigRepository
+import com.naua_security_mirage.app.data.config.PaidNode
 import com.naua_security_mirage.app.data.repository.DeviceIdRepository
 import com.naua_security_mirage.app.data.repository.GeoRoutingRepository
 import com.naua_security_mirage.app.data.repository.PingRepository
@@ -395,6 +397,8 @@ class MainActivity : AppCompatActivity() {
             handlePaymentReturn()
         }
         updateAccountCardUI()
+        AppConfigRepository.refresh()
+        updateServerPlanSelectorUI()
         refreshPrivateDnsRow()
         refreshNodeStatus()
         refreshKillSwitchRow()
@@ -639,22 +643,27 @@ class MainActivity : AppCompatActivity() {
 
     }
 
-    private data class PaidNodeChoice(val plan: String, val labelRes: Int)
+    private data class PaidNodeChoice(val plan: String, val label: String, val flag: String)
 
     private fun paidNodeChoices(): List<PaidNodeChoice> {
-        return listOf(
-            PaidNodeChoice(SettingsRepository.PLAN_PREMIUM_FRANCE, R.string.plan_france),
-            PaidNodeChoice(SettingsRepository.PLAN_PREMIUM_BELARUS, R.string.plan_belarus)
-        )
+        return AppConfigRepository.nodes().map { node ->
+            PaidNodeChoice(node.id, node.label(), node.flag)
+        }
     }
 
-    private fun paidNodeLabelRes(plan: String): Int {
-        return if (plan == SettingsRepository.PLAN_PREMIUM_BELARUS) R.string.plan_belarus
-        else R.string.plan_france
+    private fun paidNodeLabel(plan: String): String {
+        AppConfigRepository.node(plan)?.let { return it.label() }
+        return when (plan) {
+            SettingsRepository.PLAN_PREMIUM_BELARUS -> getString(R.string.plan_belarus)
+            SettingsRepository.PLAN_PREMIUM_FRANCE -> getString(R.string.plan_france)
+            else -> plan
+        }
     }
 
     private fun paidNodePlanForLabel(): String {
-        return settingsRepository.lastPaidPlan
+        val stored = settingsRepository.lastPaidPlan
+        if (AppConfigRepository.node(stored) != null) return stored
+        return AppConfigRepository.nodes().firstOrNull()?.id ?: stored
     }
 
     private fun requestPaidPlan(plan: String) {
@@ -681,8 +690,19 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun paidNodeFlagRes(plan: String): Int {
-        return if (plan == SettingsRepository.PLAN_PREMIUM_BELARUS) R.drawable.ic_belarus
-        else R.drawable.ic_france
+        val flag = AppConfigRepository.node(plan)?.flag ?: when (plan) {
+            SettingsRepository.PLAN_PREMIUM_BELARUS -> "belarus"
+            SettingsRepository.PLAN_PREMIUM_FRANCE -> "france"
+            else -> "generic"
+        }
+        return flagDrawable(flag)
+    }
+
+    private fun flagDrawable(flag: String): Int = when (flag.lowercase()) {
+        "france" -> R.drawable.ic_france
+        "belarus" -> R.drawable.ic_belarus
+        "finland" -> R.drawable.ic_finland
+        else -> R.drawable.ic_node_generic
     }
 
     private class PlanPickerStyle(
@@ -737,6 +757,8 @@ class MainActivity : AppCompatActivity() {
 
     private fun showPaidServerPicker() {
         val anchor = binding.containerServerPlan.btnPlanFranceGroup
+        val choices = paidNodeChoices()
+        if (choices.isEmpty()) return
         val style = planPickerStyle()
         val density = style.density
         val list = planPickerList(style)
@@ -754,7 +776,7 @@ class MainActivity : AppCompatActivity() {
         } else {
             settingsRepository.lastPaidPlan
         }
-        for ((index, choice) in paidNodeChoices().withIndex()) {
+        for ((index, choice) in choices.withIndex()) {
             if (index > 0) {
                 list.addView(View(this).apply {
                     layoutParams = LinearLayout.LayoutParams(
@@ -784,7 +806,7 @@ class MainActivity : AppCompatActivity() {
                 }
             }
             row.addView(ImageView(this).apply {
-                setImageResource(paidNodeFlagRes(choice.plan))
+                setImageResource(flagDrawable(choice.flag))
                 layoutParams = LinearLayout.LayoutParams(
                     (20f * density).toInt(),
                     (20f * density).toInt()
@@ -792,7 +814,7 @@ class MainActivity : AppCompatActivity() {
                 contentDescription = null
             })
             row.addView(TextView(this).apply {
-                text = getString(choice.labelRes)
+                text = choice.label
                 setTextColor(if (selected) style.accent else style.titleColor)
                 textSize = 14f
                 setTypeface(typeface, android.graphics.Typeface.BOLD)
@@ -960,6 +982,24 @@ class MainActivity : AppCompatActivity() {
     private fun setupServerPlanSelector() {
         updateServerPlanSelectorUI()
 
+        lifecycleScope.launch {
+            AppConfigRepository.config.collect {
+                val before = settingsRepository.selectedServerPlan
+                AppConfigRepository.applySettings()
+                val after = settingsRepository.selectedServerPlan
+                updateServerPlanSelectorUI()
+                val active = MirageVpnService.vpnState.value == VpnState.CONNECTED ||
+                        MirageVpnService.vpnState.value == VpnState.CONNECTING
+                if (before != after && active) {
+                    AppLogger.i(
+                        "AppConfig",
+                        "План '$before' убран из конфига, переключение на '$after'"
+                    )
+                    handleServerPlanChanged()
+                }
+            }
+        }
+
         binding.containerServerPlan.btnPlanFree.setOnClickListener {
             if (settingsRepository.selectedServerPlan != SettingsRepository.PLAN_FREE) {
                 settingsRepository.selectedServerPlan = SettingsRepository.PLAN_FREE
@@ -1046,8 +1086,15 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun updateServerPlanSelectorUI() {
+        val nodes = AppConfigRepository.nodes()
+        val hasPaidNodes = nodes.isNotEmpty()
+        binding.containerServerPlan.btnPlanFranceGroup.visibility =
+            if (hasPaidNodes) View.VISIBLE else View.GONE
+        if (!hasPaidNodes && settingsRepository.selectedServerPlan != SettingsRepository.PLAN_FREE) {
+            settingsRepository.selectedServerPlan = SettingsRepository.PLAN_FREE
+        }
         val plan = settingsRepository.selectedServerPlan
-        val isPaid = settingsRepository.isPaidPlan(plan)
+        val isPaid = settingsRepository.isPaidPlan(plan) && AppConfigRepository.node(plan) != null
         val customText = settingsRepository.customTextColor
         val hasWallpaper = !settingsRepository.customBgImagePath.isNullOrEmpty() &&
             java.io.File(settingsRepository.customBgImagePath ?: "").exists()
@@ -1064,8 +1111,8 @@ class MainActivity : AppCompatActivity() {
         binding.containerServerPlan.root.background = getCardDrawable(isLightNow, 30f)
         val label = binding.containerServerPlan.btnPlanFrance
         val chevron = binding.containerServerPlan.btnPaidServerChevron
-        val paidTarget = if (isPaid) plan else settingsRepository.lastPaidPlan
-        label.setText(paidNodeLabelRes(paidTarget))
+        val paidTarget = if (isPaid) plan else paidNodePlanForLabel()
+        label.setText(paidNodeLabel(paidTarget))
         val flag = binding.containerServerPlan.ivPaidNodeFlag
         flag.visibility = View.VISIBLE
         flag.setImageResource(paidNodeFlagRes(paidTarget))
@@ -1327,6 +1374,9 @@ class MainActivity : AppCompatActivity() {
         isRenewal: Boolean,
         onPick: (amountRub: Int, days: Int) -> Unit
     ) {
+        AppConfigRepository.refresh()
+        val plans = AppConfigRepository.config.value.plans
+            .ifEmpty { com.naua_security_mirage.app.data.config.AppConfig.DEFAULT_PLANS }
         val dialog = Dialog(this)
         val optionsBinding = com.naua_security_mirage.app.databinding.DialogPaymentOptionsBinding
             .inflate(layoutInflater)
@@ -1353,16 +1403,13 @@ class MainActivity : AppCompatActivity() {
             setTextColor(pal.subtitle)
         }
 
-        val rows = listOf(
-            Triple(R.id.rowPay1, R.id.tvPay1Title, R.id.tvPay1Price),
-            Triple(R.id.rowPay2, R.id.tvPay2Title, R.id.tvPay2Price),
-            Triple(R.id.rowPay3, R.id.tvPay3Title, R.id.tvPay3Price),
-            Triple(R.id.rowPay4, R.id.tvPay4Title, R.id.tvPay4Price)
-        )
-        val plans = com.naua_security_mirage.app.data.supabase.SubscriptionPlans.OPTIONS
-        rows.forEachIndexed { index, (rowId, titleId, priceId) ->
-            val plan = plans.getOrNull(index) ?: return@forEachIndexed
-            val row = optionsBinding.root.findViewById<View>(rowId)
+        optionsBinding.containerPayOptions.removeAllViews()
+        for (plan in plans) {
+            val row = layoutInflater.inflate(
+                R.layout.item_payment_option,
+                optionsBinding.containerPayOptions,
+                false
+            )
             // Фон строки брался из @drawable/bg_card (тёмный): в светлой теме
             // название срока на нём не читалось. Красим в цвет карточки окна.
             row.background = GradientDrawable().apply {
@@ -1371,21 +1418,22 @@ class MainActivity : AppCompatActivity() {
                 setColor(pal.cardBg)
                 setStroke((1f * pal.density).toInt(), pal.stroke)
             }
-            optionsBinding.root.findViewById<TextView>(titleId).apply {
-                setText(plan.titleRes)
+            row.findViewById<TextView>(R.id.tvPayOptionTitle).apply {
+                text = plan.label()
                 setTextColor(pal.title)
             }
-            optionsBinding.root.findViewById<TextView>(priceId).apply {
-                text = plan.discount?.let {
-                    getString(R.string.sub_option_price_discount, plan.amountRub, it)
-                } ?: getString(R.string.sub_option_price, plan.amountRub)
+            row.findViewById<TextView>(R.id.tvPayOptionPrice).apply {
+                text = plan.badge?.let {
+                    getString(R.string.sub_option_price_discount, plan.priceRub, it)
+                } ?: getString(R.string.sub_option_price, plan.priceRub)
                 setTextColor(Color.parseColor("#E8A33D"))
             }
             row.setOnClickListener {
                 AnimationHelper.bounceClick(row, minScale = 0.97f, durationMs = 160)
                 dialog.dismiss()
-                onPick(plan.amountRub, plan.days)
+                onPick(plan.priceRub, plan.days)
             }
+            optionsBinding.containerPayOptions.addView(row)
         }
         optionsBinding.btnPayOptionsCancel.apply {
             applySecondaryButtonStyle(this, pal)
@@ -1496,6 +1544,15 @@ class MainActivity : AppCompatActivity() {
         dialogBinding.btnSubPay.setTextColor(Color.WHITE)
 
         val manager = com.naua_security_mirage.app.data.supabase.SupabaseManager.instance
+        val appConfig = AppConfigRepository.config.value
+        val minPlan = appConfig.plans.minByOrNull { it.days } ?: appConfig.plans.firstOrNull()
+        if (minPlan != null) {
+            dialogBinding.tvSubPrice.text =
+                getString(R.string.sub_price_from_fmt, appConfig.minPriceRub)
+            dialogBinding.tvSubPlanPeriod.text =
+                getString(R.string.sub_plan_days_fmt, minPlan.days)
+        }
+        AppConfigRepository.refresh()
         val subscription = manager.subscription.value
         val hasActive = manager.hasActiveSubscription()
         if (hasActive && subscription != null) {
@@ -2039,50 +2096,88 @@ class MainActivity : AppCompatActivity() {
                     val hasPaid = com.naua_security_mirage.app.data.supabase.SupabaseManager.instance
                         .hasActiveSubscription()
                     val paidPlan = settingsRepository.selectedServerPlan
-                    val isPaidPlan = settingsRepository.isPaidPlan(paidPlan)
-                    val isBelarusPlan = paidPlan == SettingsRepository.PLAN_PREMIUM_BELARUS
+                    val paidNode = AppConfigRepository.node(paidPlan)
+                    val isPaidPlan = paidNode != null
 
-                    if (hasPaid && !isBelarusPlan) {
-                        val freshKey = runCatching {
-                            com.naua_security_mirage.app.data.supabase.SupabaseManager.instance
-                                .ensureFranceVlessKey()
-                        }.getOrNull()
-                        AppLogger.i(
-                            "DataRefresh",
-                            if (freshKey != null) "Ключ платного узла обновлён"
-                            else "Ключ платного узла не обновлён, используется кэш"
-                        )
-                    } else if (hasPaid) {
-                        AppLogger.i(
-                            "DataRefresh",
-                            "Ключ Беларуси обновляется параллельно с замером задержки"
-                        )
+                    if (hasPaid && paidNode != null) {
+                        when (paidNode.kind) {
+                            PaidNode.Kind.BELARUS -> AppLogger.i(
+                                "DataRefresh",
+                                "Ключ Беларуси обновляется параллельно с замером задержки"
+                            )
+                            PaidNode.Kind.FRANCE -> {
+                                val freshKey = runCatching {
+                                    com.naua_security_mirage.app.data.supabase.SupabaseManager.instance
+                                        .ensureFranceVlessKey()
+                                }.getOrNull()
+                                AppLogger.i(
+                                    "DataRefresh",
+                                    if (freshKey != null) "Ключ платного узла обновлён"
+                                    else "Ключ платного узла не обновлён, используется кэш"
+                                )
+                            }
+                            PaidNode.Kind.VLESS -> {
+                                val freshKey = runCatching {
+                                    com.naua_security_mirage.app.data.supabase.SupabaseManager.instance
+                                        .ensureNodeVlessKey(paidNode)
+                                }.getOrNull()
+                                AppLogger.i(
+                                    "DataRefresh",
+                                    if (freshKey != null) "Ключ узла ${paidNode.id} обновлён"
+                                    else "Ключ узла ${paidNode.id} не обновлён, используется кэш"
+                                )
+                            }
+                        }
                     } else {
                         AppLogger.d("DataRefresh", "Нет активной подписки, платный узел пропущен")
                     }
 
-                    val paidPingJob = if (isPaidPlan && hasPaid) {
+                    val paidPingJob = if (isPaidPlan && hasPaid && paidNode != null) {
                         async {
                             runCatching {
-                                if (isBelarusPlan) {
-                                    val probe = BelarusNodeMonitor.probe(
-                                        this@MainActivity,
-                                        forceRefresh = true
-                                    )
-                                    when {
-                                        probe.reason == "no_session" ->
-                                            getString(R.string.refresh_paid_login_required)
-                                        probe.server == null -> getString(R.string.refresh_paid_no_key)
-                                        probe.reachable -> "${probe.pingMs} ms"
-                                        else -> getString(R.string.ping_timeout)
+                                when (paidNode.kind) {
+                                    PaidNode.Kind.BELARUS -> {
+                                        val probe = BelarusNodeMonitor.probe(
+                                            this@MainActivity,
+                                            forceRefresh = true
+                                        )
+                                        when {
+                                            probe.reason == "no_session" ->
+                                                getString(R.string.refresh_paid_login_required)
+                                            probe.server == null -> getString(R.string.refresh_paid_no_key)
+                                            probe.reachable -> "${probe.pingMs} ms"
+                                            else -> getString(R.string.ping_timeout)
+                                        }
                                     }
-                                } else {
-                                    val manager = com.naua_security_mirage.app.data.supabase.SupabaseManager.instance
-                                    val uuid = manager.getActiveClientUuid()
-                                    val server = com.naua_security_mirage.app.data.supabase.SupabaseConfig
-                                        .getFranceServer(uuid, manager.getActiveClientFlow(uuid))
-                                    val p = pingRepository.measurePing(server, timeoutMs = 1800)
-                                    if (p in 1..9998) "$p ms" else getString(R.string.ping_timeout)
+                                    PaidNode.Kind.FRANCE -> {
+                                        val manager = com.naua_security_mirage.app.data.supabase.SupabaseManager.instance
+                                        val uuid = manager.getActiveClientUuid()
+                                        val server = com.naua_security_mirage.app.data.supabase.SupabaseConfig
+                                            .getFranceServer(uuid, manager.getActiveClientFlow(uuid))
+                                        val p = pingRepository.measurePing(server, timeoutMs = 1800)
+                                        if (p in 1..9998) "$p ms" else getString(R.string.ping_timeout)
+                                    }
+                                    PaidNode.Kind.VLESS -> {
+                                        val manager = com.naua_security_mirage.app.data.supabase.SupabaseManager.instance
+                                        if (manager.currentUser.value == null) {
+                                            getString(R.string.refresh_paid_login_required)
+                                        } else {
+                                            val key = manager.getNodeVlessKey(paidNode.id)
+                                                ?: manager.ensureNodeVlessKey(paidNode)
+                                            val server = key?.let {
+                                                com.naua_security_mirage.app.data.model.VlessServer.fromUri(
+                                                    it,
+                                                    paidNode.label()
+                                                )
+                                            }
+                                            if (server == null) {
+                                                getString(R.string.refresh_paid_no_key)
+                                            } else {
+                                                val p = pingRepository.measurePing(server, timeoutMs = 1800)
+                                                if (p in 1..9998) "$p ms" else getString(R.string.ping_timeout)
+                                            }
+                                        }
+                                    }
                                 }
                             }.getOrNull() ?: getString(R.string.ping_timeout)
                         }
@@ -2248,6 +2343,8 @@ class MainActivity : AppCompatActivity() {
         }
 
         val isBelarusPlan = trackedPlan == SettingsRepository.PLAN_PREMIUM_BELARUS
+        val trackedNode = AppConfigRepository.node(trackedPlan)
+        val isGenericPlan = trackedNode?.kind == PaidNode.Kind.VLESS
 
         nodeStatusJob = lifecycleScope.launch {
             val manager = com.naua_security_mirage.app.data.supabase.SupabaseManager.instance
@@ -2261,6 +2358,9 @@ class MainActivity : AppCompatActivity() {
                 stateView.setTextColor(themedSubtitle())
             } else if (isBelarusPlan) {
                 refreshBelarusState(stateView, gen, forceRefresh = force)
+            } else if (isGenericPlan) {
+                stateView.text = getString(R.string.node_status_untracked)
+                stateView.setTextColor(themedSubtitle())
             } else {
                 refreshFranceState(stateView, gen)
             }
@@ -2274,13 +2374,17 @@ class MainActivity : AppCompatActivity() {
                         limit = 5
                     )
                 }.map { NodeHistoryRow(it.state, it.at, it.detail) }
+            } else if (isGenericPlan) {
+                null
             } else {
                 com.naua_security_mirage.app.vpn.NodeStatusReporter.history(limit = 5)
                     ?.map { NodeHistoryRow(it.state, it.changedAt, null) }
             }
             if (gen != nodeStatusGen) return@launch
             if (historyView != null) {
-                historyView.text = when {
+                historyView.text = if (isGenericPlan) {
+                    getString(R.string.node_history_untracked)
+                } else when {
                     history == null -> getString(R.string.node_history_failed)
                     history.isEmpty() -> getString(R.string.node_history_empty)
                     else -> history.joinToString("\n") { row ->

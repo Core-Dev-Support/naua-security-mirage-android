@@ -38,3 +38,14 @@ USING (auth.uid()::text = user_id);
 
 REVOKE INSERT, UPDATE, DELETE ON public.subscriptions FROM anon, authenticated;
 GRANT SELECT ON public.subscriptions TO authenticated;
+-- Server-driven prices and paid-node catalogue.
+-- Read by the app and the bot through `app-config`; write only with service_role.
+CREATE TABLE IF NOT EXISTS public.app_config (
+    id TEXT PRIMARY KEY,
+    payload JSONB NOT NULL,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+ALTER TABLE public.app_config ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.app_config FROM anon, authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.app_config TO service_role;

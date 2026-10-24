@@ -11,6 +11,7 @@ import com.google.gson.JsonArray
 import com.google.gson.JsonObject
 import com.google.gson.annotations.SerializedName
 import com.naua_security_mirage.app.R
+import com.naua_security_mirage.app.data.config.PaidNode
 import com.naua_security_mirage.app.util.AppLogger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -71,6 +72,7 @@ class SupabaseManager private constructor() {
         private const val KEY_SUB_FLOW = "sub_flow"
         private const val KEY_SUB_BELARUS_VLESS_KEY = "sub_belarus_vless_key"
         private const val KEY_SUB_BELARUS_CLIENT_UUID = "sub_belarus_client_uuid"
+        private const val KEY_SUB_NODE_PREFIX = "sub_node_vless_"
 
         private const val KEY_OAUTH_STATE = "oauth_state_pending"
 
@@ -126,7 +128,7 @@ class SupabaseManager private constructor() {
     val subscription: StateFlow<SubscriptionDto?> = _subscription.asStateFlow()
 
     private fun clearSubscriptionPrefs() {
-        prefs?.edit()
+        val editor = prefs?.edit()
             ?.remove(KEY_SUB_USER_ID)
             ?.remove(KEY_SUB_EMAIL)
             ?.remove(KEY_SUB_IS_ACTIVE)
@@ -137,8 +139,13 @@ class SupabaseManager private constructor() {
             ?.remove(KEY_SUB_FLOW)
             ?.remove(KEY_SUB_BELARUS_VLESS_KEY)
             ?.remove(KEY_SUB_BELARUS_CLIENT_UUID)
-              ?.remove(KEY_SUB_CONFIRMED_AT)
-            ?.apply()
+            ?.remove(KEY_SUB_CONFIRMED_AT)
+        // Server-driven nodes cache their key per node id. A signed-out device
+        // must not be able to open a paid node with a leftover key.
+        prefs?.all?.keys
+            ?.filter { it.startsWith(KEY_SUB_NODE_PREFIX) }
+            ?.forEach { editor?.remove(it) }
+        editor?.apply()
     }
 
     private fun emailCacheKey(email: String): String {
@@ -1497,6 +1504,123 @@ class SupabaseManager private constructor() {
             BelarusConfigResult.Unavailable(e.message ?: "сетевая ошибка")
         }
     }
+
+    // ===================== Server-driven paid nodes =====================
+
+    /**
+     * Returns the cached VLESS key for a node from `app_config.paid_nodes`.
+     *
+     * The key is scoped to the signed-in account: after sign-out the cache is
+     * cleared, and an empty session always yields null even if a stale key
+     * somehow survived.
+     */
+    fun getNodeVlessKey(nodeId: String): String? {
+        if (_currentUser.value == null) return null
+        if (nodeId.isBlank()) return null
+        val key = prefs?.getString(nodeCacheKey(nodeId), null)
+        return key?.takeIf { it.startsWith("vless://") }
+    }
+
+    /**
+     * Issues (or refreshes) a key for a generic VLESS node by calling the edge
+     * function named in its `config_function`.
+     *
+     * France and Belarus keep their dedicated methods because they have
+     * provider-specific fallbacks. Any new node added to `app_config` uses
+     * this path, so no APK update is needed to support it.
+     */
+    suspend fun ensureNodeVlessKey(node: PaidNode, force: Boolean = false): String? =
+        withContext(Dispatchers.IO) {
+            if (!hasActiveSubscription()) return@withContext null
+            _currentUser.value ?: return@withContext null
+
+            if (!force && isCacheFresh()) {
+                val cached = getNodeVlessKey(node.id)
+                if (!cached.isNullOrBlank()) {
+                    AppLogger.i(
+                        TAG,
+                        "Ключ узла ${node.id} из кэша, возраст ${cacheAgeMinutes()} мин, панель не опрашивается"
+                    )
+                    return@withContext cached
+                }
+            } else if (force) {
+                AppLogger.i(TAG, "Принудительное обновление ключа узла ${node.id}")
+            }
+
+            val key = fetchNodeConfig(node.configFunction)
+            if (!key.isNullOrBlank()) {
+                prefs?.edit()
+                    ?.putString(nodeCacheKey(node.id), key)
+                    ?.apply()
+                markConfirmedAt()
+                AppLogger.i(TAG, "Ключ узла ${node.id} выдан ${node.configFunction}")
+                return@withContext key
+            }
+
+            if (_currentUser.value == null) {
+                AppLogger.w(TAG, "Сессия истекла, ключ узла ${node.id} не будет взят из кэша")
+                return@withContext null
+            }
+
+            val cached = getNodeVlessKey(node.id)
+            if (!cached.isNullOrBlank()) {
+                AppLogger.w(TAG, "Используется кэшированный ключ узла ${node.id} с прошлого входа")
+                return@withContext cached
+            }
+            AppLogger.w(TAG, "Нет ключа узла ${node.id} ни с сервера, ни из кэша")
+            null
+        }
+
+    private fun nodeCacheKey(nodeId: String): String =
+        KEY_SUB_NODE_PREFIX + nodeId.replace(Regex("[^a-zA-Z0-9_-]"), "_")
+
+    private suspend fun fetchNodeConfig(configFunction: String): String? =
+        withContext(Dispatchers.IO) {
+            try {
+                val token = accessToken
+                if (token.isNullOrEmpty()) return@withContext null
+                fun call(bearer: String): Response {
+                    val request = Request.Builder()
+                        .url("${SupabaseConfig.SUPABASE_URL}/functions/v1/$configFunction")
+                        .header("apikey", SupabaseConfig.getAnonKey())
+                        .header("Authorization", "Bearer $bearer")
+                        .get()
+                        .build()
+                    return httpClient.newCall(request).execute()
+                }
+
+                var response = try {
+                    resetHttpConnections()
+                    call(token)
+                } catch (e: java.io.IOException) {
+                    AppLogger.w(TAG, "$configFunction: первая попытка оборвалась (${e.message}), повторяю")
+                    resetHttpConnections()
+                    call(token)
+                }
+                if (response.code == 401 && refreshAccessToken(token)) {
+                    val refreshed = accessToken
+                    if (refreshed.isNullOrEmpty()) return@withContext null
+                    resetHttpConnections()
+                    response = call(refreshed)
+                }
+
+                val body = response.body?.string().orEmpty()
+                if (!response.isSuccessful) {
+                    AppLogger.w(TAG, "$configFunction: HTTP ${response.code}")
+                    return@withContext null
+                }
+                val json = gson.fromJson(body, JsonObject::class.java)
+                val key = json?.get("vlessKey")?.asString
+                if (key.isNullOrBlank()) {
+                    AppLogger.w(TAG, "$configFunction: в ответе нет ключа")
+                    return@withContext null
+                }
+                key
+            } catch (e: Exception) {
+                AppLogger.w(TAG, "$configFunction: ${e.message ?: "сетевая ошибка"}")
+                null
+            }
+        }
 
     fun extractUuidFromVless(vlessUrl: String?): String? {
         if (vlessUrl.isNullOrBlank()) return null

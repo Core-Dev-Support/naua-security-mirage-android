@@ -113,12 +113,13 @@ Google-аккаунт — одна личность на оба продукта
 
 ### Подписка, оплата, рефералка
 
-- Тарифы живут в двух местах: `telegram-bot/lib/plans.ts` (показ) и
-  `yoomoney-webhook/contract.ts` (проверка суммы). Кросс-импорты между
-  каталогами функций не деплоятся, поэтому списки продублированы, а тесты
-  держат их одинаковыми.
-- `label` платежа — `auth.users.id`. Вебхук проверяет подпись YooMoney и сумму,
-  начисляет дни и продлевает клиента в 3X-UI.
+- Тарифы и каталог платных узлов живут в `public.app_config`; приложение
+  читает их через `app-config`, бот — напрямую service-role клиентом, вебхук —
+  оттуда же при каждой оплате. Встроенные списки в `plans.ts` и `contract.ts`
+  остались только запасным вариантом на случай недоступности таблицы.
+- `label` платежа — `<auth.users.id>:<дней>`. Вебхук проверяет подпись
+  YooMoney, сумму и срок, начисляет дни и продлевает клиента в 3X-UI. Старые
+  ссылки без срока продолжают приниматься по сумме.
 - Рефералка: +2 дня пригласившему после первой оплаты приглашённого и +10 дней
   каждые 5 оплативших. Повторное начисление за того же реферала блокируется
   записью `outcome='referral_bonus'` в `payment_events`.
@@ -205,6 +206,14 @@ H1Cloud иногда отвечает `409 name_taken_by_inbound_client` на и
 работает с ним, не сканируя панель заново. Срок клиента продлевается до
 `paid_until`, если панель отстала от подписки.
 
+Платные узлы приложения тоже серверные. `app_config.paid_nodes` содержит
+`id`, `kind` (`france`, `belarus` или `vless`), подписи, флаг и
+`config_function`. Приложение рисует кнопки из этого списка; для `vless`
+вызывает указанную функцию и разбирает обычную VLESS-ссылку. Добавление
+Финляндии — запись в таблице плюс задеплоенная `finland-config`; удаление или
+`enabled: false` убирает кнопку. Пересборка APK не нужна, пока новый узел
+говорит на VLESS с тем же форматом ссылки.
+
 `node-status` собирает серверную историю только по Франции. Беларусь
 проверяется с устройства, потому что её доступность зависит от сети; переходы
 `up/down` пишутся локально (`NodeEventStore`) и показываются в карточке
@@ -223,6 +232,7 @@ H1Cloud иногда отвечает `409 name_taken_by_inbound_client` на и
 | Таблица | Назначение |
 |---|---|
 | `subscriptions` | Срок и узлы подписки; ключ — `auth.users.id` |
+| `app_config` | Тарифы и каталог платных узлов; читает `app-config` |
 | `auth.users` | Google-аккаунты (Supabase Auth) |
 
 ### Бот
@@ -272,6 +282,7 @@ npx supabase functions deploy telegram-bot --project-ref <ref> --no-verify-jwt
 npx supabase functions deploy telegram-auth --project-ref <ref> --no-verify-jwt
 npx supabase functions deploy yoomoney-webhook --project-ref <ref> --no-verify-jwt
 npx supabase functions deploy telegram-subscription --project-ref <ref> --no-verify-jwt
+npx supabase functions deploy app-config --project-ref <ref> --no-verify-jwt
 
 # функции приложения проверяют сессию сами (auth.getUser)
 npx supabase functions deploy france-config --project-ref <ref>
@@ -311,6 +322,7 @@ merged-манифеста (без AD_ID) → проверка подписи v2/
 | `app/src/main/jniLibs/` | `libgojni.so` для `arm64-v8a` и `armeabi-v7a` |
 | `app/src/test/` | Юнит-тесты приложения |
 | `supabase/functions/telegram-bot/` | Бот: `index.ts` + `lib/` (i18n, plans, referral, store, telegram, subscription) |
+| `supabase/functions/app-config/` | Публичные тарифы и каталог платных узлов из `app_config` |
 | `supabase/functions/telegram-auth/` | Google-вход + `lib/trial.ts` |
 | `supabase/functions/telegram-subscription/` | Сборка единой ссылки из двух хостеров |
 | `supabase/functions/yoomoney-webhook/` | Оплата + `contract.ts` (тарифы и правила рефералки) |
