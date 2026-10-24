@@ -122,7 +122,7 @@ export function formatDate(value: string | null | undefined): string {
   return `${day}.${month}.${parsed.getUTCFullYear()}`;
 }
 
-// formatAmount — сумма платежа: 30 ₽.
+// formatAmount — сумма платежа: 40 ₽.
 export function formatAmount(value: string | null | undefined): string {
   const num = Number((value ?? "").replace(",", ".").trim());
   if (!Number.isFinite(num)) return "";
@@ -1231,12 +1231,10 @@ async function showPayment(
   }
   const plan = (await activePlans()).find((item) => item.amountRub === amountRub);
   if (!plan) {
-    await renderScreen(
-      chatId,
-      msgId,
-      t(lang, "sub.not_paid"),
-      backTo(origin, lang),
-    );
+    // The price changed while this message was on screen. Re-render the
+    // subscription screen with the current tariffs instead of claiming the
+    // user has not paid.
+    await showSubscription(ctx, chatId, msgId, lang, origin);
     return;
   }
 

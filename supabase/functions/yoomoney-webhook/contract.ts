@@ -9,14 +9,14 @@ export const REFERRAL_MILESTONE_DAYS = 10;
 
 // Тарифы подписки NAUA.
 //
-// Один список на бота и приложение: бот формирует ссылку оплаты с этими же
-// суммами, а вебхук по сумме определяет, сколько дней начислить. Поэтому
-// добавление тарифа в одном месте обязано отражаться в другом.
+// Источник — таблица app_config (строка subscription_plans), её читают бот,
+// приложение и этот вебхук. Список ниже — только запасной вариант на случай
+// недоступности базы, чтобы приём оплаты не останавливался.
 //
-//   30 ₽  ->  30 дней
-//   80 ₽  ->  90 дней
-//   150 ₽ -> 180 дней
-//   250 ₽ -> 365 дней
+//   40 ₽  ->  30 дней
+//   110 ₽ ->  90 дней
+//   200 ₽ -> 180 дней
+//   330 ₽ -> 365 дней
 
 export type Plan = {
   amountRub: number;
@@ -24,10 +24,10 @@ export type Plan = {
 };
 
 export const PLANS: Plan[] = [
-  { amountRub: 30, days: 30 },
-  { amountRub: 80, days: 90 },
-  { amountRub: 150, days: 180 },
-  { amountRub: 250, days: 365 },
+  { amountRub: 40, days: 30 },
+  { amountRub: 110, days: 90 },
+  { amountRub: 200, days: 180 },
+  { amountRub: 330, days: 365 },
 ];
 
 /**
@@ -70,7 +70,7 @@ export function planDaysForPayment(
   if (feeKopecks !== null) candidates.push(chargedKopecks + feeKopecks);
 
   // The term in the label selects the plan, but the amount must still match
-  // that plan. Otherwise a payer could label a 30 ₽ transfer as a year.
+  // that plan. Otherwise a payer could label a 40 ₽ transfer as a year.
   const wantedDays = requestedDays && Number.isInteger(requestedDays) && requestedDays > 0
     ? requestedDays
     : null;

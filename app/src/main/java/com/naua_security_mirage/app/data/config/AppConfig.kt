@@ -72,10 +72,10 @@ data class AppConfig(
 
     companion object {
         val DEFAULT_PLANS = listOf(
-            SubscriptionPlan("1m", 30, 30, null, "30 дней", "30 days"),
-            SubscriptionPlan("3m", 90, 80, "-11%", "3 месяца", "3 months"),
-            SubscriptionPlan("6m", 180, 150, "-17%", "6 месяцев", "6 months"),
-            SubscriptionPlan("12m", 365, 250, "-32%", "1 год", "1 year")
+            SubscriptionPlan("1m", 30, 40, null, "30 дней", "30 days"),
+            SubscriptionPlan("3m", 90, 110, "-8%", "3 месяца", "3 months"),
+            SubscriptionPlan("6m", 180, 200, "-17%", "6 месяцев", "6 months"),
+            SubscriptionPlan("12m", 365, 330, "-32%", "1 год", "1 year")
         )
 
         val DEFAULT_NODES = listOf(
@@ -102,7 +102,7 @@ data class AppConfig(
         fun defaults(): AppConfig = AppConfig(
             plans = DEFAULT_PLANS,
             paidNodes = DEFAULT_NODES,
-            minPriceRub = DEFAULT_PLANS.minOfOrNull { it.priceRub } ?: 30,
+            minPriceRub = DEFAULT_PLANS.minOfOrNull { it.priceRub } ?: 40,
             version = null,
             fetchedAt = 0L
         )

@@ -30,7 +30,7 @@ object AppConfigRepository {
     private const val PREFS = "mirage_app_config"
     private const val KEY_JSON = "config_json"
     private const val KEY_FETCHED_AT = "fetched_at"
-    private const val CACHE_TTL_MS = 5 * 60 * 1000L
+    private const val CACHE_TTL_MS = 60 * 1000L
 
     private val gson = Gson()
     private val scope = CoroutineScope(Dispatchers.IO)

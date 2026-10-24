@@ -96,7 +96,7 @@ flowchart TD
     W -->|yes| N["🌍 Internet"]
 
     G["👤 Supabase Auth<br/>email + Google, PKCE"] -.->|JWT in EncryptedSharedPreferences| A
-    Y["💳 yoomoney-webhook<br/>30 ₽ / 30 days"] -.->|subscription| G
+    Y["💳 yoomoney-webhook<br/>40 ₽ / 30 days"] -.->|subscription| G
     B["📡 france-config · node-status<br/>send-release-push · latest-release"] -.-> A
 
     style A fill:#6C63FF,stroke:#fff,stroke-width:2px,color:#fff
@@ -144,9 +144,9 @@ Details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 **Requirements:** Android 6.0+ (API 23), `arm64-v8a` or `armeabi-v7a`, any internet connection.
 
 <details>
-<summary><b>Subscribing to the dedicated France node</b></summary>
+<summary><b>Subscribing to the paid nodes (France and Belarus)</b></summary>
 
-Sign in with email or Google, then choose YooMoney — **30 ₽ for 30 days**. One-time payment, no auto-renewals. The node activates within 1–2 minutes. The subscription is bound to your account, not to a device.
+Sign in with email or Google, then choose YooMoney — **40 ₽ for 30 days**. One-time payment, no auto-renewals. The nodes activate within 1–2 minutes. The subscription is bound to your account, not to a device.
 
 </details>
 
@@ -232,7 +232,7 @@ Release notes: [docs/releases/](docs/releases/). Full history: [CHANGELOG.md](CH
 <details>
 <summary><b>Is it free?</b></summary>
 
-Yes, there is a free mode on a pool of free nodes. The dedicated France node costs a one-time **30 ₽ for 30 days**, with no auto-renewals.
+Yes, there is a free mode on a pool of free nodes. The paid nodes (France and Belarus) cost a one-time **40 ₽ for 30 days**, with no auto-renewals.
 
 </details>
 

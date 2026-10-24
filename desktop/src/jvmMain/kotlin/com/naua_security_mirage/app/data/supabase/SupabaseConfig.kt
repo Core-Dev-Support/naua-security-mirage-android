@@ -34,5 +34,5 @@ object SupabaseConfig {
     val FRANCE_DEFAULT_UUID: String get() = System.getenv("FRANCE_DEFAULT_UUID") ?: ""
 
     var yooMoneyWallet: String = System.getenv("YOOMONEY_WALLET") ?: ""
-    var subscriptionPriceRub: Int = 30
+    var subscriptionPriceRub: Int = 40
 }

@@ -1552,7 +1552,7 @@ class MainActivity : AppCompatActivity() {
             dialogBinding.tvSubPlanPeriod.text =
                 getString(R.string.sub_plan_days_fmt, minPlan.days)
         }
-        AppConfigRepository.refresh()
+        AppConfigRepository.refresh(force = true)
         val subscription = manager.subscription.value
         val hasActive = manager.hasActiveSubscription()
         if (hasActive && subscription != null) {

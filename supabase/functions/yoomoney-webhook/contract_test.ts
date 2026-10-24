@@ -119,10 +119,10 @@ Deno.test("the tariff table matches the bot plans", () => {
   // Кросс-импорт между каталогами supabase/functions/* не деплоится, поэтому
   // списки продублированы, а тесты в обоих местах держат одинаковые значения.
   const expected: Array<[number, number]> = [
-    [30, 30],
-    [80, 90],
-    [150, 180],
-    [250, 365],
+    [40, 30],
+    [110, 90],
+    [200, 180],
+    [330, 365],
   ];
   assertEquals(PLANS.length, expected.length);
   PLANS.forEach((plan, index) => {
@@ -162,27 +162,27 @@ Deno.test("the label carries the payer and the chosen term", () => {
 });
 
 Deno.test("a labeled term must match both the price and the term", () => {
-  assertEquals(planDaysForPayment("30", null, 30), 30);
-  assertEquals(planDaysForPayment("30", null, 365), null);
-  assertEquals(planDaysForPayment("80", null, 90), 90);
-  assertEquals(planDaysForPayment("80", null, 30), null);
+  assertEquals(planDaysForPayment("40", null, 30), 30);
+  assertEquals(planDaysForPayment("40", null, 365), null);
+  assertEquals(planDaysForPayment("110", null, 90), 90);
+  assertEquals(planDaysForPayment("110", null, 30), null);
   const custom = [{ amountRub: 35, days: 30 }];
   assertEquals(planDaysForPayment("35", null, 30, custom), 30);
   assertEquals(planDaysForPayment("30", null, null, custom), null);
 });
 
 Deno.test("a tariff amount resolves to its number of days", () => {
-  assertEquals(planDaysForPayment("30", null), 30);
-  assertEquals(planDaysForPayment("80", null), 90);
-  assertEquals(planDaysForPayment("150", null), 180);
-  assertEquals(planDaysForPayment("250", null), 365);
+  assertEquals(planDaysForPayment("40", null), 30);
+  assertEquals(planDaysForPayment("110", null), 90);
+  assertEquals(planDaysForPayment("200", null), 180);
+  assertEquals(planDaysForPayment("330", null), 365);
 });
 
 Deno.test("the gross amount is accepted when the net one is not", () => {
-  // YooMoney: amount = 27.90 (после комиссии), commission = 2.10 -> итого 30.
-  assertEquals(planDaysForPayment("27.90", "2.10"), 30);
+  // YooMoney: amount = 37.90 (после комиссии), commission = 2.10 -> итого 40.
+  assertEquals(planDaysForPayment("37.90", "2.10"), 30);
   // Обратное прочтение тоже допустимо.
-  assertEquals(planDaysForPayment("30.00", "2.10"), 30);
+  assertEquals(planDaysForPayment("40.00", "2.10"), 30);
 });
 
 Deno.test("an amount outside the tariffs is not credited", () => {

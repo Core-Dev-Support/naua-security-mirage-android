@@ -37,7 +37,7 @@ object SupabaseConfig {
     val BELARUS_LABEL = "Беларусь (Платный)"
 
     var yooMoneyWallet: String = BuildConfig.YOOMONEY_WALLET
-    var subscriptionPriceRub: Int = 30
+    var subscriptionPriceRub: Int = 40
 
     data class Endpoint(val host: String, val port: Int)
 
