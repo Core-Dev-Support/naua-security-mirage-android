@@ -214,6 +214,28 @@ H1Cloud иногда отвечает `409 name_taken_by_inbound_client` на и
 `enabled: false` убирает кнопку. Пересборка APK не нужна, пока новый узел
 говорит на VLESS с тем же форматом ссылки.
 
+Новый узел добавляется одной строкой в `app_config.paid_nodes`:
+
+```sql
+update public.app_config
+set payload = payload || jsonb_build_array(jsonb_build_object(
+  'id', 'premium_finland',
+  'kind', 'vless',
+  'label_ru', 'Финляндия (Платная)',
+  'label_en', 'Finland (Paid)',
+  'flag', 'finland',
+  'config_function', 'finland-config',
+  'enabled', true,
+  'sort', 30
+))
+where id = 'paid_nodes';
+```
+
+`finland-config` должна принимать пользовательский JWT и возвращать
+`{"vlessKey": "vless://…", "clientUuid": "…"}` — как `france-config`. Если узел
+на другом протоколе (WireGuard, Shadowsocks, Trojan), приложение его не
+разберёт без обновления.
+
 `node-status` собирает серверную историю только по Франции. Беларусь
 проверяется с устройства, потому что её доступность зависит от сети; переходы
 `up/down` пишутся локально (`NodeEventStore`) и показываются в карточке
