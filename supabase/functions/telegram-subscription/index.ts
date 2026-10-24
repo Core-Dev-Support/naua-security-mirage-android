@@ -146,6 +146,8 @@ type SubscriptionRow = {
   is_active: boolean;
   plan: string;
   paid_until: string | null;
+  vless_key: string | null;
+  belarus_vless_key: string | null;
 };
 
 type AccountRow = {
@@ -253,6 +255,27 @@ async function fetchNode(
     });
     return null;
   }
+}
+
+// storedNodeLink — уже выданный ключ из subscriptions.
+//
+// Запасной путь на случай, когда Google-сессия бота отозвана или протухла:
+// подписка оплачена, ключи лежат в базе, и клиент не должен оставаться с
+// одним бесплатным узлом. Франция и Беларусь хранят ключи в отдельных
+// колонках; для остальных узлов ключа в базе нет.
+function storedNodeLink(
+  nodeId: string,
+  subscription: SubscriptionRow | undefined,
+): { link: string; uuid: string } | null {
+  if (!subscription) return null;
+  const link = nodeId === "premium_france"
+    ? subscription.vless_key
+    : nodeId === "premium_belarus"
+    ? subscription.belarus_vless_key
+    : null;
+  if (!link || !link.startsWith("vless://")) return null;
+  const uuid = link.match(/^vless:\/\/([0-9a-fA-F-]{36})@/)?.[1] || "";
+  return { link, uuid };
 }
 
 // Бесплатные обходы внешнего API — тот же источник, что и у бота раньше.
@@ -462,7 +485,7 @@ serve(async (req) => {
     if (subjectId) {
       const { data: subRows, error: subError } = await service()
         .from("subscriptions")
-        .select("user_id,email,is_active,plan,paid_until")
+        .select("user_id,email,is_active,plan,paid_until,vless_key,belarus_vless_key")
         .eq("user_id", subjectId)
         .limit(1);
       if (subError) throw new Error(subError.message);
@@ -481,22 +504,23 @@ serve(async (req) => {
     // Каталог платных узлов серверный: Франция и Беларусь — лишь значения
     // по умолчанию. Новая Финляндия появляется в подписке без пересборки.
     const paidNodeConfigs = await loadPaidNodes();
-    const paidNodes = userToken
-      ? await Promise.all(
-        paidNodeConfigs.map(async (node) => ({
-          node,
-          result: await fetchNode(node.configFunction, userToken),
-        })),
-      )
-      : [];
+    const paidNodes = await Promise.all(
+      paidNodeConfigs.map(async (node) => ({
+        node,
+        result: userToken ? await fetchNode(node.configFunction, userToken) : null,
+      })),
+    );
 
     const links: string[] = [];
     const nodes: Record<string, unknown>[] = [];
     for (const { node, result } of paidNodes) {
-      if (!result) continue;
+      // Сначала свежий ключ от config-функции; если сессия Google отозвана
+      // или панель не ответила — уже выданный ключ из subscriptions.
+      const resolved = result ?? storedNodeLink(node.id, subscription);
+      if (!resolved) continue;
       const label = `NAUA Security Mirage ${node.label}`;
-      links.push(withNodeName(result.link, label));
-      nodes.push({ host: node.id, label, uuid: result.uuid });
+      links.push(withNodeName(resolved.link, label));
+      nodes.push({ host: node.id, label, uuid: resolved.uuid });
     }
 
     // Бесплатный узел — только по ссылке с валидной подписью free. Её бот
