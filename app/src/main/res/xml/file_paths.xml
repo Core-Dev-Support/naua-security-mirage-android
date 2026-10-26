@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths xmlns:android="http://schemas.android.com/apk/res/android">
+    <!--
+      Безопасный изолированный каталог для экспорта диагностических журналов.
+      Безопасный каталог для скачанных обновлений APK.
+      Внешний кэш больше не отдаётся целиком: path="." превращал провайдер в право на чтение
+      всего каталога, а такая возможность живёт дольше того интента, который её запросил.
+    -->
+    <cache-path name="mirage_logs" path="mirage_logs/" />
+    <cache-path name="mirage_updates" path="updates/" />
+</paths>

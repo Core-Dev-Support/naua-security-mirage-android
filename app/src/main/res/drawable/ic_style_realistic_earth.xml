@@ -1,0 +1,37 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="20dp"
+    android:height="20dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- Ocean Sphere Base -->
+    <path
+        android:pathData="M12,12m-9.5,0a9.5,9.5 0 1,0 19,0a9.5,9.5 0 1,0 -19,0"
+        android:fillColor="#1565C0" />
+    <!-- Continents: Europe, Africa, Asia -->
+    <path
+        android:pathData="M13,3.5c1,0.5 2.5,2 2,3.5c-0.3,0.8 -1.2,1.2 -1,2c0.2,0.8 1.5,1 2,2c0.5,1 1.8,1.5 2.5,1c0.8,-0.5 1,-1.5 1.5,-1c0.5,0.5 0.2,1.8 -0.5,2.5c-0.8,0.8 -1.5,0.5 -2,1.2c-0.5,0.7 -0.2,1.8 -0.5,2.5c-0.4,1 -1.5,1.2 -2,2c-0.5,0.8 -0.5,2 -1,2.5c-0.5,0.5 -1.5,0.2 -1.8,-0.5c-0.3,-0.7 0.2,-1.5 0,-2.2c-0.2,-0.7 -1,-1.2 -1.2,-2c-0.2,-0.8 0.4,-1.5 0.2,-2.2c-0.2,-0.7 -1,-1.2 -1.2,-2c-0.2,-0.8 0.5,-1.8 1,-2.5c0.5,-0.7 1.2,-1 1.5,-1.8c0.3,-0.8 0,-1.5 0.5,-2.2c0.5,-0.7 1,-1 1.5,-1.8z"
+        android:fillColor="#2E7D32" />
+    <!-- Sahara Desert accent -->
+    <path
+        android:pathData="M11.5,10.5c0.8,-0.2 1.8,0.2 2.2,0.8c-0.2,0.8 -0.8,1.2 -1.5,1.2c-0.8,0 -1.2,-0.5 -1.2,-1c0,-0.5 0.2,-0.8 0.5,-1z"
+        android:fillColor="#E0A96D" />
+    <!-- Atmospheric Cloud Swirl -->
+    <path
+        android:pathData="M5,8c2,-1 5,-1.5 8,-1c2,0.3 4,1.2 5.5,2.5"
+        android:strokeWidth="1.2"
+        android:strokeColor="#FFFFFF"
+        android:strokeAlpha="0.55"
+        android:strokeLineCap="round" />
+    <path
+        android:pathData="M6,15c3,1.5 7,1.8 11,0.5"
+        android:strokeWidth="1.0"
+        android:strokeColor="#FFFFFF"
+        android:strokeAlpha="0.45"
+        android:strokeLineCap="round" />
+    <!-- Atmosphere Halo Ring -->
+    <path
+        android:pathData="M12,12m-9.5,0a9.5,9.5 0 1,0 19,0a9.5,9.5 0 1,0 -19,0"
+        android:strokeWidth="1.2"
+        android:strokeColor="#64B5F6"
+        android:strokeAlpha="0.8" />
+</vector>
