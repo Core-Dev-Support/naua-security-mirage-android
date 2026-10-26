@@ -1,0 +1,80 @@
+
+
+title = "NAUA Security Mirage secret scan"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Values that are public by design and must not be reported as leaked secrets."
+paths = [
+  '''(^|/)local\.properties$''',
+  '''(^|/)key\.properties$''',
+  '''(^|/)google-services\.json$''',
+  '''(^|/).*\.jks$''',
+  '''(^|/).*\.keystore$''',
+  '''(^|/)desktop/Core/''',
+  '''(^|/)\.gitleaks\.toml$''',
+]
+
+regexes = [
+  '''Core Dev Support''',
+  '''coredevsupport@gmail\.com''',
+]
+
+# Исторические коммиты, где старые значения уже были: в текущем коде их нет.
+# Новые коммиты эти правила по-прежнему проверяют.
+commits = [
+  '''a3a6029415f4cb7892a776091889584c18d7317c''',
+  '''18166cdc723a20ec4ad414cf48f1710bb8132d31''',
+  '''5b42450de113d780ef2ef71eca5c50335d4a24d1''',
+]
+
+[[rules]]
+id = "mirage-literal-buildconfigfield"
+description = "A BuildConfig field assigned a literal instead of a secret lookup"
+regex = '''buildConfigField\(\s*"[^"]*"\s*,\s*"(SUPABASE_ANON_KEY|SUPABASE_URL|THREE_X_UI_[A-Z_]+|FRANCE_[A-Z_]+|YOOMONEY_WALLET)"\s*,\s*\\*"([^"$]{6,})'''
+keywords = [
+  "buildConfigField",
+  "THREE_X_UI",
+  "FRANCE_",
+  "YOOMONEY_WALLET",
+  "SUPABASE_ANON_KEY",
+]
+
+[[rules]]
+id = "mirage-3xui-panel-credentials"
+description = "3X-UI panel credentials stored in the repository"
+regex = '''THREE_X_UI_(USERNAME|PASSWORD|USER|PASS)\s*[:=]\s*["']([^"'$]{6,})["']'''
+keywords = [
+  "THREE_X_UI_USERNAME",
+  "THREE_X_UI_PASSWORD",
+]
+
+[[rules]]
+id = "mirage-supabase-service-role"
+description = "Supabase service role key committed to the repository"
+regex = '''eyJ[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{40,}\.[A-Za-z0-9_-]{20,}'''
+keywords = []
+
+[[rules]]
+id = "mirage-encoded-client-config"
+description = "XOR-encoded client configuration committed to the repository"
+path = '''^desktop/'''
+regex = '''(?i)ENC_[A-Z0-9_]+\s*=\s*byteArrayOf\('''
+keywords = [
+  "byteArrayOf",
+  "enc_",
+]
+
+[[rules]]
+id = "mirage-infrastructure-host"
+description = "VPN panel or free-node hostname in the repository"
+regex = '''(?i)\b(?:[a-z0-9-]+\.)+(?:h1cloud\.net|h1clayd\.click|fantic\.top|colgonet\.top)\b'''
+keywords = [
+  "h1cloud",
+  "h1clayd",
+  "fantic",
+  "colgonet",
+]
+

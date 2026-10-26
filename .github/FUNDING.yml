@@ -1,0 +1,5 @@
+# Custom funding links (sponsorship / donations).
+# GitHub renders a "Sponsor" button from this file.
+github: Core-Dev-Support
+custom:
+  - "https://t.me/News_And_Updates_Apps"

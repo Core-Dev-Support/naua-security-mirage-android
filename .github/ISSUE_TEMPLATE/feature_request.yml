@@ -1,0 +1,41 @@
+name: 💡 Feature request
+description: Предложить новую возможность
+title: "[FEAT] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Отличная идея! Опиши её по шаблону — так выше шанс попасть в roadmap.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Проблема
+      description: Какую боль пользователя решаем?
+      placeholder: "Неудобно, что..."
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: Предлагаемое решение
+      description: Как должно работать?
+      placeholder: "Добавить кнопку/экран..."
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Альтернативы
+      description: Какие обходные пути пробовал?
+  - type: dropdown
+    id: area
+    attributes:
+      label: Область
+      options:
+        - Подключение / серверы
+        - Интерфейс / темы
+        - Split-tunneling
+        - Подписка / оплата
+        - Уведомления / виджеты
+        - Другое
