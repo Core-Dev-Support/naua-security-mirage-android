@@ -106,7 +106,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
     private lateinit var settingsRepository: SettingsRepository
     private var uiStyleRow: LinearLayout? = null
-    private var uiStyleValueView: TextView? = null
+    private var uiStyleSwitch: MirageSwitch? = null
     private lateinit var pingRepository: PingRepository
     private lateinit var vlessKeyRepository: VlessKeyRepository
     private lateinit var geoRoutingRepository: GeoRoutingRepository
@@ -130,6 +130,19 @@ class MainActivity : AppCompatActivity() {
 
     private var isAutoPingExpanded = false
     private var isSpeedExpanded = false
+
+    private data class DockTabViews(
+        val item: LinearLayout,
+        val icon: ImageView,
+        val label: TextView
+    )
+
+    private var dockBar: LinearLayout? = null
+    private var faqDockView: ScrollView? = null
+    private var versionDockView: ScrollView? = null
+    private var currentDockTab = TAB_HOME
+    private val dockTabViews = mutableMapOf<Int, DockTabViews>()
+    private var lastBottomInset = 0
 
     private val vpnConsentLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
@@ -455,6 +468,7 @@ class MainActivity : AppCompatActivity() {
         refreshPrivateDnsRow()
         refreshNodeStatus()
         refreshKillSwitchRow()
+        syncSettingsSwitches()
         ensureCardRows()
         maybeShowPrivateDnsDialog()
         applyScreenshotBlocking()
@@ -472,14 +486,28 @@ class MainActivity : AppCompatActivity() {
             )
             val density = resources.displayMetrics.density
             val padTop = insets.top + (16 * density).toInt()
-            val padBottom = insets.bottom + (24 * density).toInt()
+            val dockSpace = if (settingsRepository.uiStyle == SettingsRepository.UI_STYLE_GLASS) {
+                (78 * density).toInt()
+            } else {
+                0
+            }
+            val padBottom = insets.bottom + (24 * density).toInt() + dockSpace
 
+            lastBottomInset = insets.bottom
             binding.viewMain.setPadding(0, padTop, 0, padBottom)
             binding.viewSettings.setPadding(0, padTop, 0, padBottom)
-            binding.viewAppearance.setPadding(0, insets.top + (16 * density).toInt(), 0, insets.bottom + (32 * density).toInt())
+            binding.viewAppearance.setPadding(0, insets.top + (16 * density).toInt(), 0, insets.bottom + (32 * density).toInt() + dockSpace)
             binding.viewLogs.setPadding(0, padTop, 0, padBottom)
             binding.viewPerAppProxy.setPadding(0, padTop, 0, padBottom)
             binding.viewCustomWebsites.setPadding(0, padTop, 0, padBottom)
+            faqDockView?.setPadding(0, padTop, 0, padBottom)
+            versionDockView?.setPadding(0, padTop, 0, padBottom)
+            dockBar?.let { bar ->
+                (bar.layoutParams as? FrameLayout.LayoutParams)?.let { lp ->
+                    lp.bottomMargin = insets.bottom + (12 * density).toInt()
+                    bar.layoutParams = lp
+                }
+            }
 
             windowInsets
         }
@@ -572,6 +600,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         setupServerPlanSelector()
+        installGlassDock()
     }
 
     private fun setupSettings() {
@@ -694,6 +723,22 @@ class MainActivity : AppCompatActivity() {
 
         binding.tvAppVersion.text = getString(R.string.app_version, "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})")
 
+    }
+
+    private fun syncSettingsSwitches() {
+        binding.switchStatusNotification.setChecked(settingsRepository.isStatusNotificationEnabled, false)
+        binding.switchQuickSettingsTile.setChecked(settingsRepository.isQuickSettingsTileEnabled, false)
+        binding.switchKillSwitch.setChecked(settingsRepository.isKillSwitchEnabled, false)
+        binding.switchAutoStart.setChecked(settingsRepository.isAutoStartOnBootEnabled, false)
+        binding.switchDirectRu.setChecked(settingsRepository.isDirectRuEnabled, false)
+        binding.switchTelemetry.setChecked(settingsRepository.isAnonymousTelemetryEnabled, false)
+        rowPayment?.switch?.setChecked(settingsRepository.isPaymentNotificationEnabled, false)
+        rowScreenshots?.switch?.setChecked(!settingsRepository.isScreenshotBlockingEnabled, false)
+        uiStyleSwitch?.setLightMode(
+            settingsRepository.uiStyle != SettingsRepository.UI_STYLE_GLASS &&
+                settingsRepository.themePreset == SettingsRepository.THEME_LIGHT
+        )
+        updateUiStyleRow()
     }
 
     private data class PaidNodeChoice(val plan: String, val label: String, val flag: String)
@@ -2345,12 +2390,16 @@ class MainActivity : AppCompatActivity() {
 
     private fun openSettings() {
         val slideDist = 42f * resources.displayMetrics.density
+        faqDockView?.visibility = View.GONE
+        versionDockView?.visibility = View.GONE
         binding.viewSettings.scrollTo(0, 0)
         AnimationHelper.fadeAndSlideOut(binding.viewMain, toX = -slideDist, durationMs = 210)
         AnimationHelper.fadeAndSlideIn(binding.viewSettings, fromX = slideDist, durationMs = 230)
         binding.hintCard.visibility = View.GONE
         refreshPrivateDnsRow()
         refreshTunnelDnsRow()
+        currentDockTab = TAB_SETTINGS
+        updateDockSelection()
     }
 
     private var privateDnsCard: View? = null
@@ -3199,6 +3248,8 @@ class MainActivity : AppCompatActivity() {
         AnimationHelper.fadeAndSlideOut(binding.viewSettings, toX = slideDist, durationMs = 210)
         AnimationHelper.fadeAndSlideIn(binding.viewMain, fromX = -slideDist, durationMs = 230)
         binding.hintCard.visibility = View.VISIBLE
+        currentDockTab = TAB_HOME
+        updateDockSelection()
     }
 
     private fun openAppearance() {
@@ -3212,6 +3263,235 @@ class MainActivity : AppCompatActivity() {
         AnimationHelper.fadeAndSlideOut(binding.viewAppearance, toX = slideDist, durationMs = 210)
         AnimationHelper.fadeAndSlideIn(binding.viewSettings, fromX = -slideDist, durationMs = 230)
     }
+
+    private fun installGlassDock() {
+        if (dockBar != null) return
+        val root = binding.rootContainer
+        faqDockView = createFaqPanel().also { root.addView(it) }
+        versionDockView = createVersionPanel().also { root.addView(it) }
+
+        val bar = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(6), dp(6), dp(6), dp(6))
+            background = ContextCompat.getDrawable(this@MainActivity, R.drawable.bg_glass_pill)
+            elevation = dp(10).toFloat()
+            layoutParams = FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply {
+                gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
+                marginStart = dp(16)
+                marginEnd = dp(16)
+                bottomMargin = lastBottomInset + dp(12)
+            }
+        }
+        addDockTab(bar, TAB_HOME, R.drawable.ic_dock_home, R.string.dock_home)
+        addDockTab(bar, TAB_SETTINGS, R.drawable.ic_gear, R.string.dock_settings)
+        addDockTab(bar, TAB_FAQ, R.drawable.ic_dock_faq, R.string.dock_faq)
+        addDockTab(bar, TAB_VERSION, R.drawable.ic_dock_version, R.string.dock_version)
+        root.addView(bar)
+        dockBar = bar
+        updateDockSelection()
+        updateDockVisibility()
+    }
+
+    private fun addDockTab(bar: LinearLayout, tab: Int, iconRes: Int, labelRes: Int) {
+        val item = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+            setPadding(0, dp(7), 0, dp(7))
+            isClickable = true
+            isFocusable = true
+            setOnClickListener { view ->
+                AnimationHelper.bounceClick(view, minScale = 0.92f, durationMs = 140)
+                showDockTab(tab)
+            }
+        }
+        val icon = ImageView(this).apply {
+            setImageResource(iconRes)
+            layoutParams = LinearLayout.LayoutParams(dp(21), dp(21))
+            contentDescription = getString(labelRes)
+        }
+        val label = TextView(this).apply {
+            setText(labelRes)
+            textSize = 10f
+            gravity = Gravity.CENTER
+            setPadding(0, dp(2), 0, 0)
+        }
+        item.addView(icon)
+        item.addView(label)
+        bar.addView(item)
+        dockTabViews[tab] = DockTabViews(item, icon, label)
+    }
+
+    private fun createFaqPanel(): ScrollView {
+        val scroll = ScrollView(this).apply {
+            visibility = View.GONE
+            overScrollMode = View.OVER_SCROLL_NEVER
+            isFillViewport = true
+            layoutParams = FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
+        }
+        val content = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(20), dp(16), dp(20), dp(24))
+        }
+        content.addView(dockTitle(getString(R.string.dock_faq)))
+        content.addView(dockInfoCard(R.string.faq_q1, R.string.faq_a1))
+        content.addView(dockInfoCard(R.string.faq_q2, R.string.faq_a2))
+        content.addView(dockInfoCard(R.string.faq_q3, R.string.faq_a3))
+        scroll.addView(content)
+        return scroll
+    }
+
+    private fun createVersionPanel(): ScrollView {
+        val scroll = ScrollView(this).apply {
+            visibility = View.GONE
+            overScrollMode = View.OVER_SCROLL_NEVER
+            isFillViewport = true
+            layoutParams = FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
+        }
+        val content = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(20), dp(16), dp(20), dp(24))
+        }
+        content.addView(dockTitle(getString(R.string.dock_version)))
+        val card = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER_HORIZONTAL
+            setPadding(dp(20), dp(24), dp(20), dp(24))
+            background = ContextCompat.getDrawable(this@MainActivity, R.drawable.bg_glass_card)
+        }
+        card.addView(TextView(this).apply {
+            setText(R.string.brand_name)
+            setTextColor(ContextCompat.getColor(this@MainActivity, R.color.amber))
+            textSize = 26f
+            gravity = Gravity.CENTER
+            setTypeface(typeface, Typeface.BOLD)
+        })
+        card.addView(TextView(this).apply {
+            setText(R.string.app_name)
+            setTextColor(ContextCompat.getColor(this@MainActivity, R.color.ink))
+            textSize = 13f
+            gravity = Gravity.CENTER
+            setPadding(0, dp(2), 0, 0)
+        })
+        card.addView(TextView(this).apply {
+            text = getString(R.string.dock_version_current, BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE)
+            setTextColor(ContextCompat.getColor(this@MainActivity, R.color.ink_soft))
+            textSize = 12f
+            gravity = Gravity.CENTER
+            setPadding(0, dp(6), 0, 0)
+        })
+        card.addView(TextView(this).apply {
+            setText(R.string.btn_check_updates_now)
+            setTextColor(ContextCompat.getColor(this@MainActivity, R.color.amber))
+            textSize = 13f
+            gravity = Gravity.CENTER
+            setTypeface(typeface, Typeface.BOLD)
+            setPadding(dp(18), dp(10), dp(18), dp(10))
+            background = ContextCompat.getDrawable(this@MainActivity, R.drawable.bg_glass_pill)
+            isClickable = true
+            isFocusable = true
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply { topMargin = dp(18) }
+            setOnClickListener {
+                AnimationHelper.bounceClick(this, minScale = 0.95f, durationMs = 160)
+                AppUpdateManager.checkForUpdates(this@MainActivity, settingsRepository, isManual = true)
+            }
+        })
+        content.addView(card)
+        scroll.addView(content)
+        return scroll
+    }
+
+    private fun dockTitle(text: String): TextView = TextView(this).apply {
+        this.text = text
+        setTextColor(ContextCompat.getColor(this@MainActivity, R.color.ink))
+        textSize = 22f
+        setTypeface(typeface, Typeface.BOLD)
+        setPadding(dp(4), 0, 0, dp(12))
+    }
+
+    private fun dockInfoCard(titleRes: Int, bodyRes: Int): LinearLayout {
+        val card = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(16), dp(14), dp(16), dp(14))
+            background = ContextCompat.getDrawable(this@MainActivity, R.drawable.bg_glass_card)
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply { bottomMargin = dp(12) }
+        }
+        card.addView(TextView(this).apply {
+            setText(titleRes)
+            setTextColor(ContextCompat.getColor(this@MainActivity, R.color.amber))
+            textSize = 14f
+            setTypeface(typeface, Typeface.BOLD)
+        })
+        card.addView(TextView(this).apply {
+            setText(bodyRes)
+            setTextColor(ContextCompat.getColor(this@MainActivity, R.color.ink_soft))
+            textSize = 12.5f
+            setPadding(0, dp(4), 0, 0)
+        })
+        return card
+    }
+
+    private fun showDockTab(tab: Int) {
+        if (settingsRepository.uiStyle != SettingsRepository.UI_STYLE_GLASS) return
+        currentDockTab = tab
+        binding.viewMain.visibility = if (tab == TAB_HOME) View.VISIBLE else View.GONE
+        binding.viewSettings.visibility = if (tab == TAB_SETTINGS) View.VISIBLE else View.GONE
+        faqDockView?.visibility = if (tab == TAB_FAQ) View.VISIBLE else View.GONE
+        versionDockView?.visibility = if (tab == TAB_VERSION) View.VISIBLE else View.GONE
+        binding.viewAppearance.visibility = View.GONE
+        binding.viewLogs.visibility = View.GONE
+        binding.viewPerAppProxy.visibility = View.GONE
+        binding.viewCustomWebsites.visibility = View.GONE
+        binding.hintCard.visibility = if (tab == TAB_HOME) View.VISIBLE else View.GONE
+        if (tab == TAB_SETTINGS) {
+            binding.viewSettings.scrollTo(0, 0)
+            refreshPrivateDnsRow()
+            refreshTunnelDnsRow()
+        }
+        updateDockSelection()
+    }
+
+    private fun updateDockSelection() {
+        val amber = ContextCompat.getColor(this, R.color.amber)
+        val inactive = ContextCompat.getColor(this, R.color.ink_soft)
+        dockTabViews.forEach { (tab, views) ->
+            val active = tab == currentDockTab
+            views.icon.imageTintList = ColorStateList.valueOf(if (active) amber else inactive)
+            views.label.setTextColor(if (active) amber else inactive)
+            views.label.setTypeface(views.label.typeface, if (active) Typeface.BOLD else Typeface.NORMAL)
+            views.item.background = if (active) {
+                ContextCompat.getDrawable(this, R.drawable.bg_glass_dock_active)
+            } else {
+                null
+            }
+        }
+    }
+
+    private fun updateDockVisibility() {
+        dockBar?.visibility = if (settingsRepository.uiStyle == SettingsRepository.UI_STYLE_GLASS) {
+            View.VISIBLE
+        } else {
+            View.GONE
+        }
+    }
+
+    private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
 
     private fun installUiStyleRow() {
         if (uiStyleRow != null) return
@@ -3261,11 +3541,18 @@ class MainActivity : AppCompatActivity() {
             setPadding(0, dp(3), 0, 0)
         }
 
-        val value = TextView(this).apply {
-            setTextColor(ContextCompat.getColor(this@MainActivity, R.color.amber))
-            setTextSize(12f)
-            setTypeface(typeface, Typeface.BOLD)
-            setPadding(0, 0, dp(4), 0)
+        val styleSwitch = MirageSwitch(this).apply {
+            layoutParams = LinearLayout.LayoutParams(dp(44), dp(24)).apply {
+                marginEnd = dp(10)
+            }
+            isChecked = settingsRepository.uiStyle == SettingsRepository.UI_STYLE_GLASS
+            setLightMode(
+                settingsRepository.uiStyle != SettingsRepository.UI_STYLE_GLASS &&
+                    settingsRepository.themePreset == SettingsRepository.THEME_LIGHT
+            )
+            setOnCheckedChangeListener { _, checked ->
+                applyUiStyle(if (checked) SettingsRepository.UI_STYLE_GLASS else SettingsRepository.UI_STYLE_CLASSIC)
+            }
         }
 
         val chevron = ImageView(this).apply {
@@ -3278,7 +3565,7 @@ class MainActivity : AppCompatActivity() {
         texts.addView(desc)
         row.addView(icon)
         row.addView(texts)
-        row.addView(value)
+        row.addView(styleSwitch)
         row.addView(chevron)
         row.setOnClickListener {
             AnimationHelper.bounceClick(row, minScale = 0.97f, durationMs = 180)
@@ -3288,17 +3575,21 @@ class MainActivity : AppCompatActivity() {
         val index = binding.cardAppearance.indexOfChild(binding.rowAppearance) + 1
         binding.cardAppearance.addView(row, index)
         uiStyleRow = row
-        uiStyleValueView = value
+        uiStyleSwitch = styleSwitch
     }
 
     private fun updateUiStyleRow() {
-        uiStyleValueView?.text = getString(
-            if (settingsRepository.uiStyle == SettingsRepository.UI_STYLE_GLASS) {
-                R.string.ui_style_value_glass
-            } else {
-                R.string.ui_style_value_classic
-            }
-        )
+        uiStyleSwitch?.isChecked = settingsRepository.uiStyle == SettingsRepository.UI_STYLE_GLASS
+    }
+
+    private fun applyUiStyle(style: String) {
+        if (settingsRepository.uiStyle == style) return
+        settingsRepository.uiStyle = style
+        if (style == SettingsRepository.UI_STYLE_GLASS) {
+            settingsRepository.themePreset = SettingsRepository.THEME_DARK
+        }
+        Toast.makeText(applicationContext, R.string.ui_style_applied, Toast.LENGTH_SHORT).show()
+        recreate()
     }
 
     private fun showUiStyleDialog() {
@@ -3329,25 +3620,12 @@ class MainActivity : AppCompatActivity() {
         renderSelection()
         dialogBinding.btnCloseUiStyle.setOnClickListener { dialog.dismiss() }
         dialogBinding.cardStyleClassic.setOnClickListener {
-            if (settingsRepository.uiStyle != SettingsRepository.UI_STYLE_CLASSIC) {
-                settingsRepository.uiStyle = SettingsRepository.UI_STYLE_CLASSIC
-                Toast.makeText(applicationContext, R.string.ui_style_applied, Toast.LENGTH_SHORT).show()
-                dialog.dismiss()
-                recreate()
-            } else {
-                dialog.dismiss()
-            }
+            dialog.dismiss()
+            applyUiStyle(SettingsRepository.UI_STYLE_CLASSIC)
         }
         dialogBinding.cardStyleGlass.setOnClickListener {
-            if (settingsRepository.uiStyle != SettingsRepository.UI_STYLE_GLASS) {
-                settingsRepository.uiStyle = SettingsRepository.UI_STYLE_GLASS
-                settingsRepository.themePreset = SettingsRepository.THEME_DARK
-                Toast.makeText(applicationContext, R.string.ui_style_applied, Toast.LENGTH_SHORT).show()
-                dialog.dismiss()
-                recreate()
-            } else {
-                dialog.dismiss()
-            }
+            dialog.dismiss()
+            applyUiStyle(SettingsRepository.UI_STYLE_GLASS)
         }
         dialog.show()
     }
@@ -3412,6 +3690,8 @@ class MainActivity : AppCompatActivity() {
             closeLogs()
         } else if (binding.viewAppearance.visibility == View.VISIBLE) {
             closeAppearance()
+        } else if (currentDockTab == TAB_FAQ || currentDockTab == TAB_VERSION) {
+            showDockTab(TAB_HOME)
         } else if (binding.viewSettings.visibility == View.VISIBLE) {
             closeSettings()
         } else {
@@ -7014,6 +7294,8 @@ class MainActivity : AppCompatActivity() {
         updateConnectStyleChipsState()
         updatePerAppFilterChips()
         updateWebsiteFilterChips()
+        updateDockVisibility()
+        updateDockSelection()
     }
 
     private fun styleRuntimeCards(
@@ -7179,6 +7461,10 @@ class MainActivity : AppCompatActivity() {
         private const val MAX_BACKUP_WALLPAPER_BYTES = 900 * 1024
         private const val KEY_BACKUP_WALLPAPER = "wallpaper_base64"
         private const val LOG_FLUSH_MS = 250L
+        private const val TAB_HOME = 0
+        private const val TAB_SETTINGS = 1
+        private const val TAB_FAQ = 2
+        private const val TAB_VERSION = 3
         const val EXTRA_SHOW_UPDATE = "extra_show_update"
     const val EXTRA_SHOW_SUBSCRIPTION = "extra_show_subscription"
     const val EXTRA_SHOW_SETTINGS = "extra_show_settings"

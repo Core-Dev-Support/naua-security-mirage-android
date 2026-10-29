@@ -543,4 +543,15 @@
   <string name="picker_ping_format">%1$d ms</string>
   <string name="tunnel_dns_remove">Remove</string>
   <string name="tunnel_dns_removed">Your DNS was removed</string>
+  <string name="dock_home">Home</string>
+  <string name="dock_settings">Settings</string>
+  <string name="dock_faq">FAQ</string>
+  <string name="dock_version">Version</string>
+  <string name="dock_version_current">Version %1$s (%2$d)</string>
+  <string name="faq_q1">What is the difference between France and Belarus?</string>
+  <string name="faq_a1">Both nodes are part of the paid subscription. France works best for European services, while Belarus gives the lowest ping for CIS resources.</string>
+  <string name="faq_q2">How does direct .ru routing work?</string>
+  <string name="faq_a2">Russian sites and banks go directly, while the rest of the traffic passes through the encrypted tunnel.</string>
+  <string name="faq_q3">What is Kill Switch?</string>
+  <string name="faq_a3">It blocks internet access without VPN so traffic never leaks in the clear. Enable it in Android Always-on VPN settings.</string>
 </resources>

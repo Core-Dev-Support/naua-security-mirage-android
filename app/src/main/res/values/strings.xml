@@ -543,4 +543,15 @@
   <string name="picker_ping_format">%1$d мс</string>
   <string name="tunnel_dns_remove">Удалить</string>
   <string name="tunnel_dns_removed">Свой DNS удалён</string>
+  <string name="dock_home">Главная</string>
+  <string name="dock_settings">Настройки</string>
+  <string name="dock_faq">FAQ</string>
+  <string name="dock_version">Версия</string>
+  <string name="dock_version_current">Версия %1$s (%2$d)</string>
+  <string name="faq_q1">Чем отличаются Франция и Беларусь?</string>
+  <string name="faq_a1">Оба узла входят в платную подписку. Франция лучше для европейских сервисов, Беларусь — минимальный пинг для СНГ.</string>
+  <string name="faq_q2">Как работают сайты .ru напрямую?</string>
+  <string name="faq_a2">Российские сайты и банки идут напрямую, остальной трафик — через защищённый туннель.</string>
+  <string name="faq_q3">Что такое Kill Switch?</string>
+  <string name="faq_a3">Блокирует интернет без VPN, чтобы трафик не ушёл в открытом виде. Включается в системных настройках Always-on VPN.</string>
 </resources>

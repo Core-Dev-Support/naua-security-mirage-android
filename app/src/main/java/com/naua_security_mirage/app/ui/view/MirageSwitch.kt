@@ -37,6 +37,7 @@ class MirageSwitch @JvmOverloads constructor(
 
     private var thumbOffColor = Color.parseColor("#9AA0B4")
     private var thumbOnColor = Color.parseColor("#FFFFFF")
+    private var lightMode = false
 
     var onCheckedChangeListener: ((Boolean) -> Unit)? = null
 
@@ -55,6 +56,7 @@ class MirageSwitch @JvmOverloads constructor(
     }
 
     fun setLightMode(isLight: Boolean) {
+        lightMode = isLight
         if (isLight) {
             trackOffColor = Color.parseColor("#E2E8F0")
             trackBorderOffColor = Color.parseColor("#CBD5E1")
@@ -70,9 +72,9 @@ class MirageSwitch @JvmOverloads constructor(
     fun resetColors() {
         trackOnColor = Color.parseColor("#E67E22")
         trackBorderOnColor = Color.parseColor("#F39C12")
-        trackOffColor = Color.parseColor("#1F2333")
-        trackBorderOffColor = Color.parseColor("#32384E")
-        thumbOffColor = Color.parseColor("#9AA0B4")
+        trackOffColor = if (lightMode) Color.parseColor("#E2E8F0") else Color.parseColor("#1F2333")
+        trackBorderOffColor = if (lightMode) Color.parseColor("#CBD5E1") else Color.parseColor("#32384E")
+        thumbOffColor = if (lightMode) Color.parseColor("#94A3B8") else Color.parseColor("#9AA0B4")
         thumbOnColor = Color.parseColor("#FFFFFF")
         invalidate()
     }

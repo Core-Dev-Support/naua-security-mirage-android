@@ -115,7 +115,7 @@ class CustomWebsiteAdapter(
                 switchSite.resetColors()
             }
 
-            switchSite.isChecked = site.isEnabled
+            switchSite.setChecked(site.isEnabled, false)
 
             switchSite.setOnCheckedChangeListener { _, isChecked ->
                 if (site.isEnabled != isChecked) {
