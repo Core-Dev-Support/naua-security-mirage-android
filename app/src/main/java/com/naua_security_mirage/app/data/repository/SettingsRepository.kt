@@ -25,6 +25,10 @@ class SettingsRepository(context: Context) {
         get() = prefs.getString(KEY_THEME_PRESET, THEME_DARK) ?: THEME_DARK
         set(value) = prefs.edit().putString(KEY_THEME_PRESET, value).apply()
 
+    var uiStyle: String
+        get() = prefs.getString(KEY_UI_STYLE, UI_STYLE_CLASSIC) ?: UI_STYLE_CLASSIC
+        set(value) = prefs.edit().putString(KEY_UI_STYLE, value).apply()
+
     var customBgColor: Int
         get() = prefs.getInt(KEY_CUSTOM_BG_COLOR, 0)
         set(value) = prefs.edit().putInt(KEY_CUSTOM_BG_COLOR, value).apply()
@@ -291,6 +295,8 @@ class SettingsRepository(context: Context) {
         const val KEY_CUSTOM_BG_IMAGE = "key_custom_bg_image_path"
         const val THEME_DARK = "dark"
         const val THEME_LIGHT = "light"
+        const val UI_STYLE_CLASSIC = "classic"
+        const val UI_STYLE_GLASS = "glass"
         const val THEME_CUSTOM = "custom"
 
         const val STYLE_STANDARD = "standard"
@@ -327,6 +333,7 @@ class SettingsRepository(context: Context) {
         private const val KEY_QUICK_SETTINGS_TILE = "key_quick_settings_tile"
         private const val KEY_ANONYMOUS_TELEMETRY = "key_anonymous_telemetry"
         private const val KEY_THEME_PRESET = "key_theme_preset"
+        private const val KEY_UI_STYLE = "key_ui_style"
         private const val KEY_CUSTOM_BG_COLOR = "key_custom_bg_color"
         private const val KEY_CUSTOM_BG_IMAGE_PATH = "key_custom_bg_image_path"
         private const val KEY_CUSTOM_CONNECT_BTN_COLOR = "key_custom_connect_btn_color"

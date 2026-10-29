@@ -4,7 +4,7 @@
     android:layout_width="wrap_content"
     android:layout_height="wrap_content"
     android:layout_marginTop="12dp"
-    android:background="@drawable/bg_pill"
+    android:background="?attr/miragePillBg"
     android:orientation="horizontal"
     android:padding="3dp">
 

@@ -3,7 +3,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:background="@drawable/bg_card"
+    android:background="?attr/mirageCardBg"
     android:orientation="vertical"
     android:padding="22dp">
 
@@ -17,7 +17,7 @@
         <FrameLayout
             android:layout_width="38dp"
             android:layout_height="38dp"
-            android:background="@drawable/bg_pill"
+            android:background="?attr/miragePillBg"
             android:backgroundTint="#1C2130">
 
             <ImageView
@@ -81,7 +81,7 @@
         android:id="@+id/priceCardBox"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="@drawable/bg_chip"
+        android:background="?attr/mirageChipBg"
         android:gravity="center_vertical"
         android:orientation="horizontal"
         android:padding="14dp">
@@ -113,7 +113,7 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:background="@drawable/bg_pill"
+            android:background="?attr/miragePillBg"
             android:backgroundTint="#2A241C"
             android:paddingStart="10dp"
             android:paddingTop="4dp"

@@ -3,7 +3,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:background="@drawable/bg_card"
+    android:background="?attr/mirageCardBg"
     android:orientation="vertical"
     android:padding="22dp">
 
@@ -17,7 +17,7 @@
         <FrameLayout
             android:layout_width="38dp"
             android:layout_height="38dp"
-            android:background="@drawable/bg_pill"
+            android:background="?attr/miragePillBg"
             android:backgroundTint="#1C2130">
 
             <ImageView

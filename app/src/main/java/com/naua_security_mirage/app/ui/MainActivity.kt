@@ -105,6 +105,8 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
     private lateinit var settingsRepository: SettingsRepository
+    private var uiStyleRow: LinearLayout? = null
+    private var uiStyleValueView: TextView? = null
     private lateinit var pingRepository: PingRepository
     private lateinit var vlessKeyRepository: VlessKeyRepository
     private lateinit var geoRoutingRepository: GeoRoutingRepository
@@ -189,12 +191,16 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        val prefs = SettingsRepository(this)
+        if (prefs.uiStyle == SettingsRepository.UI_STYLE_GLASS) {
+            setTheme(R.style.Theme_Mirage_Glass)
+        }
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
         window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
 
-        settingsRepository = SettingsRepository(this)
+        settingsRepository = prefs
         AnimationHelper.animationsEnabled = settingsRepository.areAnimationsEnabled
         AnimationHelper.excludeFromPress(binding.btnConnect, binding.connectGlowRing)
         pingRepository = PingRepository()
@@ -3207,6 +3213,145 @@ class MainActivity : AppCompatActivity() {
         AnimationHelper.fadeAndSlideIn(binding.viewSettings, fromX = -slideDist, durationMs = 230)
     }
 
+    private fun installUiStyleRow() {
+        if (uiStyleRow != null) return
+        val density = resources.displayMetrics.density
+        fun dp(value: Int) = (value * density).toInt()
+
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(16), dp(16), dp(16), dp(16))
+            isClickable = true
+            isFocusable = true
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+            val out = android.util.TypedValue()
+            if (theme.resolveAttribute(android.R.attr.selectableItemBackground, out, true)) {
+                setBackgroundResource(out.resourceId)
+            }
+        }
+
+        val icon = ImageView(this).apply {
+            setImageResource(R.drawable.ic_glass)
+            layoutParams = LinearLayout.LayoutParams(dp(20), dp(20)).apply {
+                marginEnd = dp(14)
+            }
+            contentDescription = null
+        }
+
+        val texts = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+        }
+
+        val title = TextView(this).apply {
+            setText(R.string.ui_style_title)
+            setTextColor(ContextCompat.getColor(this@MainActivity, R.color.ink))
+            setTextSize(14f)
+            setTypeface(typeface, Typeface.BOLD)
+        }
+
+        val desc = TextView(this).apply {
+            setText(R.string.ui_style_desc)
+            setTextColor(ContextCompat.getColor(this@MainActivity, R.color.ink_soft))
+            setTextSize(12f)
+            setPadding(0, dp(3), 0, 0)
+        }
+
+        val value = TextView(this).apply {
+            setTextColor(ContextCompat.getColor(this@MainActivity, R.color.amber))
+            setTextSize(12f)
+            setTypeface(typeface, Typeface.BOLD)
+            setPadding(0, 0, dp(4), 0)
+        }
+
+        val chevron = ImageView(this).apply {
+            setImageResource(R.drawable.ic_chevron_right)
+            layoutParams = LinearLayout.LayoutParams(dp(20), dp(20))
+            contentDescription = null
+        }
+
+        texts.addView(title)
+        texts.addView(desc)
+        row.addView(icon)
+        row.addView(texts)
+        row.addView(value)
+        row.addView(chevron)
+        row.setOnClickListener {
+            AnimationHelper.bounceClick(row, minScale = 0.97f, durationMs = 180)
+            showUiStyleDialog()
+        }
+
+        val index = binding.cardAppearance.indexOfChild(binding.rowAppearance) + 1
+        binding.cardAppearance.addView(row, index)
+        uiStyleRow = row
+        uiStyleValueView = value
+    }
+
+    private fun updateUiStyleRow() {
+        uiStyleValueView?.text = getString(
+            if (settingsRepository.uiStyle == SettingsRepository.UI_STYLE_GLASS) {
+                R.string.ui_style_value_glass
+            } else {
+                R.string.ui_style_value_classic
+            }
+        )
+    }
+
+    private fun showUiStyleDialog() {
+        val dialog = Dialog(this)
+        val dialogBinding =
+            com.naua_security_mirage.app.databinding.DialogUiStyleBinding.inflate(layoutInflater)
+        dialog.setContentView(dialogBinding.root)
+        dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+        dialog.window?.setLayout(
+            (resources.displayMetrics.widthPixels * 0.94f).toInt(),
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        )
+
+        fun renderSelection() {
+            val glass = settingsRepository.uiStyle == SettingsRepository.UI_STYLE_GLASS
+            dialogBinding.cardStyleClassic.setBackgroundResource(
+                if (glass) R.drawable.bg_ui_style_option else R.drawable.bg_ui_style_option_selected
+            )
+            dialogBinding.cardStyleGlass.setBackgroundResource(
+                if (glass) R.drawable.bg_ui_style_option_selected else R.drawable.bg_ui_style_option
+            )
+            val amber = ContextCompat.getColor(this, R.color.amber)
+            val ink = ContextCompat.getColor(this, R.color.ink)
+            dialogBinding.tvStyleClassicLabel.setTextColor(if (glass) ink else amber)
+            dialogBinding.tvStyleGlassLabel.setTextColor(if (glass) amber else ink)
+        }
+
+        renderSelection()
+        dialogBinding.btnCloseUiStyle.setOnClickListener { dialog.dismiss() }
+        dialogBinding.cardStyleClassic.setOnClickListener {
+            if (settingsRepository.uiStyle != SettingsRepository.UI_STYLE_CLASSIC) {
+                settingsRepository.uiStyle = SettingsRepository.UI_STYLE_CLASSIC
+                Toast.makeText(applicationContext, R.string.ui_style_applied, Toast.LENGTH_SHORT).show()
+                dialog.dismiss()
+                recreate()
+            } else {
+                dialog.dismiss()
+            }
+        }
+        dialogBinding.cardStyleGlass.setOnClickListener {
+            if (settingsRepository.uiStyle != SettingsRepository.UI_STYLE_GLASS) {
+                settingsRepository.uiStyle = SettingsRepository.UI_STYLE_GLASS
+                settingsRepository.themePreset = SettingsRepository.THEME_DARK
+                Toast.makeText(applicationContext, R.string.ui_style_applied, Toast.LENGTH_SHORT).show()
+                dialog.dismiss()
+                recreate()
+            } else {
+                dialog.dismiss()
+            }
+        }
+        dialog.show()
+    }
+
     private fun openLogs() {
         refreshLogViewer()
         updateLogLevelChipsState()
@@ -3276,6 +3421,13 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupAppearanceUI() {
+        installUiStyleRow()
+        updateUiStyleRow()
+        val isGlassStyle = settingsRepository.uiStyle == SettingsRepository.UI_STYLE_GLASS
+        val themeChipAlpha = if (isGlassStyle) 0.45f else 1f
+        binding.chipThemeDark.alpha = themeChipAlpha
+        binding.chipThemeLight.alpha = themeChipAlpha
+
         binding.btnBackFromAppearance.setOnClickListener {
             AnimationHelper.bounceClick(binding.btnBackFromAppearance, minScale = 0.88f, durationMs = 180)
             closeAppearance()
@@ -3283,6 +3435,10 @@ class MainActivity : AppCompatActivity() {
 
         updateThemeChipsState()
         binding.chipThemeDark.setOnClickListener {
+            if (settingsRepository.uiStyle == SettingsRepository.UI_STYLE_GLASS) {
+                Toast.makeText(this, R.string.ui_style_theme_note, Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
             AnimationHelper.bounceClick(binding.chipThemeDark, minScale = 0.93f, durationMs = 180)
             settingsRepository.themePreset = SettingsRepository.THEME_DARK
             settingsRepository.customBgColor = 0
@@ -3300,6 +3456,10 @@ class MainActivity : AppCompatActivity() {
         }
 
         binding.chipThemeLight.setOnClickListener {
+            if (settingsRepository.uiStyle == SettingsRepository.UI_STYLE_GLASS) {
+                Toast.makeText(this, R.string.ui_style_theme_note, Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
             AnimationHelper.bounceClick(binding.chipThemeLight, minScale = 0.93f, durationMs = 180)
             settingsRepository.themePreset = SettingsRepository.THEME_LIGHT
             settingsRepository.customBgColor = 0
@@ -6413,14 +6573,18 @@ class MainActivity : AppCompatActivity() {
 
 
     private fun applyCurrentAppearance() {
+        val isGlass = settingsRepository.uiStyle == SettingsRepository.UI_STYLE_GLASS
+        if (isGlass && settingsRepository.themePreset != SettingsRepository.THEME_DARK) {
+            settingsRepository.themePreset = SettingsRepository.THEME_DARK
+        }
         val preset = settingsRepository.themePreset
         val isLightPreset = preset == SettingsRepository.THEME_LIGHT
-        val customBg = settingsRepository.customBgColor
+        val customBg = if (isGlass) 0 else settingsRepository.customBgColor
         val customBgPath = settingsRepository.customBgImagePath
-        val customConnect = settingsRepository.customConnectBtnColor
-        val customAction = settingsRepository.customActionBtnColor
-        val customText = settingsRepository.customTextColor
-        val customSwitch = settingsRepository.customSwitchColor
+        val customConnect = if (isGlass) 0 else settingsRepository.customConnectBtnColor
+        val customAction = if (isGlass) 0 else settingsRepository.customActionBtnColor
+        val customText = if (isGlass) 0 else settingsRepository.customTextColor
+        val customSwitch = if (isGlass) 0 else settingsRepository.customSwitchColor
 
         val hasWallpaper = !customBgPath.isNullOrEmpty() && File(customBgPath).exists()
         val isLightContext: Boolean
@@ -6441,16 +6605,21 @@ class MainActivity : AppCompatActivity() {
             binding.ivCustomBackground.visibility = View.GONE
             binding.vBackgroundDim.visibility = View.GONE
 
-            val finalBg = if (customBg != 0) {
-                customBg
-            } else if (isLightPreset) {
-                Color.parseColor("#F8FAFC")
+            if (isGlass) {
+                binding.rootContainer.setBackgroundResource(R.drawable.bg_glass_root)
+                isLightContext = false
             } else {
-                ContextCompat.getColor(this, R.color.bg)
-            }
+                val finalBg = if (customBg != 0) {
+                    customBg
+                } else if (isLightPreset) {
+                    Color.parseColor("#F8FAFC")
+                } else {
+                    ContextCompat.getColor(this, R.color.bg)
+                }
 
-            binding.rootContainer.setBackgroundColor(finalBg)
-            isLightContext = ColorUtils.calculateLuminance(finalBg) > 0.5
+                binding.rootContainer.setBackgroundColor(finalBg)
+                isLightContext = ColorUtils.calculateLuminance(finalBg) > 0.5
+            }
         }
 
         val insetsController = WindowInsetsControllerCompat(window, window.decorView)
@@ -6476,7 +6645,11 @@ class MainActivity : AppCompatActivity() {
         val connectStyle = settingsRepository.connectBtnStyle
         if (connectStyle == SettingsRepository.STYLE_STANDARD) {
             binding.view3DButton.visibility = View.GONE
-            binding.btnConnect.background = connectBg
+            binding.btnConnect.background = if (isGlass) {
+                ContextCompat.getDrawable(this, R.drawable.bg_connect_btn_glass)
+            } else {
+                connectBg
+            }
             binding.ivPowerIcon.visibility = View.VISIBLE
             binding.tvSectionConnectBtn.visibility = View.VISIBLE
             binding.cardConnectBtnSection.visibility = View.VISIBLE

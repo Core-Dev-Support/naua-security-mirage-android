@@ -7,7 +7,7 @@
     android:layout_marginStart="20dp"
     android:layout_marginEnd="20dp"
     android:layout_marginBottom="12dp"
-    android:background="@drawable/bg_card"
+    android:background="?attr/mirageCardBg"
     android:orientation="vertical">
 
     <!-- Logged out layout (Single sleek row) -->

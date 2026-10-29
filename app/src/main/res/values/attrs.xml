@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <attr name="mirageBg" format="reference" />
+    <attr name="mirageCardBg" format="reference" />
+    <attr name="miragePillBg" format="reference" />
+    <attr name="mirageChipBg" format="reference" />
+    <attr name="mirageIconBg" format="reference" />
+    <attr name="mirageConnectBg" format="reference" />
+</resources>

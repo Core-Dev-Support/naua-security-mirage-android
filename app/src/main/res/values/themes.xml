@@ -8,5 +8,25 @@
         <item name="colorSecondary">@color/amber_deep</item>
         <item name="colorSurface">@color/card</item>
         <item name="colorOnSurface">@color/ink</item>
+        <item name="mirageBg">@color/bg</item>
+        <item name="mirageCardBg">@drawable/bg_card</item>
+        <item name="miragePillBg">@drawable/bg_pill</item>
+        <item name="mirageChipBg">@drawable/bg_chip</item>
+        <item name="mirageIconBg">@drawable/bg_icon_btn</item>
+        <item name="mirageConnectBg">@drawable/bg_connect_btn</item>
+    </style>
+
+    <style name="Theme.Mirage.Glass" parent="Theme.Mirage">
+        <item name="android:windowBackground">@drawable/bg_glass_root</item>
+        <item name="android:statusBarColor">@color/glass_bg</item>
+        <item name="android:navigationBarColor">@color/glass_bg</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="colorSurface">@color/glass_bg</item>
+        <item name="mirageBg">@drawable/bg_glass_root</item>
+        <item name="mirageCardBg">@drawable/bg_glass_card</item>
+        <item name="miragePillBg">@drawable/bg_glass_pill</item>
+        <item name="mirageChipBg">@drawable/bg_glass_chip</item>
+        <item name="mirageIconBg">@drawable/bg_glass_icon</item>
+        <item name="mirageConnectBg">@drawable/bg_connect_btn_glass</item>
     </style>
 </resources>

@@ -46,7 +46,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="14dp"
-        android:background="@drawable/bg_card"
+        android:background="?attr/mirageCardBg"
         android:orientation="vertical"
         android:paddingStart="14dp"
         android:paddingTop="6dp"

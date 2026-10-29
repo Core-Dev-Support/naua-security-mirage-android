@@ -19,4 +19,5 @@
     <color name="glow_amber_ring">#26E8A33D</color>
     <color name="switch_off">#26FFFFFF</color>
     <color name="transparent">#00000000</color>
+    <color name="glass_bg">#06070A</color>
 </resources>

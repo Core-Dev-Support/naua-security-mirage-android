@@ -6,7 +6,7 @@
     android:layout_marginStart="20dp"
     android:layout_marginEnd="20dp"
     android:layout_marginBottom="12dp"
-    android:background="@drawable/bg_card"
+    android:background="?attr/mirageCardBg"
     android:orientation="vertical">
 
     <LinearLayout
@@ -55,7 +55,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginStart="12dp"
-            android:background="@drawable/bg_pill"
+            android:background="?attr/miragePillBg"
             android:clickable="true"
             android:focusable="true"
             android:paddingStart="14dp"
@@ -121,7 +121,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginStart="12dp"
-            android:background="@drawable/bg_pill"
+            android:background="?attr/miragePillBg"
             android:clickable="true"
             android:focusable="true"
             android:paddingStart="14dp"
