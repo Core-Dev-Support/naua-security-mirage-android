@@ -342,21 +342,8 @@ object AppUpdateManager {
                 host == "release-assets.githubusercontent.com"
     }
 
-    fun isNewerVersion(latestTag: String, currentVersion: String): Boolean {        val cleanLatest = latestTag.trim().removePrefix("v").removePrefix("V")
-        val cleanCurrent = currentVersion.trim().removePrefix("v").removePrefix("V")
-
-        val latestParts = cleanLatest.split(".").mapNotNull { it.toIntOrNull() }
-        val currentParts = cleanCurrent.split(".").mapNotNull { it.toIntOrNull() }
-
-        val maxLen = maxOf(latestParts.size, currentParts.size)
-        for (i in 0 until maxLen) {
-            val l = latestParts.getOrElse(i) { 0 }
-            val c = currentParts.getOrElse(i) { 0 }
-            if (l > c) return true
-            if (l < c) return false
-        }
-        return false
-    }
+    fun isNewerVersion(latestTag: String, currentVersion: String): Boolean =
+        VersionComparator.isNewer(latestTag, currentVersion)
 
     private fun handleUptodownUpdates(activity: Activity, isManual: Boolean) {
         latestUpdate = null

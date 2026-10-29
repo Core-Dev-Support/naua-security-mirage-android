@@ -380,7 +380,7 @@
     <string name="sub_features">• Dedicated server in France (Paris)\n• Dedicated server in Belarus\n• Top speed up to 1 Gbps with no caps\n• Reality protocol against any blocking\n• Instant online activation</string>
     <string name="sub_pay_button">Choose a term and pay</string>
     <string name="sub_check_payment">Check the payment</string>
-    <string name="update_badge_sample">Version 1.4.0</string>
+    <string name="update_badge_sample">Version 1.5.0</string>
     <string name="changelog_label">What\'s new:</string>
     <string name="changelog_full_link">Full changelog</string>
     <string name="source_title">Update source</string>

@@ -380,7 +380,7 @@
     <string name="sub_features">• Выделенный сервер во Франции (Париж)\n• Выделенный сервер в Беларуси\n• Максимальная скорость до 1 Гбит/с без лимитов\n• Протокол Reality против любых блокировок\n• Моментальная онлайн-активация</string>
     <string name="sub_pay_button">Выбрать срок и оплатить</string>
     <string name="sub_check_payment">Проверить оплату</string>
-    <string name="update_badge_sample">Версия 1.4.0</string>
+    <string name="update_badge_sample">Версия 1.5.0</string>
     <string name="changelog_label">Что нового:</string>
     <string name="changelog_full_link">Полный список изменений</string>
     <string name="source_title">Источник обновлений</string>
