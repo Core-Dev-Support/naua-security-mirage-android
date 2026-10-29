@@ -3561,7 +3561,8 @@ class MainActivity : AppCompatActivity() {
 
         val plan = settingsRepository.selectedServerPlan
         val paid = settingsRepository.isPaidPlan(plan) && AppConfigRepository.node(plan) != null
-        val paidTarget = if (paid) plan else paidNodePlanForLabel()
+        val paidTarget = (if (paid) plan else paidNodePlanForLabel())
+            .ifBlank { SettingsRepository.PLAN_PREMIUM_FRANCE }
         shell.gsPaidLabel.text = paidNodeLabel(paidTarget)
         shell.gsPaidFlag.setImageResource(paidNodeFlagRes(paidTarget))
         shell.gsFreePill.background = if (!paid) {
@@ -3576,6 +3577,9 @@ class MainActivity : AppCompatActivity() {
         }
         shell.gsFreeLabel.setTextColor(
             ContextCompat.getColor(this, if (!paid) R.color.glass_text else R.color.glass_icon_dim)
+        )
+        shell.gsPaidLabel.setTextColor(
+            ContextCompat.getColor(this, if (paid) R.color.glass_text else R.color.glass_icon_dim)
         )
 
         val loggedOut = binding.cardAccount.layoutAccountLoggedOut.visibility == View.VISIBLE
