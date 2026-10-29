@@ -554,4 +554,22 @@
   <string name="faq_a2">Russian sites and banks go directly, while the rest of the traffic passes through the encrypted tunnel.</string>
   <string name="faq_q3">What is Kill Switch?</string>
   <string name="faq_a3">It blocks internet access without VPN so traffic never leaks in the clear. Enable it in Android Always-on VPN settings.</string>
+  <string name="glass_free">Free</string>
+  <string name="glass_donate_title">Thank the developer</string>
+  <string name="glass_donate_sub">3 donation options</string>
+  <string name="glass_telegram_title">Telegram</string>
+  <string name="glass_telegram_sub">Channel / Bot / Chat</string>
+  <string name="glass_auto_title">Mirage picks the server for you</string>
+  <string name="glass_auto_desc">No location choice needed — just tap the connect sphere.</string>
+  <string name="glass_settings_glass_title">Liquid glass (Morphix Glass)</string>
+  <string name="glass_settings_glass_desc">Background blur and edge highlight</string>
+  <string name="glass_kill_desc">Block traffic without VPN</string>
+  <string name="glass_settings_direct_desc">Split tunneling</string>
+  <string name="glass_settings_all">All settings</string>
+  <string name="glass_node_ok">OK</string>
+  <string name="glass_version_tagline">NAUA Security • No-Logs VPN</string>
+  <string name="glass_version_ok">✓ Up to date (GitHub Releases)</string>
+  <string name="glass_version_update">Update available — tap to install</string>
+  <string name="glass_renew">Renew ›</string>
+  <string name="glass_ping_placeholder">— ms</string>
 </resources>

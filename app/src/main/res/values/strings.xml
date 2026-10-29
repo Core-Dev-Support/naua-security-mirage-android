@@ -554,4 +554,22 @@
   <string name="faq_a2">Российские сайты и банки идут напрямую, остальной трафик — через защищённый туннель.</string>
   <string name="faq_q3">Что такое Kill Switch?</string>
   <string name="faq_a3">Блокирует интернет без VPN, чтобы трафик не ушёл в открытом виде. Включается в системных настройках Always-on VPN.</string>
+  <string name="glass_free">Бесплатный</string>
+  <string name="glass_donate_title">Поблагодарить</string>
+  <string name="glass_donate_sub">3 способа доната</string>
+  <string name="glass_telegram_title">Telegram</string>
+  <string name="glass_telegram_sub">Канал / Бот / Чат</string>
+  <string name="glass_auto_title">Mirage сам выбирает сервер</string>
+  <string name="glass_auto_desc">Выбор локации не нужен — просто нажми кнопку подключения.</string>
+  <string name="glass_settings_glass_title">Жидкое стекло (Morphix Glass)</string>
+  <string name="glass_settings_glass_desc">Размытие фона и блик граней</string>
+  <string name="glass_kill_desc">Блокировать трафик без VPN</string>
+  <string name="glass_settings_direct_desc">Раздельное туннелирование</string>
+  <string name="glass_settings_all">Все настройки</string>
+  <string name="glass_node_ok">ОК</string>
+  <string name="glass_version_tagline">NAUA Security • No-Logs VPN</string>
+  <string name="glass_version_ok">✓ Установлена актуальная сборка (GitHub Releases)</string>
+  <string name="glass_version_update">Доступно обновление — нажми, чтобы установить</string>
+  <string name="glass_renew">Продлить ›</string>
+  <string name="glass_ping_placeholder">— ms</string>
 </resources>

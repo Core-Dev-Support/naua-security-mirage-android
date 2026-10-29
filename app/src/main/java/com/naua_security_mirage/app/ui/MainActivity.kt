@@ -11,6 +11,8 @@ import android.net.VpnService
 import android.os.Build
 import android.os.Bundle
 import android.os.Environment
+import android.os.Handler
+import android.os.Looper
 import android.provider.MediaStore
 import android.provider.Settings
 import androidx.core.content.FileProvider
@@ -37,6 +39,8 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.core.text.HtmlCompat
 import androidx.lifecycle.lifecycleScope
+import androidx.transition.AutoTransition
+import androidx.transition.TransitionManager
 import com.naua_security_mirage.app.R
 import com.naua_security_mirage.app.data.model.VpnState
 import com.naua_security_mirage.app.data.model.VlessServer
@@ -131,18 +135,21 @@ class MainActivity : AppCompatActivity() {
     private var isAutoPingExpanded = false
     private var isSpeedExpanded = false
 
-    private data class DockTabViews(
-        val item: LinearLayout,
-        val icon: ImageView,
+    private var currentGlassTab = GLASS_TAB_HOME
+    private val glassSyncHandler = Handler(Looper.getMainLooper())
+    private val glassSyncRunnable = object : Runnable {
+        override fun run() {
+            syncGlassShell()
+            glassSyncHandler.postDelayed(this, 700L)
+        }
+    }
+
+    private data class GlassDockItem(
+        val tab: Int,
+        val container: LinearLayout,
+        val icon: View,
         val label: TextView
     )
-
-    private var dockBar: LinearLayout? = null
-    private var faqDockView: ScrollView? = null
-    private var versionDockView: ScrollView? = null
-    private var currentDockTab = TAB_HOME
-    private val dockTabViews = mutableMapOf<Int, DockTabViews>()
-    private var lastBottomInset = 0
 
     private val vpnConsentLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
@@ -472,6 +479,15 @@ class MainActivity : AppCompatActivity() {
         ensureCardRows()
         maybeShowPrivateDnsDialog()
         applyScreenshotBlocking()
+        glassSyncHandler.removeCallbacks(glassSyncRunnable)
+        if (settingsRepository.uiStyle == SettingsRepository.UI_STYLE_GLASS) {
+            glassSyncHandler.post(glassSyncRunnable)
+        }
+    }
+
+    override fun onPause() {
+        glassSyncHandler.removeCallbacks(glassSyncRunnable)
+        super.onPause()
     }
 
     @Suppress("DEPRECATION")
@@ -486,28 +502,27 @@ class MainActivity : AppCompatActivity() {
             )
             val density = resources.displayMetrics.density
             val padTop = insets.top + (16 * density).toInt()
-            val dockSpace = if (settingsRepository.uiStyle == SettingsRepository.UI_STYLE_GLASS) {
-                (78 * density).toInt()
-            } else {
-                0
-            }
-            val padBottom = insets.bottom + (24 * density).toInt() + dockSpace
+            val padBottom = insets.bottom + (24 * density).toInt()
 
-            lastBottomInset = insets.bottom
             binding.viewMain.setPadding(0, padTop, 0, padBottom)
             binding.viewSettings.setPadding(0, padTop, 0, padBottom)
-            binding.viewAppearance.setPadding(0, insets.top + (16 * density).toInt(), 0, insets.bottom + (32 * density).toInt() + dockSpace)
+            binding.viewAppearance.setPadding(0, insets.top + (16 * density).toInt(), 0, insets.bottom + (32 * density).toInt())
             binding.viewLogs.setPadding(0, padTop, 0, padBottom)
             binding.viewPerAppProxy.setPadding(0, padTop, 0, padBottom)
             binding.viewCustomWebsites.setPadding(0, padTop, 0, padBottom)
-            faqDockView?.setPadding(0, padTop, 0, padBottom)
-            versionDockView?.setPadding(0, padTop, 0, padBottom)
-            dockBar?.let { bar ->
-                (bar.layoutParams as? FrameLayout.LayoutParams)?.let { lp ->
-                    lp.bottomMargin = insets.bottom + (12 * density).toInt()
-                    bar.layoutParams = lp
-                }
-            }
+
+            binding.glassShell.gsHeader.setPadding(
+                (18 * density).toInt(),
+                insets.top + (14 * density).toInt(),
+                (18 * density).toInt(),
+                (8 * density).toInt()
+            )
+            binding.glassShell.gsDockContainer.setPadding(
+                (16 * density).toInt(),
+                (4 * density).toInt(),
+                (16 * density).toInt(),
+                insets.bottom + (12 * density).toInt()
+            )
 
             windowInsets
         }
@@ -600,7 +615,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         setupServerPlanSelector()
-        installGlassDock()
+        setupGlassShell()
     }
 
     private fun setupSettings() {
@@ -2389,17 +2404,27 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun openSettings() {
+        if (settingsRepository.uiStyle == SettingsRepository.UI_STYLE_GLASS) {
+            openGlassDetailedSettings()
+            return
+        }
         val slideDist = 42f * resources.displayMetrics.density
-        faqDockView?.visibility = View.GONE
-        versionDockView?.visibility = View.GONE
         binding.viewSettings.scrollTo(0, 0)
         AnimationHelper.fadeAndSlideOut(binding.viewMain, toX = -slideDist, durationMs = 210)
         AnimationHelper.fadeAndSlideIn(binding.viewSettings, fromX = slideDist, durationMs = 230)
         binding.hintCard.visibility = View.GONE
         refreshPrivateDnsRow()
         refreshTunnelDnsRow()
-        currentDockTab = TAB_SETTINGS
-        updateDockSelection()
+    }
+
+    private fun openGlassDetailedSettings() {
+        binding.viewSettings.background = ContextCompat.getDrawable(this, R.drawable.bg_glass_shell)
+        binding.viewSettings.visibility = View.VISIBLE
+        binding.viewSettings.alpha = 0f
+        binding.viewSettings.scrollTo(0, 0)
+        binding.viewSettings.animate().alpha(1f).setDuration(180L).start()
+        refreshPrivateDnsRow()
+        refreshTunnelDnsRow()
     }
 
     private var privateDnsCard: View? = null
@@ -3244,12 +3269,18 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun closeSettings() {
+        if (settingsRepository.uiStyle == SettingsRepository.UI_STYLE_GLASS) {
+            binding.viewSettings.animate().alpha(0f).setDuration(140L).withEndAction {
+                binding.viewSettings.visibility = View.GONE
+                binding.viewSettings.alpha = 1f
+                selectGlassTab(GLASS_TAB_SETTINGS)
+            }.start()
+            return
+        }
         val slideDist = 42f * resources.displayMetrics.density
         AnimationHelper.fadeAndSlideOut(binding.viewSettings, toX = slideDist, durationMs = 210)
         AnimationHelper.fadeAndSlideIn(binding.viewMain, fromX = -slideDist, durationMs = 230)
         binding.hintCard.visibility = View.VISIBLE
-        currentDockTab = TAB_HOME
-        updateDockSelection()
     }
 
     private fun openAppearance() {
@@ -3264,234 +3295,325 @@ class MainActivity : AppCompatActivity() {
         AnimationHelper.fadeAndSlideIn(binding.viewSettings, fromX = -slideDist, durationMs = 230)
     }
 
-    private fun installGlassDock() {
-        if (dockBar != null) return
-        val root = binding.rootContainer
-        faqDockView = createFaqPanel().also { root.addView(it) }
-        versionDockView = createVersionPanel().also { root.addView(it) }
+    private fun setupGlassShell() {
+        val shell = binding.glassShell
+        shell.gsLanguageText.text = if (java.util.Locale.getDefault().language.startsWith("ru")) "RU" else "EN"
+        shell.gsLanguage.setOnClickListener { binding.btnLanguage.performClick() }
 
-        val bar = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            setPadding(dp(6), dp(6), dp(6), dp(6))
-            background = ContextCompat.getDrawable(this@MainActivity, R.drawable.bg_glass_pill)
-            elevation = dp(10).toFloat()
-            layoutParams = FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-            ).apply {
-                gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
-                marginStart = dp(16)
-                marginEnd = dp(16)
-                bottomMargin = lastBottomInset + dp(12)
+        shell.gsOrb.setOnClickListener {
+            AnimationHelper.bounceClick(shell.gsOrb, minScale = 0.93f, durationMs = 160)
+            binding.btnConnect.performClick()
+        }
+        shell.gsFreePill.setOnClickListener {
+            AnimationHelper.bounceClick(shell.gsFreePill, minScale = 0.95f, durationMs = 140)
+            binding.containerServerPlan.btnPlanFree.performClick()
+            syncGlassShell()
+        }
+        shell.gsPaidPill.setOnClickListener {
+            AnimationHelper.bounceClick(shell.gsPaidPill, minScale = 0.95f, durationMs = 140)
+            showGlassCountryDropdown(shell.gsPaidPill)
+        }
+        shell.gsDonateCard.setOnClickListener {
+            AnimationHelper.bounceClick(shell.gsDonateCard, minScale = 0.96f, durationMs = 160)
+            binding.btnSupport.performClick()
+        }
+        shell.gsTelegramCard.setOnClickListener {
+            AnimationHelper.bounceClick(shell.gsTelegramCard, minScale = 0.96f, durationMs = 160)
+            binding.btnTelegram.performClick()
+        }
+        shell.gsAccountRow.setOnClickListener {
+            if (binding.cardAccount.layoutAccountLoggedOut.visibility == View.VISIBLE) {
+                binding.cardAccount.btnAccountLogin.performClick()
+            } else {
+                binding.cardAccount.btnAccountSubscribe.performClick()
             }
         }
-        addDockTab(bar, TAB_HOME, R.drawable.ic_dock_home, R.string.dock_home)
-        addDockTab(bar, TAB_SETTINGS, R.drawable.ic_gear, R.string.dock_settings)
-        addDockTab(bar, TAB_FAQ, R.drawable.ic_dock_faq, R.string.dock_faq)
-        addDockTab(bar, TAB_VERSION, R.drawable.ic_dock_version, R.string.dock_version)
-        root.addView(bar)
-        dockBar = bar
-        updateDockSelection()
-        updateDockVisibility()
+        shell.gsNodeRow.setOnClickListener {
+            nodeStatusCard?.findViewById<View>(R.id.tvNodeStatusAction)?.performClick()
+        }
+        shell.gsAllSettingsRow.setOnClickListener {
+            AnimationHelper.bounceClick(shell.gsAllSettingsRow, minScale = 0.98f, durationMs = 140)
+            openGlassDetailedSettings()
+        }
+        shell.gsVersionCard.setOnClickListener { checkUpdatesFromGlass() }
+        shell.gsCheckUpdates.setOnClickListener { checkUpdatesFromGlass() }
+
+        val amber = ContextCompat.getColor(this, R.color.glass_amber)
+        listOf(shell.gsSwitchGlass, shell.gsSwitchKill, shell.gsSwitchDirectRu).forEach { toggle ->
+            toggle.setLightMode(false)
+            toggle.setActiveColor(amber)
+        }
+        shell.gsSwitchGlass.isChecked = true
+        shell.gsSwitchGlass.setOnCheckedChangeListener { _, checked ->
+            if (!checked) applyUiStyle(SettingsRepository.UI_STYLE_CLASSIC)
+        }
+        shell.gsSwitchKill.setOnCheckedChangeListener { _, checked ->
+            if (binding.switchKillSwitch.isChecked != checked) binding.switchKillSwitch.toggle()
+        }
+        shell.gsSwitchDirectRu.setOnCheckedChangeListener { _, checked ->
+            if (binding.switchDirectRu.isChecked != checked) binding.switchDirectRu.toggle()
+        }
+
+        shell.gsDockHome.setOnClickListener { selectGlassTab(GLASS_TAB_HOME) }
+        shell.gsDockSettings.setOnClickListener { selectGlassTab(GLASS_TAB_SETTINGS) }
+        shell.gsDockFaq.setOnClickListener { selectGlassTab(GLASS_TAB_FAQ) }
+        shell.gsDockVersion.setOnClickListener { selectGlassTab(GLASS_TAB_VERSION) }
+
+        shell.gsVersionName.text = "Mirage ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})"
+        selectGlassTab(GLASS_TAB_HOME, animate = false)
+        syncGlassShell()
     }
 
-    private fun addDockTab(bar: LinearLayout, tab: Int, iconRes: Int, labelRes: Int) {
-        val item = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER
-            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-            setPadding(0, dp(7), 0, dp(7))
-            isClickable = true
-            isFocusable = true
-            setOnClickListener { view ->
-                AnimationHelper.bounceClick(view, minScale = 0.92f, durationMs = 140)
-                showDockTab(tab)
-            }
-        }
-        val icon = ImageView(this).apply {
-            setImageResource(iconRes)
-            layoutParams = LinearLayout.LayoutParams(dp(21), dp(21))
-            contentDescription = getString(labelRes)
-        }
-        val label = TextView(this).apply {
-            setText(labelRes)
-            textSize = 10f
-            gravity = Gravity.CENTER
-            setPadding(0, dp(2), 0, 0)
-        }
-        item.addView(icon)
-        item.addView(label)
-        bar.addView(item)
-        dockTabViews[tab] = DockTabViews(item, icon, label)
+    private fun checkUpdatesFromGlass() {
+        AppUpdateManager.checkForUpdates(this, settingsRepository, isManual = true)
     }
 
-    private fun createFaqPanel(): ScrollView {
-        val scroll = ScrollView(this).apply {
-            visibility = View.GONE
-            overScrollMode = View.OVER_SCROLL_NEVER
-            isFillViewport = true
-            layoutParams = FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT
-            )
+    private fun selectGlassTab(tab: Int, animate: Boolean = true) {
+        val shell = binding.glassShell
+        currentGlassTab = tab
+        shell.gsHome.visibility = if (tab == GLASS_TAB_HOME) View.VISIBLE else View.GONE
+        shell.gsSettings.visibility = if (tab == GLASS_TAB_SETTINGS) View.VISIBLE else View.GONE
+        shell.gsFaq.visibility = if (tab == GLASS_TAB_FAQ) View.VISIBLE else View.GONE
+        shell.gsVersion.visibility = if (tab == GLASS_TAB_VERSION) View.VISIBLE else View.GONE
+        shell.gsScroll.scrollTo(0, 0)
+        val target = when (tab) {
+            GLASS_TAB_SETTINGS -> shell.gsSettings
+            GLASS_TAB_FAQ -> shell.gsFaq
+            GLASS_TAB_VERSION -> shell.gsVersion
+            else -> shell.gsHome
         }
-        val content = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dp(20), dp(16), dp(20), dp(24))
+        if (animate) {
+            target.alpha = 0f
+            target.animate().alpha(1f).setDuration(240L).start()
+        } else {
+            target.alpha = 1f
         }
-        content.addView(dockTitle(getString(R.string.dock_faq)))
-        content.addView(dockInfoCard(R.string.faq_q1, R.string.faq_a1))
-        content.addView(dockInfoCard(R.string.faq_q2, R.string.faq_a2))
-        content.addView(dockInfoCard(R.string.faq_q3, R.string.faq_a3))
-        scroll.addView(content)
-        return scroll
+        updateGlassDock(animate)
     }
 
-    private fun createVersionPanel(): ScrollView {
-        val scroll = ScrollView(this).apply {
-            visibility = View.GONE
-            overScrollMode = View.OVER_SCROLL_NEVER
-            isFillViewport = true
-            layoutParams = FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT
-            )
+    private fun updateGlassDock(animate: Boolean) {
+        val shell = binding.glassShell
+        if (animate) {
+            TransitionManager.beginDelayedTransition(shell.gsDock, AutoTransition().setDuration(300L))
         }
-        val content = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dp(20), dp(16), dp(20), dp(24))
-        }
-        content.addView(dockTitle(getString(R.string.dock_version)))
-        val card = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER_HORIZONTAL
-            setPadding(dp(20), dp(24), dp(20), dp(24))
-            background = ContextCompat.getDrawable(this@MainActivity, R.drawable.bg_glass_card)
-        }
-        card.addView(TextView(this).apply {
-            setText(R.string.brand_name)
-            setTextColor(ContextCompat.getColor(this@MainActivity, R.color.amber))
-            textSize = 26f
-            gravity = Gravity.CENTER
-            setTypeface(typeface, Typeface.BOLD)
-        })
-        card.addView(TextView(this).apply {
-            setText(R.string.app_name)
-            setTextColor(ContextCompat.getColor(this@MainActivity, R.color.ink))
-            textSize = 13f
-            gravity = Gravity.CENTER
-            setPadding(0, dp(2), 0, 0)
-        })
-        card.addView(TextView(this).apply {
-            text = getString(R.string.dock_version_current, BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE)
-            setTextColor(ContextCompat.getColor(this@MainActivity, R.color.ink_soft))
-            textSize = 12f
-            gravity = Gravity.CENTER
-            setPadding(0, dp(6), 0, 0)
-        })
-        card.addView(TextView(this).apply {
-            setText(R.string.btn_check_updates_now)
-            setTextColor(ContextCompat.getColor(this@MainActivity, R.color.amber))
-            textSize = 13f
-            gravity = Gravity.CENTER
-            setTypeface(typeface, Typeface.BOLD)
-            setPadding(dp(18), dp(10), dp(18), dp(10))
-            background = ContextCompat.getDrawable(this@MainActivity, R.drawable.bg_glass_pill)
-            isClickable = true
-            isFocusable = true
-            layoutParams = LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-            ).apply { topMargin = dp(18) }
-            setOnClickListener {
-                AnimationHelper.bounceClick(this, minScale = 0.95f, durationMs = 160)
-                AppUpdateManager.checkForUpdates(this@MainActivity, settingsRepository, isManual = true)
-            }
-        })
-        content.addView(card)
-        scroll.addView(content)
-        return scroll
-    }
-
-    private fun dockTitle(text: String): TextView = TextView(this).apply {
-        this.text = text
-        setTextColor(ContextCompat.getColor(this@MainActivity, R.color.ink))
-        textSize = 22f
-        setTypeface(typeface, Typeface.BOLD)
-        setPadding(dp(4), 0, 0, dp(12))
-    }
-
-    private fun dockInfoCard(titleRes: Int, bodyRes: Int): LinearLayout {
-        val card = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dp(16), dp(14), dp(16), dp(14))
-            background = ContextCompat.getDrawable(this@MainActivity, R.drawable.bg_glass_card)
-            layoutParams = LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-            ).apply { bottomMargin = dp(12) }
-        }
-        card.addView(TextView(this).apply {
-            setText(titleRes)
-            setTextColor(ContextCompat.getColor(this@MainActivity, R.color.amber))
-            textSize = 14f
-            setTypeface(typeface, Typeface.BOLD)
-        })
-        card.addView(TextView(this).apply {
-            setText(bodyRes)
-            setTextColor(ContextCompat.getColor(this@MainActivity, R.color.ink_soft))
-            textSize = 12.5f
-            setPadding(0, dp(4), 0, 0)
-        })
-        return card
-    }
-
-    private fun showDockTab(tab: Int) {
-        if (settingsRepository.uiStyle != SettingsRepository.UI_STYLE_GLASS) return
-        currentDockTab = tab
-        binding.viewMain.visibility = if (tab == TAB_HOME) View.VISIBLE else View.GONE
-        binding.viewSettings.visibility = if (tab == TAB_SETTINGS) View.VISIBLE else View.GONE
-        faqDockView?.visibility = if (tab == TAB_FAQ) View.VISIBLE else View.GONE
-        versionDockView?.visibility = if (tab == TAB_VERSION) View.VISIBLE else View.GONE
-        binding.viewAppearance.visibility = View.GONE
-        binding.viewLogs.visibility = View.GONE
-        binding.viewPerAppProxy.visibility = View.GONE
-        binding.viewCustomWebsites.visibility = View.GONE
-        binding.hintCard.visibility = if (tab == TAB_HOME) View.VISIBLE else View.GONE
-        if (tab == TAB_SETTINGS) {
-            binding.viewSettings.scrollTo(0, 0)
-            refreshPrivateDnsRow()
-            refreshTunnelDnsRow()
-        }
-        updateDockSelection()
-    }
-
-    private fun updateDockSelection() {
-        val amber = ContextCompat.getColor(this, R.color.amber)
-        val inactive = ContextCompat.getColor(this, R.color.ink_soft)
-        dockTabViews.forEach { (tab, views) ->
-            val active = tab == currentDockTab
-            views.icon.imageTintList = ColorStateList.valueOf(if (active) amber else inactive)
-            views.label.setTextColor(if (active) amber else inactive)
-            views.label.setTypeface(views.label.typeface, if (active) Typeface.BOLD else Typeface.NORMAL)
-            views.item.background = if (active) {
+        val items = listOf(
+            GlassDockItem(GLASS_TAB_HOME, shell.gsDockHome, shell.gsDockHomeIcon, shell.gsDockHomeLabel),
+            GlassDockItem(GLASS_TAB_SETTINGS, shell.gsDockSettings, shell.gsDockSettingsIcon, shell.gsDockSettingsLabel),
+            GlassDockItem(GLASS_TAB_FAQ, shell.gsDockFaq, shell.gsDockFaqIcon, shell.gsDockFaqLabel),
+            GlassDockItem(GLASS_TAB_VERSION, shell.gsDockVersion, shell.gsDockVersionIcon, shell.gsDockVersionLabel)
+        )
+        val activeTint = ContextCompat.getColor(this, R.color.glass_text)
+        val idleTint = ContextCompat.getColor(this, R.color.glass_icon_dim)
+        items.forEach { dockItem ->
+            val active = dockItem.tab == currentGlassTab
+            val lp = dockItem.container.layoutParams as LinearLayout.LayoutParams
+            lp.width = if (active) 0 else gdp(44)
+            lp.weight = if (active) 1f else 0f
+            dockItem.container.layoutParams = lp
+            dockItem.container.setPadding(if (active) gdp(16) else 0, 0, if (active) gdp(16) else 0, 0)
+            dockItem.container.background = if (active) {
                 ContextCompat.getDrawable(this, R.drawable.bg_glass_dock_active)
             } else {
                 null
             }
+            dockItem.label.visibility = if (active) View.VISIBLE else View.GONE
+            val tint = if (active) activeTint else idleTint
+            when (val icon = dockItem.icon) {
+                is ImageView -> icon.imageTintList = ColorStateList.valueOf(tint)
+                is TextView -> icon.setTextColor(tint)
+            }
         }
     }
 
-    private fun updateDockVisibility() {
-        dockBar?.visibility = if (settingsRepository.uiStyle == SettingsRepository.UI_STYLE_GLASS) {
-            View.VISIBLE
+    private fun showGlassCountryDropdown(anchor: View) {
+        val choices = paidNodeChoices()
+        if (choices.isEmpty()) {
+            requestPaidPlan(
+                settingsRepository.lastPaidPlan.ifBlank { SettingsRepository.PLAN_PREMIUM_FRANCE }
+            )
+            return
+        }
+        val content = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(gdp(6), gdp(6), gdp(6), gdp(6))
+            background = ContextCompat.getDrawable(this@MainActivity, R.drawable.bg_glass_dropdown)
+        }
+        val popup = PopupWindow(
+            content,
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            true
+        )
+        val selectedPlan = if (settingsRepository.isPaidPlan()) {
+            settingsRepository.selectedServerPlan
         } else {
-            View.GONE
+            settingsRepository.lastPaidPlan
         }
+        choices.forEach { choice ->
+            val selected = choice.plan == selectedPlan
+            val row = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(gdp(14), gdp(11), gdp(14), gdp(11))
+                isClickable = true
+                isFocusable = true
+                background = if (selected) {
+                    ContextCompat.getDrawable(this@MainActivity, R.drawable.bg_glass_dock_active)
+                } else {
+                    null
+                }
+            }
+            val flag = ImageView(this).apply {
+                setImageResource(flagDrawable(choice.flag))
+                layoutParams = LinearLayout.LayoutParams(gdp(18), gdp(13)).apply { marginEnd = gdp(10) }
+                contentDescription = null
+            }
+            val label = TextView(this).apply {
+                text = choice.label
+                setTextColor(ContextCompat.getColor(this@MainActivity, if (selected) R.color.glass_amber else R.color.glass_text))
+                textSize = 13.5f
+                setTypeface(typeface, Typeface.BOLD)
+            }
+            val check = TextView(this).apply {
+                text = "✓"
+                setTextColor(ContextCompat.getColor(this@MainActivity, R.color.glass_amber))
+                textSize = 15f
+                setTypeface(typeface, Typeface.BOLD)
+                visibility = if (selected) View.VISIBLE else View.INVISIBLE
+            }
+            row.addView(flag)
+            row.addView(
+                label,
+                LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+            )
+            row.addView(check)
+            row.setOnClickListener {
+                popup.dismiss()
+                requestPaidPlan(choice.plan)
+                syncGlassShell()
+            }
+            content.addView(
+                row,
+                LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+                )
+            )
+        }
+        content.measure(
+            View.MeasureSpec.makeMeasureSpec(gdp(260), View.MeasureSpec.AT_MOST),
+            View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
+        )
+        val screenWidth = resources.displayMetrics.widthPixels
+        val width = content.measuredWidth
+            .coerceAtLeast(gdp(220))
+            .coerceAtMost(screenWidth - gdp(32))
+        popup.width = width
+        popup.isOutsideTouchable = true
+        popup.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+        popup.elevation = gdp(14).toFloat()
+        val location = IntArray(2)
+        anchor.getLocationOnScreen(location)
+        val maxOffset = (screenWidth - width - gdp(8)).coerceAtLeast(gdp(8))
+        val offset = (location[0] + anchor.width - width)
+            .coerceIn(gdp(8), maxOffset) - location[0]
+        popup.showAsDropDown(anchor, offset, gdp(7))
     }
 
-    private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
+    private fun syncGlassShell() {
+        if (settingsRepository.uiStyle != SettingsRepository.UI_STYLE_GLASS) return
+        val shell = binding.glassShell
+        val connected = currentVpnState == VpnState.CONNECTED
+        val connecting = currentVpnState == VpnState.CONNECTING
+        val active = connected || connecting
+
+        shell.gsAmbientGlow.setBackgroundResource(
+            if (active) R.drawable.bg_glass_ambient_glow else R.drawable.bg_glass_ambient_glow_off
+        )
+        shell.gsOrbCore.setBackgroundResource(
+            if (active) R.drawable.bg_glass_orb_core else R.drawable.bg_glass_orb_core_off
+        )
+        shell.gsPowerIcon.imageTintList = ColorStateList.valueOf(
+            ContextCompat.getColor(this, if (active) R.color.power_icon_connected else R.color.glass_text)
+        )
+        shell.gsStatusDot.setBackgroundResource(
+            if (active) R.drawable.bg_glass_dot_green else R.drawable.bg_glass_dot_red
+        )
+        shell.gsConnTitle.setText(
+            when (currentVpnState) {
+                VpnState.CONNECTED -> R.string.status_connected
+                VpnState.CONNECTING -> R.string.status_connecting
+                VpnState.DISCONNECTING -> R.string.status_disconnecting
+                else -> R.string.status_disconnected
+            }
+        )
+        shell.gsConnSub.text = when {
+            connected -> binding.tvStatusSub.text
+            connecting -> getString(R.string.status_sub_selecting)
+            else -> getString(R.string.status_sub_disconnected)
+        }
+        shell.gsPing.text = extractPing(binding.tvStatusSub.text?.toString())
+            ?: getString(R.string.glass_ping_placeholder)
+
+        val zeroSpeed = com.naua_security_mirage.app.vpn.VpnNotificationManager.formatSpeed(0L)
+        shell.gsSpeedDown.text = if (connected) binding.tvSpeedDown.text else zeroSpeed
+        shell.gsSpeedUp.text = if (connected) binding.tvSpeedUp.text else zeroSpeed
+
+        val plan = settingsRepository.selectedServerPlan
+        val paid = settingsRepository.isPaidPlan(plan) && AppConfigRepository.node(plan) != null
+        val paidTarget = if (paid) plan else paidNodePlanForLabel()
+        shell.gsPaidLabel.text = paidNodeLabel(paidTarget)
+        shell.gsPaidFlag.setImageResource(paidNodeFlagRes(paidTarget))
+        shell.gsFreePill.background = if (!paid) {
+            ContextCompat.getDrawable(this, R.drawable.bg_glass_pill_active)
+        } else {
+            null
+        }
+        shell.gsPaidPill.background = if (paid) {
+            ContextCompat.getDrawable(this, R.drawable.bg_glass_pill_active)
+        } else {
+            null
+        }
+        shell.gsFreeLabel.setTextColor(
+            ContextCompat.getColor(this, if (!paid) R.color.glass_text else R.color.glass_icon_dim)
+        )
+
+        val loggedOut = binding.cardAccount.layoutAccountLoggedOut.visibility == View.VISIBLE
+        shell.gsAccountEmail.text = if (loggedOut) {
+            binding.cardAccount.tvAccountLoggedOutTitle.text
+        } else {
+            binding.cardAccount.tvAccountEmail.text
+        }
+        shell.gsAccountStatus.text = if (loggedOut) {
+            binding.cardAccount.tvAccountPrompt.text
+        } else {
+            binding.cardAccount.tvAccountSubscriptionStatus.text
+        }
+        shell.gsAccountStatus.setTextColor(binding.cardAccount.tvAccountSubscriptionStatus.currentTextColor)
+        shell.gsNodeStatus.text = nodeStatusCard
+            ?.findViewById<TextView>(R.id.tvNodeStatusState)
+            ?.text
+            ?: getString(R.string.node_status_checking)
+
+        shell.gsSwitchKill.setChecked(settingsRepository.isKillSwitchEnabled, false)
+        shell.gsSwitchDirectRu.setChecked(settingsRepository.isDirectRuEnabled, false)
+
+        val updateAvailable = binding.containerUpdateBadge.visibility == View.VISIBLE
+        shell.gsUpdateStatus.setText(
+            if (updateAvailable) R.string.glass_version_update else R.string.glass_version_ok
+        )
+        shell.gsUpdateStatus.setTextColor(
+            ContextCompat.getColor(this, if (updateAvailable) R.color.glass_amber else R.color.glass_green)
+        )
+    }
+
+    private fun extractPing(raw: String?): String? {
+        if (raw.isNullOrBlank()) return null
+        val match = Regex("(\\d{1,4})\\s*(?:ms|мс)", RegexOption.IGNORE_CASE).find(raw) ?: return null
+        return "${match.groupValues[1]} ms"
+    }
+
+    private fun gdp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
 
     private fun installUiStyleRow() {
         if (uiStyleRow != null) return
@@ -3690,10 +3812,10 @@ class MainActivity : AppCompatActivity() {
             closeLogs()
         } else if (binding.viewAppearance.visibility == View.VISIBLE) {
             closeAppearance()
-        } else if (currentDockTab == TAB_FAQ || currentDockTab == TAB_VERSION) {
-            showDockTab(TAB_HOME)
         } else if (binding.viewSettings.visibility == View.VISIBLE) {
             closeSettings()
+        } else if (binding.glassShell.root.visibility == View.VISIBLE && currentGlassTab != GLASS_TAB_HOME) {
+            selectGlassTab(GLASS_TAB_HOME)
         } else {
             @Suppress("DEPRECATION")
             super.onBackPressed()
@@ -7294,8 +7416,13 @@ class MainActivity : AppCompatActivity() {
         updateConnectStyleChipsState()
         updatePerAppFilterChips()
         updateWebsiteFilterChips()
-        updateDockVisibility()
-        updateDockSelection()
+
+        binding.glassShell.root.visibility = if (isGlass) View.VISIBLE else View.GONE
+        binding.viewMain.visibility = if (isGlass) View.INVISIBLE else View.VISIBLE
+        if (isGlass) {
+            selectGlassTab(currentGlassTab, animate = false)
+            syncGlassShell()
+        }
     }
 
     private fun styleRuntimeCards(
@@ -7461,10 +7588,10 @@ class MainActivity : AppCompatActivity() {
         private const val MAX_BACKUP_WALLPAPER_BYTES = 900 * 1024
         private const val KEY_BACKUP_WALLPAPER = "wallpaper_base64"
         private const val LOG_FLUSH_MS = 250L
-        private const val TAB_HOME = 0
-        private const val TAB_SETTINGS = 1
-        private const val TAB_FAQ = 2
-        private const val TAB_VERSION = 3
+        private const val GLASS_TAB_HOME = 0
+        private const val GLASS_TAB_SETTINGS = 1
+        private const val GLASS_TAB_FAQ = 2
+        private const val GLASS_TAB_VERSION = 3
         const val EXTRA_SHOW_UPDATE = "extra_show_update"
     const val EXTRA_SHOW_SUBSCRIPTION = "extra_show_subscription"
     const val EXTRA_SHOW_SETTINGS = "extra_show_settings"

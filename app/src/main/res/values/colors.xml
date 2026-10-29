@@ -20,4 +20,13 @@
     <color name="switch_off">#26FFFFFF</color>
     <color name="transparent">#00000000</color>
     <color name="glass_bg">#06070A</color>
+    <color name="glass_text">#FFFFFF</color>
+    <color name="glass_text_dim">#94A3B8</color>
+    <color name="glass_icon_dim">#ADB3C4</color>
+    <color name="glass_amber">#F5B041</color>
+    <color name="glass_amber_bright">#FFD175</color>
+    <color name="glass_green">#2ECC71</color>
+    <color name="glass_red">#EB4D4B</color>
+    <color name="glass_blue">#5DADE2</color>
+    <color name="glass_divider">#14FFFFFF</color>
 </resources>
