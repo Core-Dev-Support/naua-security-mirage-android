@@ -4380,10 +4380,6 @@ class MainActivity : AppCompatActivity() {
             ViewGroup.LayoutParams.MATCH_PARENT,
             ViewGroup.LayoutParams.WRAP_CONTENT
         ).apply { topMargin = gdp(12) })
-        content.addView(account, LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT,
-            ViewGroup.LayoutParams.WRAP_CONTENT
-        ))
 
         // notifications
         val notifGroup = auroraGroupShell(content, getString(R.string.section_notifications))
