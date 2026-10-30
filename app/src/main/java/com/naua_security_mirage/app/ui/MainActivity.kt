@@ -105,7 +105,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import android.animation.Animator
 import android.animation.ValueAnimator
-import android.graphics.Drawable
+import android.graphics.drawable.Drawable
 import android.view.animation.DecelerateInterpolator
 import android.view.animation.LinearInterpolator
 import androidx.annotation.ColorRes
