@@ -1,4 +1,4 @@
-﻿package com.naua_security_mirage.app.util
+package com.naua_security_mirage.app.util
 
 import android.app.Activity
 import android.app.Dialog
