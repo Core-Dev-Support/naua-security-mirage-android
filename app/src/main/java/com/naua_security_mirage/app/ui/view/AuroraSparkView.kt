@@ -130,7 +130,7 @@ class AuroraSparkView @JvmOverloads constructor(
     private fun Canvas.drawGrid() {
         val w = width.toFloat()
         val h = height.toFloat()
-        canvas.drawLine(0f, h * 0.34f, w, h * 0.34f, gridPaint)
-        canvas.drawLine(0f, h * 0.68f, w, h * 0.68f, gridPaint)
+        this.drawLine(0f, h * 0.34f, w, h * 0.34f, gridPaint)
+        this.drawLine(0f, h * 0.68f, w, h * 0.68f, gridPaint)
     }
 }

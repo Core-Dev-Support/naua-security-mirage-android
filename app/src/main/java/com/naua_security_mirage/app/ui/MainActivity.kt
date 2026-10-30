@@ -105,10 +105,11 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import android.animation.Animator
 import android.animation.ValueAnimator
-import android.annotation.ColorRes
-import android.annotation.DrawableRes
+import android.graphics.Drawable
 import android.view.animation.DecelerateInterpolator
 import android.view.animation.LinearInterpolator
+import androidx.annotation.ColorRes
+import androidx.annotation.DrawableRes
 import kotlinx.coroutines.withContext
 
 class MainActivity : AppCompatActivity() {
@@ -3789,11 +3790,11 @@ class MainActivity : AppCompatActivity() {
         val menu = binding.auroraShell.auCountryMenu
         menu.removeAllViews()
         auroraMenuRows.clear()
-        val paidNodeChoices().forEach { choice ->
+        paidNodeChoices().forEach { choice ->
             val row = LinearLayout(this).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
-                minHeight = gdp(52)
+                minimumHeight = gdp(52)
                 setPadding(gdp(14), 0, gdp(14), 0)
                 isClickable = true
                 isFocusable = true
@@ -4054,7 +4055,7 @@ class MainActivity : AppCompatActivity() {
         val row = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            minHeight = gdp(66)
+            minimumHeight = gdp(66)
             setPaddingRelative(gdp(16), gdp(12), gdp(16), gdp(12))
             background = auroraRipple()
         }
@@ -4342,7 +4343,7 @@ class MainActivity : AppCompatActivity() {
         val actions = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
         actions.addView(TextView(this).apply {
             gravity = Gravity.CENTER
-            minHeight = gdp(46)
+            minimumHeight = gdp(46)
             textSize = 15f
             typeface = auroraFont(R.font.onest_600)
             setTextColor(auroraColor(R.color.au_on_accent))
@@ -4360,7 +4361,7 @@ class MainActivity : AppCompatActivity() {
         }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         actions.addView(TextView(this).apply {
             gravity = Gravity.CENTER
-            minHeight = gdp(46)
+            minimumHeight = gdp(46)
             textSize = 15f
             typeface = auroraFont(R.font.onest_600)
             setTextColor(auroraColor(R.color.au_bad))
@@ -4387,8 +4388,8 @@ class MainActivity : AppCompatActivity() {
         // notifications
         val notifGroup = auroraGroupShell(content, getString(R.string.section_notifications))
         var first = true
-        fun spec(type: String, icon: Int, titleRes: Int, descRes: Int, key: String): AuroraRowSpec =
-            AuroraRowSpec(type, icon, getString(titleRes), getString(descRes), key)
+        fun spec(type: String, icon: Int, titleRes: Int, descRes: Int, key: String, onClick: (() -> Unit)? = null): AuroraRowSpec =
+            AuroraRowSpec(type, icon, getString(titleRes), getString(descRes), key, onClick)
         auroraAddRow(notifGroup, spec("toggle", R.drawable.au_bell, R.string.setting_status_change, R.string.setting_status_change_desc, "status"), first).also { first = false }
         auroraAddRow(notifGroup, spec("toggle", R.drawable.ic_power_settings, R.string.setting_quick_tile, R.string.setting_quick_tile_desc, "tile"), first)
         auroraAddRow(notifGroup, spec("toggle", R.drawable.ic_shield, R.string.setting_payment_notification, R.string.setting_payment_notification_desc, "payment"), first)
@@ -4449,7 +4450,7 @@ class MainActivity : AppCompatActivity() {
         val geoRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            minHeight = gdp(56)
+            minimumHeight = gdp(56)
             setPaddingRelative(gdp(16), gdp(10), gdp(16), gdp(10))
             background = auroraRipple()
         }
@@ -4530,26 +4531,29 @@ class MainActivity : AppCompatActivity() {
             "nav", R.drawable.ic_speed,
             getString(R.string.setting_speed),
             "",
-            ""
-        ) {
-            selectGlassTab(GLASS_TAB_HOME, animate = false)
-            openSettings()
-        }, false).findViewWithTag<TextView>("au_row_desc")?.also { auroraSpeedDesc = it }
+            "",
+            {
+                selectGlassTab(GLASS_TAB_HOME, animate = false)
+                openSettings()
+            }
+        ), false).findViewWithTag<TextView>("au_row_desc")?.also { auroraSpeedDesc = it }
         auroraPingDesc = auroraAddRow(diagGroup, AuroraRowSpec(
             "nav", R.drawable.ic_gauge,
             getString(R.string.setting_auto_ping),
             "",
-            ""
-        ) {
-            selectGlassTab(GLASS_TAB_HOME, animate = false)
-            openSettings()
-        }, false).findViewWithTag<TextView>("au_row_desc")?.also { auroraPingDesc = it }
+            "",
+            {
+                selectGlassTab(GLASS_TAB_HOME, animate = false)
+                openSettings()
+            }
+        ), false).findViewWithTag<TextView>("au_row_desc")?.also { auroraPingDesc = it }
         auroraLogsDesc = auroraAddRow(diagGroup, AuroraRowSpec(
             "nav", R.drawable.ic_file_text,
             getString(R.string.setting_logs),
             "",
-            ""
-        ) { openLogs() }, false).findViewWithTag<TextView>("au_row_desc")?.also { auroraLogsDesc = it }
+            "",
+            { openLogs() }
+        ), false).findViewWithTag<TextView>("au_row_desc")?.also { auroraLogsDesc = it }
 
         content.addView(
             View(this),
@@ -4591,7 +4595,7 @@ class MainActivity : AppCompatActivity() {
                 text = getString(labelRes)
                 textSize = 13f
                 typeface = auroraFont(R.font.onest_600)
-                minHeight = gdp(30)
+                minimumHeight = gdp(30)
                 gravity = Gravity.CENTER
                 setPaddingRelative(gdp(14), gdp(4), gdp(14), gdp(4))
             }
@@ -4730,7 +4734,7 @@ class MainActivity : AppCompatActivity() {
         val write = TextView(this).apply {
             text = getString(R.string.au_faq_contact)
             gravity = Gravity.CENTER
-            minHeight = gdp(46)
+            minimumHeight = gdp(46)
             textSize = 15f
             typeface = auroraFont(R.font.onest_600)
             setTextColor(auroraColor(R.color.au_on_accent))
@@ -4831,7 +4835,7 @@ class MainActivity : AppCompatActivity() {
             typeface = auroraFont(R.font.jetbrains_mono_500)
             setTextColor(auroraColor(R.color.au_fg_2))
             background = auroraGlassBg(14)
-            minHeight = gdp(28)
+            minimumHeight = gdp(28)
             gravity = Gravity.CENTER
             setPaddingRelative(gdp(12), gdp(4), gdp(12), gdp(4))
         }.also { coreChip ->
@@ -4843,7 +4847,7 @@ class MainActivity : AppCompatActivity() {
             typeface = auroraFont(R.font.jetbrains_mono_500)
             setTextColor(auroraColor(R.color.au_fg_2))
             background = auroraGlassBg(14)
-            minHeight = gdp(28)
+            minimumHeight = gdp(28)
             gravity = Gravity.CENTER
             setPaddingRelative(gdp(12), gdp(4), gdp(12), gdp(4))
         }, LinearLayout.LayoutParams(
@@ -4899,7 +4903,7 @@ class MainActivity : AppCompatActivity() {
         val check = TextView(this).apply {
             text = getString(R.string.btn_check_updates_now)
             gravity = Gravity.CENTER
-            minHeight = gdp(46)
+            minimumHeight = gdp(46)
             textSize = 15f
             typeface = auroraFont(R.font.onest_600)
             setTextColor(auroraColor(R.color.au_on_accent))
@@ -4919,12 +4923,13 @@ class MainActivity : AppCompatActivity() {
             typeface = auroraFont(R.font.onest_400)
             setTextColor(auroraColor(R.color.au_fg_2))
             gravity = Gravity.CENTER
+            minimumHeight = gdp(20)
         }
         auroraCheckRes = res
         content.addView(res, LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
             ViewGroup.LayoutParams.WRAP_CONTENT
-        ).apply { topMargin = gdp(6); minHeight = gdp(20) })
+        ).apply { topMargin = gdp(6) })
 
         // legal row
         val legal = LinearLayout(this).apply {
@@ -4978,7 +4983,7 @@ class MainActivity : AppCompatActivity() {
         val row = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            minHeight = gdp(74)
+            minimumHeight = gdp(74)
             setPaddingRelative(gdp(16), gdp(14), gdp(16), gdp(14))
             background = auroraRipple()
         }
@@ -5213,7 +5218,7 @@ class MainActivity : AppCompatActivity() {
         val item = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            minHeight = gdp(68)
+            minimumHeight = gdp(68)
             background = auroraGlassBg(24)
             clipToOutline = true
             setPaddingRelative(gdp(14), gdp(14), gdp(14), gdp(14))
