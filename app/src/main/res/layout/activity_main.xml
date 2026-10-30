@@ -460,8 +460,8 @@
     </androidx.core.widget.NestedScrollView>
 
     <include
-        android:id="@+id/glassShell"
-        layout="@layout/view_glass_shell"
+        android:id="@+id/auroraShell"
+        layout="@layout/view_aurora_shell"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:visibility="gone" />

@@ -29,4 +29,36 @@
     <color name="glass_red">#EB4D4B</color>
     <color name="glass_blue">#5DADE2</color>
     <color name="glass_divider">#14FFFFFF</color>
+    <!-- aurora shell palette (from design reference, dark) -->
+    <color name="au_bg">#06070B</color>
+    <color name="au_frame">#1AFFFFFF</color>
+    <color name="au_fg">#F6F1EA</color>
+    <color name="au_fg_2">#B3F6F1EA</color>
+    <color name="au_fg_3">#75F6F1EA</color>
+    <color name="au_sep">#14FFFFFF</color>
+    <color name="au_accent">#FFA928</color>
+    <color name="au_accent_hi">#FFD089</color>
+    <color name="au_accent_lo">#996518</color>
+    <color name="au_accent_text">#FCBD5E</color>
+    <color name="au_on_accent">#2A1600</color>
+    <color name="au_good">#5EE0A0</color>
+    <color name="au_bad">#FF7A7A</color>
+    <color name="au_cool">#62C8FF</color>
+    <color name="au_gf_a">#24FFFFFF</color>
+    <color name="au_gf_b">#0AFFFFFF</color>
+    <color name="au_glass_top">#4DFFFFFF</color>
+    <color name="au_glass_inner">#29FFFFFF</color>
+    <color name="au_edge_hi">#9EFFFFFF</color>
+    <color name="au_edge_lo">#29FFFFFF</color>
+    <color name="au_glass_shadow">#73000000</color>
+    <color name="au_sheet">#CC11131B</color>
+    <color name="au_solid">#171A24</color>
+    <color name="au_tile_a">#2BFFFFFF</color>
+    <color name="au_tile_b">#0DFFFFFF</color>
+    <color name="au_switch_off">#26FFFFFF</color>
+    <color name="au_scrim">#8C020306</color>
+    <color name="au_off_a">#464A5A</color>
+    <color name="au_off_b">#171922</color>
+    <color name="au_blob2">#FF6541</color>
+    <color name="au_blob3">#1AA7C2</color>
 </resources>

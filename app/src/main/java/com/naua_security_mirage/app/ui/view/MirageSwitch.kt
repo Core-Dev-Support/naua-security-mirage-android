@@ -4,8 +4,10 @@ import android.animation.ArgbEvaluator
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.LinearGradient
 import android.graphics.Paint
 import android.graphics.RectF
+import android.graphics.Shader
 import android.util.AttributeSet
 import android.view.View
 import android.widget.Checkable
@@ -38,6 +40,18 @@ class MirageSwitch @JvmOverloads constructor(
     private var thumbOffColor = Color.parseColor("#9AA0B4")
     private var thumbOnColor = Color.parseColor("#FFFFFF")
     private var lightMode = false
+
+    // aurora design: 52x32 track, off track is translucent white, on track is an accent gradient
+    private var auroraStyle = false
+    private var trackShader: Shader? = null
+    private var thumbShader: Shader? = null
+    private var shaderKey = ""
+
+    fun setStyle(aurora: Boolean) {
+        auroraStyle = aurora
+        requestLayout()
+        invalidate()
+    }
 
     var onCheckedChangeListener: ((Boolean) -> Unit)? = null
 
@@ -139,8 +153,8 @@ class MirageSwitch @JvmOverloads constructor(
     }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
-        val desiredW = dpToPx(44f).toInt()
-        val desiredH = dpToPx(24f).toInt()
+        val desiredW = dpToPx(if (auroraStyle) 52f else 44f).toInt()
+        val desiredH = dpToPx(if (auroraStyle) 32f else 24f).toInt()
 
         val width = resolveSize(desiredW, widthMeasureSpec)
         val height = resolveSize(desiredH, heightMeasureSpec)
@@ -160,6 +174,24 @@ class MirageSwitch @JvmOverloads constructor(
         val strokeInset = trackBorderPaint.strokeWidth / 2f
         trackRect.set(strokeInset, strokeInset, w - strokeInset, h - strokeInset)
 
+        if (auroraStyle) {
+            // on-track gradient; rebuild only on size change
+            val key = "${w}x${h}"
+            if (key != shaderKey || trackShader == null) {
+                shaderKey = key
+                trackShader = LinearGradient(
+                    0f, 0f, w, h,
+                    Color.parseColor("#FFD089"), Color.parseColor("#FFA928"),
+                    Shader.TileMode.CLAMP
+                )
+            }
+            trackPaint.shader = if (progress > 0f) trackShader else null
+            trackBorderPaint.color = if (progress > 0f) Color.parseColor("#4DFFA928")
+            else Color.parseColor("#14FFFFFF")
+        } else {
+            trackPaint.shader = null
+        }
+
         trackPaint.color = currentTrackColor
         canvas.drawRoundRect(trackRect, cornerRadius, cornerRadius, trackPaint)
 
@@ -175,7 +207,17 @@ class MirageSwitch @JvmOverloads constructor(
 
         val currentThumbColor = argbEvaluator.evaluate(progress, thumbOffColor, thumbOnColor) as Int
         thumbPaint.color = currentThumbColor
+        if (auroraStyle) {
+            // thumb: white -> #E6E9F1, like in the reference
+            val t = currentThumbY - thumbRadius
+            val b = currentThumbY + thumbRadius
+            thumbPaint.shader = LinearGradient(0f, t, 0f, b, 0xFFFFFFFF.toInt(), 0xFFE6E9F1.toInt(), Shader.TileMode.CLAMP)
+            thumbPaint.setShadowLayer(dpToPx(3.5f), 0f, dpToPx(2f), 0x61000000)
+        } else {
+            thumbPaint.shader = null
+        }
         canvas.drawCircle(currentThumbX, currentThumbY, thumbRadius, thumbPaint)
+        if (auroraStyle) thumbPaint.setShadowLayer(dpToPx(2f), 0f, dpToPx(1f), Color.argb(90, 0, 0, 0))
     }
 
     private fun dpToPx(dp: Float): Float {

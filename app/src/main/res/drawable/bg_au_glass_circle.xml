@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- glass circle: orb ring / round buttons / mark -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <shape android:shape="oval">
+            <gradient
+                android:type="linear" android:angle="225"
+                android:startColor="#24FFFFFF" android:endColor="#0AFFFFFF" />
+            <stroke android:width="1dp" android:color="@color/au_edge_lo" />
+        </shape>
+    </item>
+    <item
+        android:top="1dp" android:left="1dp" android:right="1dp">
+        <shape android:shape="oval">
+            <gradient
+                android:type="linear" android:angle="90"
+                android:startColor="@color/au_glass_top" android:endColor="#00FFFFFF" />
+        </shape>
+    </item>
+</layer-list>

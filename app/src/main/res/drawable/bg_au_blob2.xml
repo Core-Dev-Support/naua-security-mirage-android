@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- warm red blob: accent 45% + #ff2d55 -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="oval">
+    <gradient
+        android:type="radial"
+        android:centerX="0.5" android:centerY="0.5"
+        android:startColor="#A6FF6541"
+        android:centerColor="#40FF6541"
+        android:endColor="#00FF6541" />
+</shape>

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- active dock tab: accent gradient + edge -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <corners android:radius="28dp" />
+    <gradient
+        android:type="linear" android:angle="270"
+        android:startColor="#4DFFA928" android:endColor="#24FFA928" />
+    <stroke android:width="1dp" android:color="#61FFA928" />
+</shape>

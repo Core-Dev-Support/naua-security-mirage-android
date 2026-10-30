@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- row tile: 13dp gradient tile -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <corners android:radius="13dp" />
+    <gradient
+        android:type="linear" android:angle="315"
+        android:startColor="#2BFFFFFF" android:endColor="#0DFFFFFF" />
+</shape>

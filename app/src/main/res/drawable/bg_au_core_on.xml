@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- orb core ON: accent-hi -> accent -> accent-lo, focal highlight upper-left -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="@drawable/bg_au_core_on_base" />
+    <item>
+        <shape android:shape="oval">
+            <gradient
+                android:type="radial" android:centerX="0.38" android:centerY="0.17"
+                android:startColor="#8CFFFFFF" android:centerColor="#26FFFFFF"
+                android:endColor="#00FFFFFF" android:radius="999dp" />
+        </shape>
+    </item>
+</layer-list>

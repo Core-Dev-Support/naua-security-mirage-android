@@ -103,6 +103,12 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import android.animation.Animator
+import android.animation.ValueAnimator
+import android.annotation.ColorRes
+import android.annotation.DrawableRes
+import android.view.animation.DecelerateInterpolator
+import android.view.animation.LinearInterpolator
 import kotlinx.coroutines.withContext
 
 class MainActivity : AppCompatActivity() {
@@ -144,13 +150,6 @@ class MainActivity : AppCompatActivity() {
             glassSyncHandler.postDelayed(this, 700L)
         }
     }
-
-    private data class GlassDockItem(
-        val tab: Int,
-        val container: LinearLayout,
-        val icon: View,
-        val label: TextView
-    )
 
     private val vpnConsentLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
@@ -481,13 +480,16 @@ class MainActivity : AppCompatActivity() {
         maybeShowPrivateDnsDialog()
         applyScreenshotBlocking()
         glassSyncHandler.removeCallbacks(glassSyncRunnable)
+        stopAuroraTickLoop()
         if (settingsRepository.uiStyle == SettingsRepository.UI_STYLE_GLASS) {
             glassSyncHandler.post(glassSyncRunnable)
+            startAuroraTickLoop()
         }
     }
 
     override fun onPause() {
         glassSyncHandler.removeCallbacks(glassSyncRunnable)
+        stopAuroraTickLoop()
         super.onPause()
     }
 
@@ -512,18 +514,15 @@ class MainActivity : AppCompatActivity() {
             binding.viewPerAppProxy.setPadding(0, padTop, 0, padBottom)
             binding.viewCustomWebsites.setPadding(0, padTop, 0, padBottom)
 
-            binding.glassShell.gsHeader.setPadding(
-                (18 * density).toInt(),
-                insets.top + (14 * density).toInt(),
-                (18 * density).toInt(),
-                (8 * density).toInt()
+            auroraInsetsTop = insets.top
+            auroraInsetsBottom = insets.bottom
+
+            val aurora = binding.auroraShell
+            aurora.auSheetContainer.setPadding(
+                (16 * density).toInt(), 0, (16 * density).toInt(),
+                (30 * density).toInt() + insets.bottom
             )
-            binding.glassShell.gsDockContainer.setPadding(
-                (16 * density).toInt(),
-                (4 * density).toInt(),
-                (16 * density).toInt(),
-                insets.bottom + (12 * density).toInt()
-            )
+            applyAuroraScreenPadding()
 
             windowInsets
         }
@@ -3297,342 +3296,2046 @@ class MainActivity : AppCompatActivity() {
         AnimationHelper.fadeAndSlideIn(binding.viewSettings, fromX = -slideDist, durationMs = 230)
     }
 
-    private fun setupGlassShell() {
-        val shell = binding.glassShell
-        shell.gsLanguageText.text = if (java.util.Locale.getDefault().language.startsWith("ru")) "RU" else "EN"
-        shell.gsLanguage.setOnClickListener { binding.btnLanguage.performClick() }
 
-        shell.gsOrb.setOnClickListener {
-            AnimationHelper.bounceClick(shell.gsOrb, minScale = 0.93f, durationMs = 160)
+    // ------------------------------------------------------------------
+    // Aurora shell: slow amber blobs under a liquid glass stage (design 1:1)
+    // ------------------------------------------------------------------
+
+    private val auroraAnimators = mutableListOf<Animator>()
+    private val auroraTickHandler = Handler(Looper.getMainLooper())
+    private var auroraTickRunnable: Runnable? = null
+    private var auroraSessionSeconds = 0L
+    private var auroraToastRunnable: Runnable? = null
+    private var auroraInsetsTop = 0
+    private var auroraInsetsBottom = 0
+    private val auroraSwitches = mutableMapOf<String, MirageSwitch>()
+    private var auroraSettingsScreen: View? = null
+    private var auroraFaqScreen: View? = null
+    private var auroraVersionScreen: View? = null
+    private var auroraCheckRes: TextView? = null
+    private var auroraAccStatus: TextView? = null
+    private var auroraAccEmail: TextView? = null
+    private var auroraAccDays: TextView? = null
+    private var auroraAccCache: TextView? = null
+    private var auroraAccLeave: TextView? = null
+    private var auroraAccAction: TextView? = null
+    private var auroraCoreChip: TextView? = null
+    private var auroraFreeDesc: TextView? = null
+    private var auroraPaidDesc: TextView? = null
+    private var auroraGeoDesc: TextView? = null
+    private var auroraPerAppDesc: TextView? = null
+    private var auroraTunnelDnsDesc: TextView? = null
+    private var auroraPrivateDnsDesc: TextView? = null
+    private var auroraSpeedDesc: TextView? = null
+    private var auroraPingDesc: TextView? = null
+    private var auroraLogsDesc: TextView? = null
+    private val auroraSourceRows = mutableMapOf<String, ViewGroup>()
+    private val auroraMenuRows = mutableListOf<ViewGroup>()
+
+    private fun setupGlassShell() {
+        val shell = binding.auroraShell
+
+        shell.auLangBtn.text = if (Locale.getDefault().language.startsWith("ru")) "RU" else "EN"
+        shell.auLangBtn.setOnClickListener {
+            AnimationHelper.bounceClick(shell.auLangBtn, minScale = 0.9f, durationMs = 140)
+            binding.btnLanguage.performClick()
+        }
+
+        shell.auRefreshBtn.setOnClickListener {
+            AnimationHelper.bounceClick(shell.auRefreshBtn, minScale = 0.9f, durationMs = 140)
+            shell.auRefreshBtn.animate().rotation(360f).setDuration(650L)
+                .withEndAction { shell.auRefreshBtn.rotation = 0f }.start()
+            showAuroraToast(getString(R.string.au_toast_refreshed))
+            binding.btnRefresh.performClick()
+        }
+
+        shell.auOrb.setOnClickListener {
+            AnimationHelper.bounceClick(shell.auOrb, minScale = 0.94f, durationMs = 160)
             binding.btnConnect.performClick()
         }
-        shell.gsFreePill.setOnClickListener {
-            AnimationHelper.bounceClick(shell.gsFreePill, minScale = 0.95f, durationMs = 140)
-            binding.containerServerPlan.btnPlanFree.performClick()
-            syncGlassShell()
-        }
-        shell.gsPaidPill.setOnClickListener {
-            AnimationHelper.bounceClick(shell.gsPaidPill, minScale = 0.95f, durationMs = 140)
-            showGlassCountryDropdown(shell.gsPaidPill)
-        }
-        shell.gsDonateCard.setOnClickListener {
-            AnimationHelper.bounceClick(shell.gsDonateCard, minScale = 0.96f, durationMs = 160)
-            binding.btnSupport.performClick()
-        }
-        shell.gsTelegramCard.setOnClickListener {
-            AnimationHelper.bounceClick(shell.gsTelegramCard, minScale = 0.96f, durationMs = 160)
-            binding.btnTelegram.performClick()
-        }
-        shell.gsAccountRow.setOnClickListener {
-            if (binding.cardAccount.layoutAccountLoggedOut.visibility == View.VISIBLE) {
-                binding.cardAccount.btnAccountLogin.performClick()
-            } else {
-                binding.cardAccount.btnAccountSubscribe.performClick()
+
+        shell.auBtnFree.setOnClickListener {
+            AnimationHelper.bounceClick(shell.auBtnFree, minScale = 0.96f, durationMs = 140)
+            setAuroraCountryMenu(false)
+            if (settingsRepository.isPaidPlan()) {
+                binding.containerServerPlan.btnPlanFree.performClick()
             }
         }
-        shell.gsNodeRow.setOnClickListener {
-            nodeStatusCard?.findViewById<View>(R.id.tvNodeStatusAction)?.performClick()
-        }
-        shell.gsAllSettingsRow.setOnClickListener {
-            AnimationHelper.bounceClick(shell.gsAllSettingsRow, minScale = 0.98f, durationMs = 140)
-            openGlassDetailedSettings()
-        }
-        shell.gsVersionCard.setOnClickListener { checkUpdatesFromGlass() }
-        shell.gsCheckUpdates.setOnClickListener { checkUpdatesFromGlass() }
-        shell.gsUpdateSourceRow.setOnClickListener {
-            AnimationHelper.bounceClick(shell.gsUpdateSourceRow, minScale = 0.98f, durationMs = 140)
-            showUpdateSourceDialog()
+        shell.auBtnPaid.setOnClickListener {
+            AnimationHelper.bounceClick(shell.auBtnPaid, minScale = 0.96f, durationMs = 140)
+            if (paidNodeChoices().isEmpty()) {
+                requestPaidPlan(settingsRepository.lastPaidPlan.ifBlank { SettingsRepository.PLAN_PREMIUM_FRANCE })
+            } else {
+                setAuroraCountryMenu(shell.auCountryMenu.visibility != View.VISIBLE)
+            }
         }
 
-        val amber = ContextCompat.getColor(this, R.color.glass_amber)
-        listOf(shell.gsSwitchGlass, shell.gsSwitchKill, shell.gsSwitchDirectRu).forEach { toggle ->
-            toggle.setLightMode(false)
-            toggle.setActiveColor(amber)
+        shell.auDonateCard.setOnClickListener {
+            AnimationHelper.bounceClick(shell.auDonateCard, minScale = 0.97f, durationMs = 160)
+            showAuroraSheet("donate")
         }
-        shell.gsSwitchGlass.isChecked = true
-        shell.gsSwitchGlass.setOnCheckedChangeListener { _, checked ->
-            if (!checked) applyUiStyle(SettingsRepository.UI_STYLE_CLASSIC)
-        }
-        shell.gsSwitchKill.setOnCheckedChangeListener { _, checked ->
-            if (binding.switchKillSwitch.isChecked != checked) binding.switchKillSwitch.toggle()
-        }
-        shell.gsSwitchDirectRu.setOnCheckedChangeListener { _, checked ->
-            if (binding.switchDirectRu.isChecked != checked) binding.switchDirectRu.toggle()
+        shell.auTelegramCard.setOnClickListener {
+            AnimationHelper.bounceClick(shell.auTelegramCard, minScale = 0.97f, durationMs = 160)
+            showAuroraSheet("tg")
         }
 
-        shell.gsDockHome.setOnClickListener { selectGlassTab(GLASS_TAB_HOME) }
-        shell.gsDockSettings.setOnClickListener { selectGlassTab(GLASS_TAB_SETTINGS) }
-        shell.gsDockFaq.setOnClickListener { selectGlassTab(GLASS_TAB_FAQ) }
-        shell.gsDockVersion.setOnClickListener { selectGlassTab(GLASS_TAB_VERSION) }
+        shell.auDockHome.setOnClickListener { selectGlassTab(GLASS_TAB_HOME) }
+        shell.auDockSettings.setOnClickListener { selectGlassTab(GLASS_TAB_SETTINGS) }
+        shell.auDockFaq.setOnClickListener { selectGlassTab(GLASS_TAB_FAQ) }
+        shell.auDockVersion.setOnClickListener { selectGlassTab(GLASS_TAB_VERSION) }
 
-        shell.gsVersionName.text = getString(R.string.brand_name)
-        shell.gsVersionBuild.text = getString(
-            R.string.glass_version_build,
-            BuildConfig.VERSION_NAME,
-            BuildConfig.VERSION_CODE
-        )
-        shell.gsSettingsVersion.text = getString(R.string.app_version, BuildConfig.VERSION_NAME)
+        buildAuroraScreens()
+        buildAuroraCountryMenu()
+        startAuroraAmbient()
+        applyAuroraScreenPadding()
+
+        // session timer comes straight from the service, like the classic UI
+        lifecycleScope.launch {
+            MirageVpnService.sessionSeconds.collect { auroraSessionSeconds = it }
+        }
+
         selectGlassTab(GLASS_TAB_HOME, animate = false)
         syncGlassShell()
     }
 
+    private fun auroraFont(fontRes: Int): Typeface =
+        androidx.core.content.res.ResourcesCompat.getFont(this, fontRes) ?: Typeface.DEFAULT
+
+    private fun auroraColor(@ColorRes res: Int): Int = ContextCompat.getColor(this, res)
+
+    private fun startAuroraAmbient() {
+        if (!settingsRepository.areAnimationsEnabled) return
+        cancelAuroraAmbient()
+        val d = resources.displayMetrics.density
+        val shell = binding.auroraShell
+        fun drift(view: View, dx: Float, dy: Float, scale: Float, duration: Long) {
+            val anim = ValueAnimator.ofFloat(0f, 1f).apply {
+                this.duration = duration
+                repeatCount = ValueAnimator.INFINITE
+                repeatMode = ValueAnimator.REVERSE
+                interpolator = LinearInterpolator()
+                addUpdateListener { a ->
+                    val t = a.animatedValue as Float
+                    view.translationX = dx * d * t
+                    view.translationY = dy * d * t
+                    view.scaleX = 1f + (scale - 1f) * t
+                    view.scaleY = 1f + (scale - 1f) * t
+                }
+            }
+            anim.start()
+            auroraAnimators.add(anim)
+        }
+        drift(shell.auBlob1, 110f, 130f, 1.12f, 24000L)
+        drift(shell.auBlob2, -120f, -150f, 0.9f, 29000L)
+        drift(shell.auBlob3, 130f, -90f, 1.15f, 33000L)
+    }
+
+    private fun cancelAuroraAmbient() {
+        auroraAnimators.forEach { it.cancel() }
+        auroraAnimators.clear()
+    }
+
     private fun checkUpdatesFromGlass() {
-        AppUpdateManager.checkForUpdates(this, settingsRepository, isManual = true)
+        auroraCheckRes?.text = getString(R.string.au_checking, auroraSourceName())
+        AppUpdateManager.checkForUpdates(this, settingsRepository, isManual = true) {
+            runOnUiThread {
+                auroraCheckRes?.text =
+                    if (AppUpdateManager.hasUpdate()) {
+                        getString(
+                            R.string.au_check_available,
+                            AppUpdateManager.latestUpdate?.versionName ?: ""
+                        )
+                    } else {
+                        getString(R.string.au_check_latest, BuildConfig.VERSION_NAME)
+                    }
+            }
+        }
+    }
+
+    private fun auroraSourceName(): String = when (settingsRepository.updateSource) {
+        SettingsRepository.UPDATE_SOURCE_UPTODOWN -> getString(R.string.setting_updates_source_uptodown)
+        else -> getString(R.string.setting_updates_source_github)
     }
 
     private fun selectGlassTab(tab: Int, animate: Boolean = true) {
-        val shell = binding.glassShell
+        val shell = binding.auroraShell
         currentGlassTab = tab
-        shell.gsHome.visibility = if (tab == GLASS_TAB_HOME) View.VISIBLE else View.GONE
-        shell.gsSettings.visibility = if (tab == GLASS_TAB_SETTINGS) View.VISIBLE else View.GONE
-        shell.gsFaq.visibility = if (tab == GLASS_TAB_FAQ) View.VISIBLE else View.GONE
-        shell.gsVersion.visibility = if (tab == GLASS_TAB_VERSION) View.VISIBLE else View.GONE
-        shell.gsScroll.scrollTo(0, 0)
+        shell.auHomeScroll.visibility = if (tab == GLASS_TAB_HOME) View.VISIBLE else View.GONE
+        auroraSettingsScreen?.visibility = if (tab == GLASS_TAB_SETTINGS) View.VISIBLE else View.GONE
+        auroraFaqScreen?.visibility = if (tab == GLASS_TAB_FAQ) View.VISIBLE else View.GONE
+        auroraVersionScreen?.visibility = if (tab == GLASS_TAB_VERSION) View.VISIBLE else View.GONE
         val target = when (tab) {
-            GLASS_TAB_SETTINGS -> shell.gsSettings
-            GLASS_TAB_FAQ -> shell.gsFaq
-            GLASS_TAB_VERSION -> shell.gsVersion
-            else -> shell.gsHome
+            GLASS_TAB_SETTINGS -> auroraSettingsScreen
+            GLASS_TAB_FAQ -> auroraFaqScreen
+            GLASS_TAB_VERSION -> auroraVersionScreen
+            else -> shell.auHomeScroll
         }
+        target?.scrollTo(0, 0)
         if (animate) {
-            target.alpha = 0f
-            target.animate().alpha(1f).setDuration(240L).start()
+            target?.alpha = 0f
+            target?.animate()?.alpha(1f)?.setDuration(240L)?.start()
         } else {
-            target.alpha = 1f
+            target?.alpha = 1f
         }
         updateGlassDock(animate)
     }
 
     private fun updateGlassDock(animate: Boolean) {
-        val shell = binding.glassShell
+        val shell = binding.auroraShell
         if (animate) {
-            TransitionManager.beginDelayedTransition(shell.gsDock, AutoTransition().setDuration(300L))
+            TransitionManager.beginDelayedTransition(shell.auDock, AutoTransition().setDuration(300L))
         }
         val items = listOf(
-            GlassDockItem(GLASS_TAB_HOME, shell.gsDockHome, shell.gsDockHomeIcon, shell.gsDockHomeLabel),
-            GlassDockItem(GLASS_TAB_SETTINGS, shell.gsDockSettings, shell.gsDockSettingsIcon, shell.gsDockSettingsLabel),
-            GlassDockItem(GLASS_TAB_FAQ, shell.gsDockFaq, shell.gsDockFaqIcon, shell.gsDockFaqLabel),
-            GlassDockItem(GLASS_TAB_VERSION, shell.gsDockVersion, shell.gsDockVersionIcon, shell.gsDockVersionLabel)
+            GLASS_TAB_HOME to Triple(shell.auDockHome, shell.auDockHomeIcon, shell.auDockHomeLabel),
+            GLASS_TAB_SETTINGS to Triple(shell.auDockSettings, shell.auDockSettingsIcon, shell.auDockSettingsLabel),
+            GLASS_TAB_FAQ to Triple(shell.auDockFaq, shell.auDockFaqIcon, shell.auDockFaqLabel),
+            GLASS_TAB_VERSION to Triple(shell.auDockVersion, shell.auDockVersionIcon, shell.auDockVersionLabel)
         )
-        val activeTint = ContextCompat.getColor(this, R.color.glass_text)
-        val idleTint = ContextCompat.getColor(this, R.color.glass_icon_dim)
-        items.forEach { dockItem ->
-            val active = dockItem.tab == currentGlassTab
-            val lp = dockItem.container.layoutParams as LinearLayout.LayoutParams
-            lp.width = if (active) 0 else gdp(44)
-            lp.weight = if (active) 1f else 0f
-            dockItem.container.layoutParams = lp
-            dockItem.container.setPadding(if (active) gdp(16) else 0, 0, if (active) gdp(16) else 0, 0)
-            dockItem.container.background = if (active) {
-                ContextCompat.getDrawable(this, R.drawable.bg_glass_dock_active)
-            } else {
-                null
-            }
-            dockItem.label.visibility = if (active) View.VISIBLE else View.GONE
-            val tint = if (active) activeTint else idleTint
-            when (val icon = dockItem.icon) {
-                is ImageView -> icon.imageTintList = ColorStateList.valueOf(tint)
-                is TextView -> icon.setTextColor(tint)
-            }
+        val activeTint = ContextCompat.getColor(this, R.color.au_accent_text)
+        val idleTint = ContextCompat.getColor(this, R.color.au_fg_2)
+        items.forEach { (tab, tuple) ->
+            val (container, icon, label) = tuple
+            val active = tab == currentGlassTab
+            container.setBackgroundResource(if (active) R.drawable.bg_au_tab_active else 0)
+            icon.imageTintList = ColorStateList.valueOf(if (active) activeTint else idleTint)
+            label.setTextColor(if (active) activeTint else idleTint)
+            label.visibility = if (active) View.VISIBLE else View.GONE
         }
     }
 
-    private fun showGlassCountryDropdown(anchor: View) {
-        val choices = paidNodeChoices()
-        if (choices.isEmpty()) {
-            requestPaidPlan(
-                settingsRepository.lastPaidPlan.ifBlank { SettingsRepository.PLAN_PREMIUM_FRANCE }
+    // ---------------- 700 ms state sync (driven by glassSyncRunnable) ----------------
+
+    private fun syncGlassShell() {
+        if (settingsRepository.uiStyle != SettingsRepository.UI_STYLE_GLASS) return
+        val shell = binding.auroraShell
+        val connected = currentVpnState == VpnState.CONNECTED
+        val connecting = currentVpnState == VpnState.CONNECTING
+
+        // orb core crossfade + icon tint
+        val coreAlpha = when {
+            connected -> 1f
+            connecting -> 0.45f
+            else -> 0f
+        }
+        if (Math.abs(shell.auCoreOn.alpha - coreAlpha) > 0.02f) {
+            shell.auCoreOn.animate().alpha(coreAlpha).setDuration(700L).start()
+            shell.auCoreOff.animate().alpha(1f - coreAlpha).setDuration(700L).start()
+        }
+        shell.auOrbIcon.setColorFilter(
+            ContextCompat.getColor(
+                this,
+                if (connected) R.color.au_on_accent else R.color.au_fg_2
             )
-            return
-        }
-        val content = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(gdp(6), gdp(6), gdp(6), gdp(6))
-            background = ContextCompat.getDrawable(this@MainActivity, R.drawable.bg_glass_dropdown)
-        }
-        val popup = PopupWindow(
-            content,
-            ViewGroup.LayoutParams.WRAP_CONTENT,
-            ViewGroup.LayoutParams.WRAP_CONTENT,
-            true
         )
+
+        // halo breathe / connect arc
+        if (connected) {
+            startAuroraBreathe()
+            startAuroraPulses()
+        } else {
+            cancelAuroraBreathe()
+            cancelAuroraPulses()
+            shell.auHalo.alpha = if (connecting) 0.3f else 0f
+        }
+        val arc = shell.auArc
+        if (connecting && settingsRepository.areAnimationsEnabled) {
+            arc.start()
+            arc.alpha = 1f
+        } else {
+            arc.stop()
+            arc.alpha = 0f
+        }
+
+        // status label + meta
+        shell.auStatusLabel.text = getString(
+            when (currentVpnState) {
+                VpnState.CONNECTED -> R.string.status_connected
+                VpnState.DISCONNECTING -> R.string.status_disconnecting
+                VpnState.CONNECTING -> R.string.status_connecting
+                else -> R.string.status_disconnected
+            }
+        )
+        if (connected) {
+            shell.auStatusMetaRow.visibility = View.VISIBLE
+            shell.auStatusMeta.visibility = View.GONE
+            shell.auSessionText.text = auroraSessionText()
+            shell.auPingText.text = extractPing(binding.tvStatusSub.text?.toString())
+                ?: getString(R.string.glass_ping_placeholder)
+        } else {
+            shell.auStatusMetaRow.visibility = View.GONE
+            shell.auStatusMeta.visibility = View.VISIBLE
+            shell.auStatusMeta.text = if (connecting) {
+                getString(R.string.au_status_meta_searching)
+            } else {
+                getString(R.string.au_status_meta_tap)
+            }
+        }
+
+        // speed card mirrors the classic readouts
+        val zeroSpeed = com.naua_security_mirage.app.vpn.VpnNotificationManager.formatSpeed(0L)
+        shell.auSpeedDown.text = if (connected) binding.tvSpeedDown.text else zeroSpeed
+        shell.auSpeedUp.text = if (connected) binding.tvSpeedUp.text else zeroSpeed
+        shell.auSpark.setLive(
+            auroraSpeedValue(shell.auSpeedDown.text?.toString()) ?: 0f,
+            auroraSpeedValue(shell.auSpeedUp.text?.toString()) ?: 0f
+        )
+
+        // server selector
+        val plan = settingsRepository.selectedServerPlan
+        val paid = settingsRepository.isPaidPlan(plan) && AppConfigRepository.node(plan) != null
+        val paidTarget = (if (paid) plan else paidNodePlanForLabel())
+            .ifBlank { SettingsRepository.PLAN_PREMIUM_FRANCE }
+        shell.auPaidName.text = paidNodeLabel(paidTarget)
+        shell.auPaidFlagView.code = if (paidTarget == SettingsRepository.PLAN_PREMIUM_BELARUS) "by" else "fr"
+        shell.auFreeName.setTextColor(
+            ContextCompat.getColor(this, if (!paid) R.color.au_fg else R.color.au_fg_2)
+        )
+        shell.auPaidName.setTextColor(
+            ContextCompat.getColor(this, if (paid) R.color.au_fg else R.color.au_fg_2)
+        )
+        updateAuroraSegment(paid)
+
+        // aurora settings switches mirror the real preferences
+        auroraSwitches.forEach { (key, switch) ->
+            switch.setChecked(auroraToggleState(key), animate = false)
+        }
+
+        syncAuroraAccount()
+        syncAuroraDiagnostics()
+        syncAuroraVersion()
+
+        if (shell.auCountryMenu.visibility == View.VISIBLE) {
+            refreshAuroraCountryMenu()
+        }
+    }
+
+    private fun auroraSessionText(): String {
+        val total = auroraSessionSeconds
+        val h = total / 3600
+        val m = total % 3600 / 60
+        val s = total % 60
+        fun p(n: Long): String = String.format(Locale.US, "%02d", n)
+        return if (h > 0) "$h:" + p(m) + ":" + p(s) else p(m) + ":" + p(s)
+    }
+
+    private fun auroraSpeedValue(raw: String?): Float? {
+        if (raw.isNullOrBlank()) return null
+        val m = Regex("([0-9]+(?:[.,][0-9]+)?)").find(raw) ?: return null
+        return m.groupValues[1].replace(',', '.').toFloatOrNull()
+    }
+
+    private fun syncAuroraAccount() {
+        val status = auroraAccStatus ?: return
+        val email = auroraAccEmail ?: return
+        val days = auroraAccDays ?: return
+        val cache = auroraAccCache ?: return
+        val leave = auroraAccLeave ?: return
+        val action = auroraAccAction ?: return
+        val loggedOut = binding.cardAccount.layoutAccountLoggedOut.visibility == View.VISIBLE
+        if (loggedOut) {
+            email.text = binding.cardAccount.tvAccountPrompt.text
+            status.visibility = View.GONE
+            days.visibility = View.GONE
+            cache.visibility = View.GONE
+            leave.visibility = View.GONE
+            action.visibility = View.VISIBLE
+            action.text = getString(R.string.auth_google_btn)
+        } else {
+            email.text = binding.cardAccount.tvAccountEmail.text
+            status.visibility = View.VISIBLE
+            status.text = binding.cardAccount.tvAccountSubscriptionStatus.text
+            status.setTextColor(binding.cardAccount.tvAccountSubscriptionStatus.currentTextColor)
+            days.visibility = View.VISIBLE
+            val left = auroraDaysLeft()
+            days.text = getString(R.string.au_sub_days_fmt, left)
+            days.setTextColor(
+                ContextCompat.getColor(this, if (left > 3) R.color.au_fg_2 else R.color.au_bad)
+            )
+            cache.visibility = binding.cardAccount.tvAccountCacheAge.visibility
+            cache.text = binding.cardAccount.tvAccountCacheAge.text
+            leave.visibility = View.VISIBLE
+            action.visibility = View.VISIBLE
+            action.text = getString(R.string.sub_renew_button)
+        }
+    }
+
+    private fun auroraDaysLeft(): Long {
+        val paidUntil = com.naua_security_mirage.app.data.supabase.SupabaseManager.instance
+            .subscription.value?.paidUntil ?: return 0
+        return try {
+            val fmt = java.text.SimpleDateFormat("yyyy-MM-dd", Locale.US)
+            fmt.timeZone = java.util.TimeZone.getTimeZone("UTC")
+            val date = fmt.parse(paidUntil.take(10)) ?: return 0
+            Math.round((date.time - System.currentTimeMillis()) / 86400000.0).coerceAtLeast(0)
+        } catch (_: Throwable) {
+            0
+        }
+    }
+
+    private fun syncAuroraDiagnostics() {
+        auroraFreeDesc?.text = nodeStatusCard
+            ?.findViewById<TextView>(R.id.tvFreeNodesState)?.text
+            ?: getString(R.string.free_nodes_tap_to_check)
+        auroraPaidDesc?.text = nodeStatusCard
+            ?.findViewById<TextView>(R.id.tvNodeStatusState)?.text
+            ?: getString(R.string.node_status_checking)
+        auroraGeoDesc?.text = binding.tvGeoStatus.text
+        auroraPerAppDesc?.text = binding.tvPerAppSettingDesc.text
+        auroraSpeedDesc?.text = binding.tvSpeedDesc.text
+        auroraPingDesc?.text = binding.tvAutoPingDesc.text
+        auroraLogsDesc?.text = binding.tvLogsSettingDesc.text
+        auroraPrivateDnsDesc?.text = privateDnsCard
+            ?.findViewById<TextView>(R.id.tvPrivateDnsState)?.text
+        auroraTunnelDnsDesc?.text = privateDnsCard
+            ?.findViewById<TextView>(R.id.tvTunnelDnsState)?.text
+    }
+
+    private fun syncAuroraVersion() {
+        val chip = auroraCoreChip ?: return
+        chip.text = lastNodeCore?.let { getString(R.string.glass_version_core, it) }
+            ?: getString(R.string.glass_version_core_unknown)
+    }
+
+    // ---------------- one-second tick: sparkline + pushes ----------------
+
+    private fun startAuroraTickLoop() {
+        if (auroraTickRunnable != null) return
+        val r = object : Runnable {
+            override fun run() {
+                if (settingsRepository.uiStyle != SettingsRepository.UI_STYLE_GLASS) return
+                val shell = binding.auroraShell
+                val connected = currentVpnState == VpnState.CONNECTED
+                val dn = if (connected) auroraSpeedValue(shell.auSpeedDown.text?.toString()) ?: 0f else 0f
+                val up = if (connected) auroraSpeedValue(shell.auSpeedUp.text?.toString()) ?: 0f else 0f
+                shell.auSpark.pushTick(dn, up)
+                auroraTickHandler.postDelayed(this, 1000L)
+            }
+        }
+        auroraTickRunnable = r
+        auroraTickHandler.post(r)
+    }
+
+    private fun stopAuroraTickLoop() {
+        auroraTickRunnable?.let { auroraTickHandler.removeCallbacks(it) }
+        auroraTickRunnable = null
+    }
+
+    // ---------------- orb breathe + connect pulses ----------------
+
+    private var auroraBreathe: ValueAnimator? = null
+    private val auroraPulses = mutableListOf<ValueAnimator>()
+
+    private fun startAuroraBreathe() {
+        if (auroraBreathe != null) return
+        if (!settingsRepository.areAnimationsEnabled) return
+        val shellRef = binding.auroraShell
+        auroraBreathe = ValueAnimator.ofFloat(0f, 1f).apply {
+            duration = 4500L
+            repeatCount = ValueAnimator.INFINITE
+            repeatMode = ValueAnimator.REVERSE
+            interpolator = LinearInterpolator()
+            addUpdateListener { a ->
+                val t = a.animatedValue as Float
+                shellRef.auHalo.alpha = 0.46f - 0.18f * t
+            }
+            start()
+        }
+    }
+
+    private fun cancelAuroraBreathe() {
+        auroraBreathe?.cancel()
+        auroraBreathe = null
+    }
+
+    private fun startAuroraPulses() {
+        if (auroraPulses.isNotEmpty()) return
+        if (!settingsRepository.areAnimationsEnabled) return
+        val shellRef = binding.auroraShell
+        fun pulse(view: View, delay: Long) {
+            val anim = ValueAnimator.ofFloat(0f, 1f).apply {
+                duration = 3600L
+                repeatCount = ValueAnimator.INFINITE
+                startDelay = delay
+                interpolator = LinearInterpolator()
+                addUpdateListener { a ->
+                    val t = a.animatedValue as Float
+                    view.alpha = 0.5f * (1f - t)
+                    view.scaleX = 1f + 0.5f * t
+                    view.scaleY = 1f + 0.5f * t
+                }
+            }
+            anim.start()
+            auroraPulses.add(anim)
+        }
+        pulse(shellRef.auPulse1, 0L)
+        pulse(shellRef.auPulse2, 1800L)
+    }
+
+    private fun cancelAuroraPulses() {
+        auroraPulses.forEach { it.cancel() }
+        auroraPulses.clear()
+        val shell = binding.auroraShell
+        shell.auPulse1.alpha = 0f
+        shell.auPulse2.alpha = 0f
+        shell.auPulse1.scaleX = 1f
+        shell.auPulse1.scaleY = 1f
+        shell.auPulse2.scaleX = 1f
+        shell.auPulse2.scaleY = 1f
+    }
+
+    // ---------------- country dropdown (design .menu) ----------------
+
+    private fun buildAuroraCountryMenu() {
+        val menu = binding.auroraShell.auCountryMenu
+        menu.removeAllViews()
+        auroraMenuRows.clear()
+        val paidNodeChoices().forEach { choice ->
+            val row = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                minHeight = gdp(52)
+                setPadding(gdp(14), 0, gdp(14), 0)
+                isClickable = true
+                isFocusable = true
+                val out = android.util.TypedValue()
+                if (theme.resolveAttribute(android.R.attr.selectableItemBackground, out, true)) {
+                    setBackgroundResource(out.resourceId)
+                }
+            }
+            val flag = com.naua_security_mirage.app.ui.view.AuroraFlagView(this).apply {
+                code = if (choice.plan == SettingsRepository.PLAN_PREMIUM_BELARUS) "by" else "fr"
+                layoutParams = LinearLayout.LayoutParams(gdp(26), gdp(18))
+            }
+            val name = TextView(this).apply {
+                text = choice.label
+                textSize = 15f
+                typeface = auroraFont(R.font.onest_600)
+                setTextColor(auroraColor(R.color.au_fg))
+                layoutParams = LinearLayout.LayoutParams(
+                    0,
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                    1f
+                ).apply { marginStart = gdp(12) }
+            }
+            val check = ImageView(this).apply {
+                setImageResource(R.drawable.au_check)
+                imageTintList = ColorStateList.valueOf(auroraColor(R.color.au_accent_text))
+                visibility = View.INVISIBLE
+                layoutParams = LinearLayout.LayoutParams(gdp(20), gdp(20))
+            }
+            row.addView(flag)
+            row.addView(name)
+            row.addView(check)
+            row.setOnClickListener {
+                AnimationHelper.bounceClick(it, minScale = 0.97f, durationMs = 130)
+                setAuroraCountryMenu(false)
+                requestPaidPlan(choice.plan)
+                syncGlassShell()
+            }
+            if (auroraMenuRows.isNotEmpty()) {
+                menu.addView(
+                    View(this).apply { setBackgroundColor(auroraColor(R.color.au_sep)) },
+                    LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, gdp(1))
+                )
+            }
+            menu.addView(row, LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            ))
+            row.tag = choice.plan
+            auroraMenuRows.add(row)
+        }
+    }
+
+    private fun refreshAuroraCountryMenu() {
         val selectedPlan = if (settingsRepository.isPaidPlan()) {
             settingsRepository.selectedServerPlan
         } else {
             settingsRepository.lastPaidPlan
         }
-        choices.forEach { choice ->
-            val selected = choice.plan == selectedPlan
-            val row = LinearLayout(this).apply {
-                orientation = LinearLayout.HORIZONTAL
-                gravity = Gravity.CENTER_VERTICAL
-                setPadding(gdp(14), gdp(11), gdp(14), gdp(11))
-                isClickable = true
-                isFocusable = true
-                background = if (selected) {
-                    ContextCompat.getDrawable(this@MainActivity, R.drawable.bg_glass_dock_active)
+        auroraMenuRows.forEach { row ->
+            val selected = row.tag == selectedPlan
+            val name = row.getChildAt(1) as? TextView ?: return@forEach
+            val check = row.getChildAt(2) as? ImageView ?: return@forEach
+            name.setTextColor(
+                ContextCompat.getColor(this, if (selected) R.color.au_accent_text else R.color.au_fg)
+            )
+            check.visibility = if (selected) View.VISIBLE else View.INVISIBLE
+        }
+    }
+
+    private fun setAuroraCountryMenu(open: Boolean) {
+        val shell = binding.auroraShell
+        val menu = shell.auCountryMenu
+        if ((menu.visibility == View.VISIBLE) == open) return
+        if (open) {
+            menu.alpha = 0f
+            menu.translationY = -gdp(8).toFloat()
+            menu.visibility = View.VISIBLE
+            menu.animate().alpha(1f).translationY(0f).setDuration(250L).start()
+        } else {
+            menu.animate().alpha(0f).translationY(-gdp(8).toFloat()).setDuration(200L)
+                .withEndAction {
+                    menu.visibility = View.GONE
+                    menu.translationY = 0f
+                    menu.alpha = 1f
+                }.start()
+        }
+        shell.auPaidChevron.animate().rotation(if (open) 180f else 0f).setDuration(400L).start()
+    }
+
+    // ---------------- seg thumb slide ----------------
+
+    private fun updateAuroraSegment(paid: Boolean) {
+        val shell = binding.auroraShell
+        val seg = shell.auSeg
+        val thumb = shell.auSegThumb
+        seg.post {
+            if (seg.width <= 0) return@post
+            val d = resources.displayMetrics.density
+            val pad = 4f * d
+            val track = seg.width - pad * 2
+            val freeW = track * 5f / 12f
+            val paidW = track * 7f / 12f
+            val targetLeft = if (paid) pad + freeW else pad
+            val targetW = if (paid) paidW else freeW
+
+            val lp = thumb.layoutParams as FrameLayout.LayoutParams
+            if (!settingsRepository.areAnimationsEnabled) {
+                lp.width = targetW.toInt().coerceAtLeast(1)
+                lp.marginStart = targetLeft.toInt()
+                thumb.requestLayout()
+                return@post
+            }
+            val startLeft = lp.marginStart.toFloat()
+            val startW = lp.width.takeIf { it > 0 }?.toFloat() ?: targetW
+            if (Math.abs(startLeft - targetLeft) < 1f && Math.abs(startW - targetW) < 1f) {
+                lp.width = targetW.toInt().coerceAtLeast(1)
+                return@post
+            }
+            ValueAnimator.ofFloat(0f, 1f).apply {
+                duration = 550L
+                interpolator = DecelerateInterpolator()
+                addUpdateListener { a ->
+                    val t = a.animatedValue as Float
+                    val curLp = thumb.layoutParams as FrameLayout.LayoutParams
+                    curLp.width = (startW + (targetW - startW) * t).toInt().coerceAtLeast(1)
+                    curLp.marginStart = (startLeft + (targetLeft - startLeft) * t).toInt()
+                    thumb.requestLayout()
+                }
+                start()
+            }
+        }
+    }
+
+    // ---------------- settings row toggles: state + handlers ----------------
+
+    private fun auroraToggleState(key: String): Boolean = when (key) {
+        "status" -> settingsRepository.isStatusNotificationEnabled
+        "tile" -> settingsRepository.isQuickSettingsTileEnabled
+        "payment" -> settingsRepository.isPaymentNotificationEnabled
+        "kill" -> settingsRepository.isKillSwitchEnabled
+        "screenshots" -> !settingsRepository.isScreenshotBlockingEnabled
+        "autostart" -> settingsRepository.isAutoStartOnBootEnabled
+        "telemetry" -> settingsRepository.isAnonymousTelemetryEnabled
+        "animations" -> settingsRepository.areAnimationsEnabled
+        "direct_ru" -> settingsRepository.isDirectRuEnabled
+        else -> false
+    }
+
+    private fun auroraToggleChanged(key: String, checked: Boolean) {
+        when (key) {
+            "status" -> settingsRepository.isStatusNotificationEnabled = checked
+            "tile" -> {
+                settingsRepository.isQuickSettingsTileEnabled = checked
+                MirageTileService.setTileEnabled(this, checked)
+            }
+            "payment" -> {
+                settingsRepository.isPaymentNotificationEnabled = checked
+                MirageNotifyTileService.requestUpdate(this)
+            }
+            "kill" -> {
+                settingsRepository.isKillSwitchEnabled = checked
+                refreshKillSwitchRow()
+                showVpnActiveReconnectionNoticeIfNeeded()
+            }
+            "screenshots" -> {
+                settingsRepository.isScreenshotBlockingEnabled = !checked
+                applyScreenshotBlocking()
+            }
+            "autostart" -> settingsRepository.isAutoStartOnBootEnabled = checked
+            "telemetry" -> {
+                settingsRepository.isAnonymousTelemetryEnabled = checked
+                com.naua_security_mirage.app.MirageApp.updateTelemetryState(this, checked)
+            }
+            "animations" -> {
+                settingsRepository.areAnimationsEnabled = checked
+                AnimationHelper.animationsEnabled = checked
+                if (checked) {
+                    startAuroraAmbient()
                 } else {
-                    null
+                    cancelAuroraAmbient()
+                    cancelAuroraBreathe()
+                    cancelAuroraPulses()
                 }
             }
-            val flag = ImageView(this).apply {
-                setImageResource(flagDrawable(choice.flag))
-                layoutParams = LinearLayout.LayoutParams(gdp(18), gdp(13)).apply { marginEnd = gdp(10) }
-                contentDescription = null
+            "direct_ru" -> {
+                settingsRepository.isDirectRuEnabled = checked
+                showVpnActiveReconnectionNoticeIfNeeded()
             }
-            val label = TextView(this).apply {
-                text = choice.label
-                setTextColor(ContextCompat.getColor(this@MainActivity, if (selected) R.color.glass_amber else R.color.glass_text))
-                textSize = 13.5f
-                setTypeface(typeface, Typeface.BOLD)
-            }
-            val check = TextView(this).apply {
-                text = "✓"
-                setTextColor(ContextCompat.getColor(this@MainActivity, R.color.glass_amber))
-                textSize = 15f
-                setTypeface(typeface, Typeface.BOLD)
-                visibility = if (selected) View.VISIBLE else View.INVISIBLE
-            }
-            row.addView(flag)
-            row.addView(
-                label,
-                LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+        }
+    }
+
+    // ---------------- shared widget helpers ----------------
+
+    private fun auroraGlassBg(radiusDp: Int): GradientDrawable =
+        GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            cornerRadius = gdp(radiusDp).toFloat()
+            orientation = GradientDrawable.Orientation.TL_BR
+            colors = intArrayOf(auroraColor(R.color.au_gf_a), auroraColor(R.color.au_gf_b))
+            setStroke(gdp(1), auroraColor(R.color.au_edge_lo))
+        }
+
+    private fun auroraRadioBg(selected: Boolean): Drawable = GradientDrawable().apply {
+        shape = GradientDrawable.OVAL
+        if (selected) {
+            setColor(auroraColor(R.color.au_accent))
+            setStroke(gdp(2), auroraColor(R.color.au_accent_hi))
+        } else {
+            setColor(Color.TRANSPARENT)
+            setStroke(gdp(2), auroraColor(R.color.au_edge_lo))
+        }
+    }
+
+    private fun auroraRipple(): Drawable {
+        val out = android.util.TypedValue()
+        if (theme.resolveAttribute(android.R.attr.selectableItemBackground, out, true)) {
+            return ContextCompat.getDrawable(this, out.resourceId)
+                ?: GradientDrawable().apply { setColor(Color.TRANSPARENT) }
+        }
+        return GradientDrawable().apply { setColor(Color.TRANSPARENT) }
+    }
+
+    private fun auroraTileFrame(): FrameLayout = FrameLayout(this).apply {
+        background = ContextCompat.getDrawable(context, R.drawable.bg_au_tile)
+        layoutParams = LinearLayout.LayoutParams(gdp(40), gdp(40)).apply {
+            gravity = Gravity.CENTER_VERTICAL
+        }
+    }
+
+    private fun auroraTileChild(tile: FrameLayout, @DrawableRes iconRes: Int, tint: Int = R.color.au_fg_2) {
+        val icon = ImageView(this).apply {
+            setImageResource(iconRes)
+            imageTintList = ColorStateList.valueOf(auroraColor(tint))
+            layoutParams = FrameLayout.LayoutParams(gdp(22), gdp(22), Gravity.CENTER)
+        }
+        tile.addView(icon)
+    }
+
+    private class AuroraRowSpec(
+        val kind: String, // "toggle" | "nav" | "btn" | "plain"
+        val iconRes: Int,
+        val title: String,
+        val desc: String,
+        val key: String,
+        val onClick: (() -> Unit)? = null,
+        val btnLabel: String? = null
+    )
+
+    private fun auroraAddRow(group: LinearLayout, spec: AuroraRowSpec, first: Boolean): View {
+        if (!first) {
+            group.addView(
+                View(this).apply { setBackgroundColor(auroraColor(R.color.au_sep)) },
+                LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, gdp(1))
             )
-            row.addView(check)
-            row.setOnClickListener {
-                popup.dismiss()
-                requestPaidPlan(choice.plan)
-                syncGlassShell()
+        }
+
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            minHeight = gdp(66)
+            setPaddingRelative(gdp(16), gdp(12), gdp(16), gdp(12))
+            background = auroraRipple()
+        }
+        if (spec.kind != "plain") {
+            val tile = auroraTileFrame()
+            auroraTileChild(tile, spec.iconRes)
+            row.addView(tile)
+        }
+
+        val col = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        if (spec.title.isNotBlank()) {
+            col.addView(TextView(this).apply {
+                text = spec.title
+                textSize = 15f
+                typeface = auroraFont(R.font.onest_600)
+                setTextColor(auroraColor(R.color.au_fg))
+            })
+        }
+        if (spec.desc.isNotBlank()) {
+            col.addView(TextView(this).apply {
+                this.text = spec.desc
+                textSize = 13f
+                typeface = auroraFont(R.font.onest_400)
+                setTextColor(auroraColor(R.color.au_fg_2))
+                tag = "au_row_desc"
+            }, LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply { topMargin = gdp(2) })
+        }
+        row.addView(
+            col,
+            LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
+                marginStart = if (spec.kind != "plain") gdp(14) else 0
+                marginEnd = gdp(6)
             }
-            content.addView(
-                row,
-                LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    ViewGroup.LayoutParams.WRAP_CONTENT
+        )
+
+        when (spec.kind) {
+            "toggle" -> {
+                val switchView = MirageSwitch(this).apply {
+                    setStyle(true)
+                    setChecked(auroraToggleState(spec.key), animate = false)
+                    layoutParams = LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.WRAP_CONTENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT
+                    ).apply {
+                        gravity = Gravity.CENTER_VERTICAL
+                        marginEnd = gdp(2)
+                    }
+                    setOnCheckedChangeListener { _, checked ->
+                        auroraToggleChanged(spec.key, checked)
+                    }
+                }
+                auroraSwitches[spec.key] = switchView
+                row.addView(switchView)
+                row.setOnClickListener { switchView.toggle() }
+            }
+            "nav" -> {
+                row.addView(ImageView(this).apply {
+                    setImageResource(R.drawable.ic_chevron_right)
+                    imageTintList = ColorStateList.valueOf(auroraColor(R.color.au_fg_3))
+                    layoutParams = LinearLayout.LayoutParams(gdp(20), gdp(20))
+                })
+            }
+            "btn" -> {
+                row.addView(TextView(this).apply {
+                    text = spec.btnLabel
+                    textSize = 14f
+                    typeface = auroraFont(R.font.onest_600)
+                    setTextColor(auroraColor(R.color.au_accent_text))
+                    background = ContextCompat.getDrawable(context, R.drawable.bg_au_btn_ghost)
+                    setPaddingRelative(gdp(15), gdp(9), gdp(15), gdp(9))
+                })
+            }
+        }
+
+        if (spec.kind != "toggle" && spec.onClick != null) {
+            row.setOnClickListener {
+                AnimationHelper.bounceClick(row, minScale = 0.98f, durationMs = 140)
+                spec.onClick.invoke()
+            }
+        }
+
+        group.addView(
+            row,
+            LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+        )
+        return row
+    }
+
+    // ---------------- screens ----------------
+
+    private fun buildAuroraScreens() {
+        val host = binding.auroraShell.auScreens
+        auroraSettingsScreen = buildAuroraSettingsScreen(host)
+        auroraFaqScreen = buildAuroraFaqScreen(host)
+        auroraVersionScreen = buildAuroraVersionScreen(host)
+    }
+
+    /** insets + dock margin for the aurora shell; idempotent, called on every insets pass */
+    private fun applyAuroraScreenPadding() {
+        if (auroraSettingsScreen == null) return
+        val shell = binding.auroraShell
+        val d = resources.displayMetrics.density
+        val side = (16 * d).toInt()
+        val top = auroraInsetsTop + (14 * d).toInt()
+        val bottom = (132 * d).toInt()
+        shell.auHomeScroll.setPadding(side, top, side, bottom)
+        listOf(auroraSettingsScreen, auroraFaqScreen, auroraVersionScreen)
+            .filterIsInstance<ScrollView>()
+            .forEach { screen ->
+                screen.isFillViewport = false
+                screen.clipToPadding = false
+                screen.setPadding(side, top, side, bottom)
+            }
+        (shell.auDock.layoutParams as FrameLayout.LayoutParams).let { lp ->
+            lp.bottomMargin = auroraInsetsBottom + (16 * d).toInt()
+            shell.auDock.layoutParams = lp
+        }
+    }
+
+    private fun auroraSection(content: LinearLayout, title: String) {
+        content.addView(TextView(this).apply {
+            text = title.uppercase()
+            textSize = 12f
+            letterSpacing = 0.14f
+            typeface = auroraFont(R.font.onest_600)
+            setTextColor(auroraColor(R.color.au_fg_3))
+            setPaddingRelative(gdp(6), 0, gdp(6), 0)
+        }, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        ).apply { setMargins(0, gdp(16), 0, -gdp(2)) })
+    }
+
+    private fun auroraGroupCard(content: LinearLayout): LinearLayout =
+        LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            background = auroraGlassBg(28)
+            clipToOutline = true
+        }.also { card ->
+            content.addView(card, LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply { topMargin = gdp(14) })
+        }
+
+    private fun auroraGroupShell(content: LinearLayout, title: String): LinearLayout {
+        auroraSection(content, title)
+        val group = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            background = auroraGlassBg(28)
+            clipToOutline = true
+        }
+        content.addView(group, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        ).apply { topMargin = gdp(14) })
+        return group
+    }
+
+    private fun buildAuroraSettingsScreen(host: ViewGroup): ScrollView {
+        val screen = ScrollView(this).apply {
+            visibility = View.GONE
+            isVerticalScrollBarEnabled = false
+        }
+        val content = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        screen.addView(
+            content,
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        )
+        host.addView(screen, FrameLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.MATCH_PARENT
+        ))
+
+        content.addView(auroraHeader(
+            getString(R.string.dock_settings),
+            getString(R.string.app_version, BuildConfig.VERSION_NAME)
+        ))
+
+        // account card
+        val account = auroraGroupCard(content).apply {
+            setPaddingRelative(gdp(16), gdp(16), gdp(16), gdp(16))
+        }
+        val accTop = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        val avatar = FrameLayout(this).apply {
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                gradientType = GradientDrawable.RADIAL_GRADIENT
+                gradientRadius = gdp(40).toFloat()
+                setGradientCenter(0.32f, 0.24f)
+                colors = intArrayOf(
+                    auroraColor(R.color.au_accent_hi),
+                    auroraColor(R.color.au_accent),
+                    auroraColor(R.color.au_accent_lo)
+                )
+            }
+            layoutParams = LinearLayout.LayoutParams(gdp(48), gdp(48))
+        }
+        avatar.addView(ImageView(this).apply {
+            setImageResource(R.drawable.ic_user)
+            imageTintList = ColorStateList.valueOf(auroraColor(R.color.au_on_accent))
+            layoutParams = FrameLayout.LayoutParams(gdp(22), gdp(22), Gravity.CENTER)
+        })
+        accTop.addView(avatar)
+        val email = TextView(this).apply {
+            textSize = 16f
+            typeface = auroraFont(R.font.onest_600)
+            setTextColor(auroraColor(R.color.au_fg))
+            maxLines = 1
+            ellipsize = android.text.TextUtils.TruncateAt.END
+        }
+        auroraAccEmail = email
+        accTop.addView(
+            email,
+            LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
+                marginStart = gdp(14)
+                marginEnd = gdp(10)
+            }
+        )
+        accTop.addView(ImageView(this).apply {
+            setImageResource(R.drawable.ic_eye)
+            imageTintList = ColorStateList.valueOf(auroraColor(R.color.au_fg_2))
+            background = ContextCompat.getDrawable(context, R.drawable.bg_au_glass_circle)
+            setPadding(gdp(10), gdp(10), gdp(10), gdp(10))
+            layoutParams = LinearLayout.LayoutParams(gdp(40), gdp(40))
+        }.also { eye ->
+            eye.setOnClickListener {
+                AnimationHelper.bounceClick(eye, minScale = 0.88f, durationMs = 140)
+                settingsRepository.isEmailMasked = !settingsRepository.isEmailMasked
+                updateAccountCardUI()
+                syncAuroraAccount()
+            }
+        })
+        account.addView(accTop)
+
+        val subLine = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        subLine.addView(TextView(this).apply {
+            textSize = 13f
+            typeface = auroraFont(R.font.onest_600)
+            background = ContextCompat.getDrawable(context, R.drawable.bg_au_pill_good)
+            setTextColor(auroraColor(R.color.au_good))
+        }.also { pill ->
+            pill.setPaddingRelative(gdp(12), gdp(4), gdp(12), gdp(4))
+            auroraAccStatus = pill
+        })
+        subLine.addView(TextView(this).apply {
+            textSize = 13f
+            typeface = auroraFont(R.font.onest_400)
+            setTextColor(auroraColor(R.color.au_fg_2))
+        }.also { days ->
+            auroraAccDays = days
+        }, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        ).apply { marginStart = gdp(10) })
+        account.addView(subLine, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        ).apply { topMargin = gdp(12) })
+
+        val cache = TextView(this).apply {
+            textSize = 13f
+            typeface = auroraFont(R.font.onest_400)
+            setTextColor(auroraColor(R.color.au_fg_2))
+        }
+        auroraAccCache = cache
+        account.addView(cache, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        ).apply { topMargin = gdp(4) })
+
+        val actions = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        actions.addView(TextView(this).apply {
+            gravity = Gravity.CENTER
+            minHeight = gdp(46)
+            textSize = 15f
+            typeface = auroraFont(R.font.onest_600)
+            setTextColor(auroraColor(R.color.au_on_accent))
+            background = ContextCompat.getDrawable(context, R.drawable.bg_au_btn_accent)
+        }.also { action ->
+            auroraAccAction = action
+            action.setOnClickListener {
+                AnimationHelper.bounceClick(action, minScale = 0.96f, durationMs = 140)
+                if (binding.cardAccount.layoutAccountLoggedOut.visibility == View.VISIBLE) {
+                    showAuthDialog()
+                } else {
+                    binding.cardAccount.btnAccountSubscribe.performClick()
+                }
+            }
+        }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        actions.addView(TextView(this).apply {
+            gravity = Gravity.CENTER
+            minHeight = gdp(46)
+            textSize = 15f
+            typeface = auroraFont(R.font.onest_600)
+            setTextColor(auroraColor(R.color.au_bad))
+            background = ContextCompat.getDrawable(context, R.drawable.bg_au_btn_out)
+        }.also { leave ->
+            auroraAccLeave = leave
+            leave.setOnClickListener {
+                AnimationHelper.bounceClick(leave, minScale = 0.96f, durationMs = 140)
+                binding.cardAccount.btnAccountLogout.performClick()
+                syncAuroraAccount()
+            }
+        }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
+            marginStart = gdp(10)
+        })
+        account.addView(actions, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        ).apply { topMargin = gdp(12) })
+        content.addView(account, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        ))
+
+        // notifications
+        val notifGroup = auroraGroupShell(content, getString(R.string.section_notifications))
+        var first = true
+        fun spec(type: String, icon: Int, titleRes: Int, descRes: Int, key: String): AuroraRowSpec =
+            AuroraRowSpec(type, icon, getString(titleRes), getString(descRes), key)
+        auroraAddRow(notifGroup, spec("toggle", R.drawable.au_bell, R.string.setting_status_change, R.string.setting_status_change_desc, "status"), first).also { first = false }
+        auroraAddRow(notifGroup, spec("toggle", R.drawable.ic_power_settings, R.string.setting_quick_tile, R.string.setting_quick_tile_desc, "tile"), first)
+        auroraAddRow(notifGroup, spec("toggle", R.drawable.ic_shield, R.string.setting_payment_notification, R.string.setting_payment_notification_desc, "payment"), first)
+
+        // privacy
+        val privacyGroup = auroraGroupShell(content, getString(R.string.section_privacy))
+        auroraAddRow(privacyGroup, spec("toggle", R.drawable.ic_lock, R.string.setting_kill_switch, R.string.setting_kill_switch_desc, "kill"), true)
+        auroraAddRow(privacyGroup, AuroraRowSpec("plain", 0, "", getString(R.string.system_vpn_desc), ""), false)
+        auroraAddRow(privacyGroup, AuroraRowSpec(
+            "toggle", R.drawable.ic_image,
+            getString(R.string.setting_screenshots),
+            if (settingsRepository.isScreenshotBlockingEnabled) {
+                getString(R.string.setting_screenshots_desc)
+            } else {
+                getString(R.string.setting_screenshots_allowed)
+            },
+            "screenshots"
+        ), false)
+        auroraAddRow(privacyGroup, spec("toggle", R.drawable.ic_power, R.string.setting_auto_start, R.string.setting_auto_start_desc, "autostart"), false)
+        auroraAddRow(privacyGroup, spec("toggle", R.drawable.ic_pulse, R.string.setting_telemetry, R.string.setting_telemetry_desc, "telemetry"), false)
+
+        // appearance
+        val appearanceGroup = auroraGroupShell(content, getString(R.string.section_appearance))
+        auroraAddRow(appearanceGroup, AuroraRowSpec(
+            "toggle", R.drawable.ic_glass,
+            getString(R.string.glass_settings_glass_title),
+            getString(R.string.glass_settings_glass_desc),
+            "glass"
+        ), true)
+        auroraAddRow(appearanceGroup, spec("toggle", R.drawable.ic_sparkle, R.string.setting_animations, R.string.setting_animations_desc, "animations"), false)
+        auroraAddRow(appearanceGroup, spec("nav", R.drawable.ic_palette, R.string.setting_language, R.string.setting_language_desc, "") { binding.btnLanguage.performClick() }, false)
+        auroraAddRow(appearanceGroup, spec("nav", R.drawable.ic_palette, R.string.setting_appearance, R.string.setting_appearance_desc, "") {
+            selectGlassTab(GLASS_TAB_HOME, animate = false)
+            openAppearance()
+        }, false)
+        auroraAddRow(appearanceGroup, spec("nav", R.drawable.ic_eye_off, R.string.setting_hide_sections, R.string.setting_hide_sections_desc, "") { showHideSectionsDialog() }, false)
+
+        // theme mini segment
+        appearanceGroup.addView(buildAuroraThemeRow(), LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        ))
+
+        // backup
+        val backupGroup = auroraGroupShell(content, getString(R.string.section_backup))
+        auroraAddRow(backupGroup, spec("nav", R.drawable.ic_download, R.string.backup_export, R.string.backup_export_desc, "") { exportSettings() }, true)
+        auroraAddRow(backupGroup, spec("nav", R.drawable.au_upload, R.string.backup_import, R.string.backup_import_desc, "") { importSettingsLauncher.launch("application/json") }, false)
+
+        // split tunneling + dns
+        val tunnelGroup = auroraGroupShell(content, getString(R.string.section_per_app_proxy))
+        auroraAddRow(tunnelGroup, spec("toggle", R.drawable.ic_globe, R.string.setting_direct_ru, R.string.setting_direct_ru_desc, "direct_ru"), true)
+
+        // geo row: description + round refresh button
+        tunnelGroup.addView(
+            View(this).apply { setBackgroundColor(auroraColor(R.color.au_sep)) },
+            LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, gdp(1))
+        )
+        val geoRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            minHeight = gdp(56)
+            setPaddingRelative(gdp(16), gdp(10), gdp(16), gdp(10))
+            background = auroraRipple()
+        }
+        val geoDesc = TextView(this).apply {
+            textSize = 13f
+            typeface = auroraFont(R.font.onest_400)
+            setTextColor(auroraColor(R.color.au_fg_2))
+        }
+        auroraGeoDesc = geoDesc
+        geoRow.addView(geoDesc, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        val geoBtn = ImageView(this).apply {
+            setImageResource(R.drawable.ic_refresh)
+            imageTintList = ColorStateList.valueOf(auroraColor(R.color.au_fg_2))
+            background = ContextCompat.getDrawable(context, R.drawable.bg_au_glass_circle)
+            setPadding(gdp(10), gdp(10), gdp(10), gdp(10))
+            layoutParams = LinearLayout.LayoutParams(gdp(40), gdp(40))
+        }
+        geoBtn.setOnClickListener {
+            AnimationHelper.bounceClick(geoBtn, minScale = 0.9f, durationMs = 140)
+            updateGeoDatabasesManually()
+        }
+        geoRow.addView(geoBtn)
+        tunnelGroup.addView(geoRow, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        ))
+        auroraPerAppDesc = auroraAddRow(tunnelGroup, spec(
+            "nav", R.drawable.au_grid, R.string.setting_per_app_proxy, R.string.per_app_all_enabled, ""
+        ) {
+            selectGlassTab(GLASS_TAB_HOME, animate = false)
+            openPerAppProxy()
+        }, false).findViewWithTag<TextView>("au_row_desc")?.also { auroraPerAppDesc = it }
+        auroraAddRow(tunnelGroup, spec(
+            "nav", R.drawable.ic_globe, R.string.setting_custom_websites_proxy, R.string.setting_custom_websites_proxy_desc, ""
+        ) {
+            selectGlassTab(GLASS_TAB_HOME, animate = false)
+            openCustomWebsites()
+        }, false)
+        auroraPrivateDnsDesc = auroraAddRow(tunnelGroup, AuroraRowSpec(
+            "btn", R.drawable.ic_shield,
+            getString(R.string.private_dns_title),
+            privateDnsCard?.findViewById<TextView>(R.id.tvPrivateDnsState)?.text?.toString().orEmpty(),
+            "",
+            { openPrivateDnsSettings() },
+            getString(R.string.private_dns_open_settings)
+        ), false).findViewWithTag<TextView>("au_row_desc")?.also { auroraPrivateDnsDesc = it }
+        auroraTunnelDnsDesc = auroraAddRow(tunnelGroup, spec(
+            "nav", R.drawable.ic_globe, R.string.tunnel_dns_title, R.string.tunnel_dns_default, ""
+        ) { showTunnelDnsDialog() }, false).findViewWithTag<TextView>("au_row_desc")?.also { auroraTunnelDnsDesc = it }
+
+        // diagnostics
+        val diagGroup = auroraGroupShell(content, getString(R.string.section_diagnostics))
+        auroraFreeDesc = auroraAddRow(diagGroup, AuroraRowSpec(
+            "btn", R.drawable.ic_power,
+            getString(R.string.free_nodes_title),
+            getString(R.string.free_nodes_tap_to_check),
+            "",
+            {
+                nodeStatusCard?.findViewById<TextView>(R.id.tvFreeNodesState)?.let { view ->
+                    view.text = getString(R.string.free_nodes_checking)
+                    measureFreeNodes(view)
+                }
+            },
+            getString(R.string.node_status_refresh)
+        ), true).findViewWithTag<TextView>("au_row_desc")?.also { auroraFreeDesc = it }
+        auroraPaidDesc = auroraAddRow(diagGroup, AuroraRowSpec(
+            "btn", R.drawable.ic_pulse,
+            getString(R.string.node_status_title),
+            getString(R.string.node_status_checking),
+            "",
+            { refreshNodeStatus(force = true) },
+            getString(R.string.node_status_refresh)
+        ), false).findViewWithTag<TextView>("au_row_desc")?.also { auroraPaidDesc = it }
+        auroraAddRow(diagGroup, spec(
+            "nav", R.drawable.ic_shield, R.string.session_history_title, R.string.session_history_hint, ""
+        ) { showSessionHistoryDialog() }, false)
+        auroraSpeedDesc = auroraAddRow(diagGroup, AuroraRowSpec(
+            "nav", R.drawable.ic_speed,
+            getString(R.string.setting_speed),
+            "",
+            ""
+        ) {
+            selectGlassTab(GLASS_TAB_HOME, animate = false)
+            openSettings()
+        }, false).findViewWithTag<TextView>("au_row_desc")?.also { auroraSpeedDesc = it }
+        auroraPingDesc = auroraAddRow(diagGroup, AuroraRowSpec(
+            "nav", R.drawable.ic_gauge,
+            getString(R.string.setting_auto_ping),
+            "",
+            ""
+        ) {
+            selectGlassTab(GLASS_TAB_HOME, animate = false)
+            openSettings()
+        }, false).findViewWithTag<TextView>("au_row_desc")?.also { auroraPingDesc = it }
+        auroraLogsDesc = auroraAddRow(diagGroup, AuroraRowSpec(
+            "nav", R.drawable.ic_file_text,
+            getString(R.string.setting_logs),
+            "",
+            ""
+        ) { openLogs() }, false).findViewWithTag<TextView>("au_row_desc")?.also { auroraLogsDesc = it }
+
+        content.addView(
+            View(this),
+            LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, gdp(120))
+        )
+        return screen
+    }
+
+    private fun buildAuroraThemeRow(): View {
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPaddingRelative(gdp(16), gdp(12), gdp(16), gdp(16))
+            tag = "au_theme_row"
+        }
+        val head = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        val tile = auroraTileFrame()
+        auroraTileChild(tile, R.drawable.ic_palette)
+        head.addView(tile)
+        head.addView(TextView(this).apply {
+            text = getString(R.string.au_theme_row_t)
+            textSize = 15f
+            typeface = auroraFont(R.font.onest_600)
+            setTextColor(auroraColor(R.color.au_fg))
+        }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
+            marginStart = gdp(14)
+        })
+        row.addView(head)
+
+        val seg = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            background = ContextCompat.getDrawable(context, R.drawable.bg_au_mini_seg_bg)
+            setPadding(gdp(3), gdp(3), gdp(3), gdp(3))
+        }
+        fun themeChip(id: String, labelRes: Int) {
+            val chip = TextView(this).apply {
+                text = getString(labelRes)
+                textSize = 13f
+                typeface = auroraFont(R.font.onest_600)
+                minHeight = gdp(30)
+                gravity = Gravity.CENTER
+                setPaddingRelative(gdp(14), gdp(4), gdp(14), gdp(4))
+            }
+            chip.setOnClickListener {
+                AnimationHelper.bounceClick(chip, minScale = 0.95f, durationMs = 120)
+                if (id == "dark") binding.chipThemeDark.performClick() else binding.chipThemeLight.performClick()
+                syncAuroraThemeRow()
+            }
+            seg.addView(chip, LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            ))
+            chip.tag = id
+        }
+        themeChip("dark", R.string.theme_dark)
+        themeChip("light", R.string.theme_light)
+        row.addView(seg, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        ).apply { topMargin = gdp(10) })
+        return row
+    }
+
+    private fun syncAuroraThemeRow() {
+        val row = (auroraSettingsScreen as? ViewGroup)
+            ?.findViewWithTag<ViewGroup>("au_theme_row") ?: return
+        val seg = row.getChildAt(1) as? LinearLayout ?: return
+        val isLight = settingsRepository.themePreset == SettingsRepository.THEME_LIGHT
+        for (i in 0 until seg.childCount) {
+            val chip = seg.getChildAt(i) as? TextView ?: continue
+            val selected = (chip.tag == "dark" && !isLight) || (chip.tag == "light" && isLight)
+            chip.setTextColor(
+                ContextCompat.getColor(
+                    this,
+                    if (selected) R.color.au_accent_text else R.color.au_fg_2
                 )
             )
+            chip.setBackgroundResource(if (selected) R.drawable.bg_au_mini_seg_item else 0)
         }
-        content.measure(
-            View.MeasureSpec.makeMeasureSpec(gdp(260), View.MeasureSpec.AT_MOST),
-            View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
-        )
-        val screenWidth = resources.displayMetrics.widthPixels
-        val width = content.measuredWidth
-            .coerceAtLeast(gdp(220))
-            .coerceAtMost(screenWidth - gdp(32))
-        popup.width = width
-        popup.isOutsideTouchable = true
-        popup.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
-        popup.elevation = gdp(14).toFloat()
-        val location = IntArray(2)
-        anchor.getLocationOnScreen(location)
-        val maxOffset = (screenWidth - width - gdp(8)).coerceAtLeast(gdp(8))
-        val offset = (location[0] + anchor.width - width)
-            .coerceIn(gdp(8), maxOffset) - location[0]
-        popup.showAsDropDown(anchor, offset, gdp(7))
     }
 
-    private fun syncGlassShell() {
-        if (settingsRepository.uiStyle != SettingsRepository.UI_STYLE_GLASS) return
-        val shell = binding.glassShell
-        val connected = currentVpnState == VpnState.CONNECTED
-        val connecting = currentVpnState == VpnState.CONNECTING
-        val active = connected || connecting
+    // ---------------- FAQ ----------------
 
-        shell.gsAmbientGlow.setBackgroundResource(
-            if (active) R.drawable.bg_glass_ambient_glow else R.drawable.bg_glass_ambient_glow_off
+    private fun buildAuroraFaqScreen(host: ViewGroup): ScrollView {
+        val screen = ScrollView(this).apply {
+            visibility = View.GONE
+            isVerticalScrollBarEnabled = false
+        }
+        val content = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        screen.addView(
+            content,
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
         )
-        shell.gsOrbCore.setBackgroundResource(
-            if (active) R.drawable.bg_glass_orb_core else R.drawable.bg_glass_orb_core_off
+        host.addView(screen, FrameLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.MATCH_PARENT
+        ))
+
+        content.addView(auroraHeader(
+            getString(R.string.dock_faq),
+            getString(R.string.glass_faq_subtitle)
+        ))
+
+        val faqs = listOf(
+            R.string.au_faq_1_q to R.string.au_faq_1_a,
+            R.string.au_faq_2_q to R.string.au_faq_2_a,
+            R.string.au_faq_3_q to R.string.au_faq_3_a,
+            R.string.au_faq_4_q to R.string.au_faq_4_a,
+            R.string.au_faq_5_q to R.string.au_faq_5_a,
+            R.string.au_faq_6_q to R.string.au_faq_6_a,
+            R.string.au_faq_7_q to R.string.au_faq_7_a
         )
-        shell.gsPowerIcon.imageTintList = ColorStateList.valueOf(
-            ContextCompat.getColor(this, if (active) R.color.power_icon_connected else R.color.glass_text)
-        )
-        shell.gsStatusDot.setBackgroundResource(
-            if (active) R.drawable.bg_glass_dot_green else R.drawable.bg_glass_dot_red
-        )
-        shell.gsConnTitle.setText(
-            when (currentVpnState) {
-                VpnState.CONNECTED -> R.string.status_connected
-                VpnState.CONNECTING -> R.string.status_connecting
-                VpnState.DISCONNECTING -> R.string.status_disconnecting
-                else -> R.string.status_disconnected
+        faqs.forEachIndexed { index, (q, a) ->
+            val acc = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                background = auroraGlassBg(24)
+                clipToOutline = true
             }
-        )
-        shell.gsConnSub.text = when {
-            connected -> binding.tvStatusSub.text
-            connecting -> getString(R.string.status_sub_selecting)
-            else -> getString(R.string.status_sub_disconnected)
-        }
-        shell.gsPing.text = extractPing(binding.tvStatusSub.text?.toString())
-            ?: getString(R.string.glass_ping_placeholder)
+            val head = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                setPaddingRelative(gdp(18), gdp(17), gdp(18), gdp(17))
+                background = auroraRipple()
+                isClickable = true
+                isFocusable = true
+            }
+            head.addView(TextView(this).apply {
+                text = getString(q)
+                textSize = 15f
+                typeface = auroraFont(R.font.onest_600)
+                setTextColor(auroraColor(R.color.au_fg))
+            }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+            val chev = ImageView(this).apply {
+                setImageResource(R.drawable.ic_chevron_right)
+                imageTintList = ColorStateList.valueOf(auroraColor(R.color.au_fg_3))
+            }
+            head.addView(chev, LinearLayout.LayoutParams(gdp(20), gdp(20)))
+            val body = TextView(this).apply {
+                text = getString(a)
+                textSize = 14.5f
+                typeface = auroraFont(R.font.onest_400)
+                setTextColor(auroraColor(R.color.au_fg_2))
+                setPaddingRelative(gdp(18), 0, gdp(18), gdp(18))
+                visibility = View.GONE
+            }
+            acc.addView(head)
+            acc.addView(body)
+            content.addView(acc, LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply { topMargin = if (index == 0) 0 else gdp(14) })
 
-        val zeroSpeed = com.naua_security_mirage.app.vpn.VpnNotificationManager.formatSpeed(0L)
-        shell.gsSpeedDown.text = if (connected) binding.tvSpeedDown.text else zeroSpeed
-        shell.gsSpeedUp.text = if (connected) binding.tvSpeedUp.text else zeroSpeed
-
-        val plan = settingsRepository.selectedServerPlan
-        val paid = settingsRepository.isPaidPlan(plan) && AppConfigRepository.node(plan) != null
-        val paidTarget = (if (paid) plan else paidNodePlanForLabel())
-            .ifBlank { SettingsRepository.PLAN_PREMIUM_FRANCE }
-        shell.gsPaidLabel.text = paidNodeLabel(paidTarget)
-        shell.gsPaidFlag.setImageResource(paidNodeFlagRes(paidTarget))
-        shell.gsFreePill.background = if (!paid) {
-            ContextCompat.getDrawable(this, R.drawable.bg_glass_pill_active)
-        } else {
-            null
-        }
-        shell.gsPaidPill.background = if (paid) {
-            ContextCompat.getDrawable(this, R.drawable.bg_glass_pill_active)
-        } else {
-            null
-        }
-        shell.gsFreeLabel.setTextColor(
-            ContextCompat.getColor(this, if (!paid) R.color.glass_text else R.color.glass_icon_dim)
-        )
-        shell.gsPaidLabel.setTextColor(
-            ContextCompat.getColor(this, if (paid) R.color.glass_text else R.color.glass_icon_dim)
-        )
-
-        val loggedOut = binding.cardAccount.layoutAccountLoggedOut.visibility == View.VISIBLE
-        if (loggedOut) {
-            shell.gsAccountEmail.text = binding.cardAccount.tvAccountPrompt.text
-            shell.gsAccountStatus.visibility = View.GONE
-            shell.gsAccountCacheAge.visibility = View.GONE
-        } else {
-            shell.gsAccountEmail.text = binding.cardAccount.tvAccountEmail.text
-            shell.gsAccountStatus.visibility = View.VISIBLE
-            shell.gsAccountStatus.text = binding.cardAccount.tvAccountSubscriptionStatus.text
-            shell.gsAccountStatus.setTextColor(binding.cardAccount.tvAccountSubscriptionStatus.currentTextColor)
-            val cacheAge = binding.cardAccount.tvAccountCacheAge
-            shell.gsAccountCacheAge.visibility = cacheAge.visibility
-            shell.gsAccountCacheAge.text = cacheAge.text
-        }
-        shell.gsNodeStatus.text = nodeStatusCard
-            ?.findViewById<TextView>(R.id.tvNodeStatusState)
-            ?.text
-            ?: getString(R.string.node_status_checking)
-
-        shell.gsSwitchKill.setChecked(settingsRepository.isKillSwitchEnabled, false)
-        shell.gsSwitchDirectRu.setChecked(settingsRepository.isDirectRuEnabled, false)
-
-        shell.gsVersionCore.text = lastNodeCore?.let {
-            getString(R.string.glass_version_core, it)
-        } ?: getString(R.string.glass_version_core_unknown)
-        shell.gsUpdateSourceValue.text = when (settingsRepository.updateSource) {
-            SettingsRepository.UPDATE_SOURCE_UPTODOWN ->
-                getString(R.string.setting_updates_source_uptodown)
-            else -> getString(R.string.setting_updates_source_github)
+            head.setOnClickListener {
+                AnimationHelper.bounceClick(head, minScale = 0.98f, durationMs = 130)
+                val opening = body.visibility != View.VISIBLE
+                for (i in 0 until content.childCount) {
+                    val other = content.getChildAt(i) as? LinearLayout ?: continue
+                    val otherBody = other.getChildAt(1) as? TextView ?: continue
+                    val otherHead = other.getChildAt(0) as? LinearLayout ?: continue
+                    val otherChev = otherHead.getChildAt(otherHead.childCount - 1) as? ImageView ?: continue
+                    otherBody.visibility = View.GONE
+                    otherChev.animate().rotation(0f).setDuration(300L).start()
+                    otherChev.imageTintList = ColorStateList.valueOf(auroraColor(R.color.au_fg_3))
+                }
+                if (opening) {
+                    chev.animate().rotation(90f).setDuration(300L).start()
+                    chev.imageTintList = ColorStateList.valueOf(auroraColor(R.color.au_accent_text))
+                    body.visibility = View.VISIBLE
+                    body.alpha = 0f
+                    body.animate().alpha(1f).setDuration(220L).start()
+                }
+            }
         }
 
-        val updateAvailable = binding.containerUpdateBadge.visibility == View.VISIBLE
-        shell.gsUpdateStatus.setText(
-            if (updateAvailable) R.string.glass_version_update else R.string.glass_version_ok
+        val write = TextView(this).apply {
+            text = getString(R.string.au_faq_contact)
+            gravity = Gravity.CENTER
+            minHeight = gdp(46)
+            textSize = 15f
+            typeface = auroraFont(R.font.onest_600)
+            setTextColor(auroraColor(R.color.au_on_accent))
+            background = ContextCompat.getDrawable(context, R.drawable.bg_au_btn_accent)
+        }
+        write.setOnClickListener {
+            AnimationHelper.bounceClick(write, minScale = 0.96f, durationMs = 140)
+            showAuroraSheet("tg")
+        }
+        content.addView(write, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        ).apply { topMargin = gdp(14) })
+        content.addView(
+            View(this),
+            LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, gdp(120))
         )
-        shell.gsUpdateStatus.setTextColor(
-            ContextCompat.getColor(this, if (updateAvailable) R.color.glass_amber else R.color.glass_green)
-        )
+        return screen
     }
+
+    // ---------------- version ----------------
+
+    private fun buildAuroraVersionScreen(host: ViewGroup): ScrollView {
+        val screen = ScrollView(this).apply {
+            visibility = View.GONE
+            isVerticalScrollBarEnabled = false
+        }
+        val content = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER_HORIZONTAL
+        }
+        screen.addView(
+            content,
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        )
+        host.addView(screen, FrameLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.MATCH_PARENT
+        ))
+        content.addView(auroraHeader(
+            getString(R.string.dock_version),
+            getString(R.string.glass_version_subtitle)
+        ))
+
+        // hero mark
+        val mark = FrameLayout(this)
+        mark.addView(View(this).apply {
+            background = ContextCompat.getDrawable(context, R.drawable.bg_au_glass_circle)
+        }, FrameLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT
+        ))
+        mark.addView(View(this).apply {
+            background = ContextCompat.getDrawable(context, R.drawable.bg_au_core_on)
+        }, FrameLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT
+        ).apply { setMargins(gdp(14), gdp(14), gdp(14), gdp(14)) })
+        mark.addView(ImageView(this).apply {
+            setImageResource(R.drawable.ic_power)
+            imageTintList = ColorStateList.valueOf(auroraColor(R.color.au_on_accent))
+            setPadding(gdp(14), gdp(14), gdp(14), gdp(14))
+        }, FrameLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT
+        ))
+        content.addView(mark, LinearLayout.LayoutParams(gdp(104), gdp(104)).apply {
+            gravity = Gravity.CENTER_HORIZONTAL
+            topMargin = gdp(26)
+        })
+
+        content.addView(TextView(this).apply {
+            text = getString(R.string.brand_name)
+            textSize = 24f
+            typeface = auroraFont(R.font.unbounded_600)
+            letterSpacing = -0.015f
+            setTextColor(auroraColor(R.color.au_fg))
+        }, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        ).apply { topMargin = gdp(14) })
+
+        content.addView(TextView(this).apply {
+            text = getString(
+                R.string.glass_version_build,
+                BuildConfig.VERSION_NAME,
+                BuildConfig.VERSION_CODE
+            )
+            textSize = 15f
+            typeface = auroraFont(R.font.jetbrains_mono_500)
+            setTextColor(auroraColor(R.color.au_fg_2))
+        }, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        ).apply { topMargin = gdp(4) })
+
+        val chips = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        chips.addView(TextView(this).apply {
+            textSize = 12.5f
+            typeface = auroraFont(R.font.jetbrains_mono_500)
+            setTextColor(auroraColor(R.color.au_fg_2))
+            background = auroraGlassBg(14)
+            minHeight = gdp(28)
+            gravity = Gravity.CENTER
+            setPaddingRelative(gdp(12), gdp(4), gdp(12), gdp(4))
+        }.also { coreChip ->
+            auroraCoreChip = coreChip
+        })
+        chips.addView(TextView(this).apply {
+            text = getString(R.string.brand_sub)
+            textSize = 12.5f
+            typeface = auroraFont(R.font.jetbrains_mono_500)
+            setTextColor(auroraColor(R.color.au_fg_2))
+            background = auroraGlassBg(14)
+            minHeight = gdp(28)
+            gravity = Gravity.CENTER
+            setPaddingRelative(gdp(12), gdp(4), gdp(12), gdp(4))
+        }, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        ).apply { marginStart = gdp(8) })
+        content.addView(chips, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        ).apply { topMargin = gdp(8) })
+
+        // update sources
+        content.addView(TextView(this).apply {
+            text = getString(R.string.setting_updates).uppercase()
+            textSize = 12f
+            letterSpacing = 0.14f
+            typeface = auroraFont(R.font.onest_600)
+            setTextColor(auroraColor(R.color.au_fg_3))
+            setPaddingRelative(gdp(6), 0, gdp(6), 0)
+        }, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        ).apply { setMargins(0, gdp(20), 0, 0) })
+
+        val srcGroup = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            background = auroraGlassBg(28)
+            clipToOutline = true
+        }
+        content.addView(srcGroup, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        ).apply { topMargin = gdp(14) })
+
+        auroraSourceRows[SettingsRepository.UPDATE_SOURCE_GITHUB] = auroraAddSourceRow(
+            srcGroup,
+            SettingsRepository.UPDATE_SOURCE_GITHUB,
+            R.drawable.ic_globe,
+            getString(R.string.setting_updates_source_github),
+            getString(R.string.badge_recommended),
+            getString(R.string.source_github_desc)
+        )
+        auroraSourceRows[SettingsRepository.UPDATE_SOURCE_UPTODOWN] = auroraAddSourceRow(
+            srcGroup,
+            SettingsRepository.UPDATE_SOURCE_UPTODOWN,
+            R.drawable.ic_download,
+            getString(R.string.setting_updates_source_uptodown),
+            getString(R.string.badge_moderation),
+            getString(R.string.source_uptodown_desc)
+        )
+        syncAuroraSourceRadios()
+
+        val check = TextView(this).apply {
+            text = getString(R.string.btn_check_updates_now)
+            gravity = Gravity.CENTER
+            minHeight = gdp(46)
+            textSize = 15f
+            typeface = auroraFont(R.font.onest_600)
+            setTextColor(auroraColor(R.color.au_on_accent))
+            background = ContextCompat.getDrawable(context, R.drawable.bg_au_btn_accent)
+        }
+        check.setOnClickListener {
+            AnimationHelper.bounceClick(check, minScale = 0.96f, durationMs = 140)
+            checkUpdatesFromGlass()
+        }
+        content.addView(check, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        ).apply { topMargin = gdp(14) })
+
+        val res = TextView(this).apply {
+            textSize = 13.5f
+            typeface = auroraFont(R.font.onest_400)
+            setTextColor(auroraColor(R.color.au_fg_2))
+            gravity = Gravity.CENTER
+        }
+        auroraCheckRes = res
+        content.addView(res, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        ).apply { topMargin = gdp(6); minHeight = gdp(20) })
+
+        // legal row
+        val legal = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+        }
+        fun legalBtn(textRes: Int, url: String) {
+            val b = TextView(this).apply {
+                setText(textRes)
+                textSize = 13f
+                setTextColor(auroraColor(R.color.au_accent_text))
+                paintFlags = paintFlags or android.graphics.Paint.UNDERLINE_TEXT_FLAG
+                setPaddingRelative(gdp(7), gdp(3), gdp(7), gdp(3))
+            }
+            b.setOnClickListener { openExternalLink(url) }
+            legal.addView(b)
+        }
+        legalBtn(R.string.legal_terms_of_service, TERMS_URL)
+        legal.addView(TextView(this).apply {
+            text = "  ·  "
+            textSize = 13f
+            setTextColor(auroraColor(R.color.au_fg_3))
+        })
+        legalBtn(R.string.legal_privacy_policy, PRIVACY_URL)
+        content.addView(legal, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        ).apply { topMargin = gdp(8) })
+
+        content.addView(
+            View(this),
+            LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, gdp(120))
+        )
+        return screen
+    }
+
+    private fun auroraAddSourceRow(
+        group: LinearLayout,
+        source: String,
+        iconRes: Int,
+        title: String,
+        badge: String,
+        desc: String
+    ): ViewGroup {
+        if (group.childCount > 0) {
+            group.addView(
+                View(this).apply { setBackgroundColor(auroraColor(R.color.au_sep)) },
+                LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, gdp(1))
+            )
+        }
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            minHeight = gdp(74)
+            setPaddingRelative(gdp(16), gdp(14), gdp(16), gdp(14))
+            background = auroraRipple()
+        }
+        val tile = auroraTileFrame()
+        auroraTileChild(tile, iconRes)
+        row.addView(tile)
+
+        val col = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        val titleLine = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        titleLine.addView(TextView(this).apply {
+            text = title
+            textSize = 15f
+            typeface = auroraFont(R.font.onest_600)
+            setTextColor(auroraColor(R.color.au_fg))
+        })
+        if (badge.isNotBlank()) {
+            val recommended = badge == getString(R.string.badge_recommended)
+            titleLine.addView(TextView(this).apply {
+                text = badge
+                textSize = 11f
+                typeface = auroraFont(R.font.onest_600)
+                letterSpacing = 0.04f
+                setTextColor(
+                    ContextCompat.getColor(
+                        context,
+                        if (recommended) R.color.au_accent_text else R.color.au_fg_2
+                    )
+                )
+                background = ContextCompat.getDrawable(
+                    context,
+                    if (recommended) R.drawable.bg_au_badge_rec else R.drawable.bg_au_badge_mod
+                )
+                setPaddingRelative(gdp(8), gdp(2), gdp(8), gdp(2))
+            }, LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply { marginStart = gdp(8) })
+        }
+        col.addView(titleLine)
+        val descView = TextView(this).apply {
+            this.text = desc
+            textSize = 13f
+            typeface = auroraFont(R.font.onest_400)
+            setTextColor(auroraColor(R.color.au_fg_2))
+            tag = "au_row_desc"
+        }
+        col.addView(descView, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        ).apply { topMargin = gdp(2) })
+        row.addView(col, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
+            marginStart = gdp(14)
+        })
+
+        val radio = View(this).apply {
+            background = auroraRadioBg(false)
+            layoutParams = LinearLayout.LayoutParams(gdp(24), gdp(24))
+            tag = "au_radio"
+        }
+        row.addView(radio)
+        row.setOnClickListener {
+            AnimationHelper.bounceClick(row, minScale = 0.98f, durationMs = 130)
+            if (settingsRepository.updateSource != source) {
+                settingsRepository.updateSource = source
+                syncAuroraSourceRadios()
+            }
+        }
+        group.addView(row, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        ))
+        return row
+    }
+
+    private fun syncAuroraSourceRadios() {
+        auroraSourceRows.forEach { (source, row) ->
+            val radio = row.findViewWithTag<View>("au_radio") ?: return@forEach
+            radio.background = auroraRadioBg(settingsRepository.updateSource == source)
+        }
+    }
+
+    // ---------------- sheets + toast ----------------
+
+    private fun showAuroraSheet(kind: String) {
+        val container = binding.auroraShell.auSheetContainer
+        val scrim = binding.auroraShell.auScrim
+        container.removeAllViews()
+        container.translationY = gdp(48).toFloat()
+        container.alpha = 0f
+        container.visibility = View.VISIBLE
+
+        val content = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        content.addView(View(this).apply {
+            background = GradientDrawable().apply {
+                setColor(auroraColor(R.color.au_fg_3))
+                cornerRadius = gdp(3).toFloat()
+            }
+        }, LinearLayout.LayoutParams(gdp(42), gdp(5)).apply {
+            gravity = Gravity.CENTER_HORIZONTAL
+        })
+
+        if (kind == "donate") {
+            content.addView(auroraSheetHead(
+                getString(R.string.glass_donate_title),
+                getString(R.string.glass_donate_sub),
+                getString(R.string.support_ways_hint)
+            ))
+            auroraSheetItem(
+                content,
+                R.drawable.au_card, R.color.au_accent_text,
+                getString(R.string.way_cloudtips_title), getString(R.string.way_cloudtips_desc),
+                getString(R.string.cloudtips_url)
+            )
+            auroraSheetItem(
+                content,
+                R.drawable.au_star, R.color.au_accent_text,
+                getString(R.string.way_tribute_tg_title), getString(R.string.way_tribute_tg_desc),
+                getString(R.string.tribute_tg_url)
+            )
+            auroraSheetItem(
+                content,
+                R.drawable.ic_globe, R.color.au_accent_text,
+                getString(R.string.way_tribute_web_title), getString(R.string.way_tribute_web_desc),
+                getString(R.string.tribute_web_url)
+            )
+        } else {
+            content.addView(auroraSheetHead(
+                getString(R.string.glass_telegram_title),
+                getString(R.string.au_tg_sub),
+                getString(R.string.support_menu_hint)
+            ))
+            auroraSheetItem(
+                content,
+                R.drawable.au_send, R.color.au_cool,
+                getString(R.string.way_channel_title), getString(R.string.way_channel_desc),
+                getString(R.string.telegram_channel_url)
+            )
+            auroraSheetItem(
+                content,
+                R.drawable.au_message, R.color.au_cool,
+                getString(R.string.way_support_title), getString(R.string.way_support_desc),
+                getString(R.string.support_chat_url)
+            )
+            auroraSheetItem(
+                content,
+                R.drawable.au_bot, R.color.au_cool,
+                getString(R.string.way_bot_title), getString(R.string.way_bot_desc),
+                getString(R.string.support_bot_url)
+            )
+        }
+
+        content.addView(
+            View(this),
+            LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, gdp(8))
+        )
+        container.addView(content, FrameLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        ))
+
+        scrim.isClickable = true
+        scrim.visibility = View.VISIBLE
+        scrim.setOnClickListener { dismissAuroraSheet() }
+        scrim.animate().alpha(1f).setDuration(240L).start()
+        container.animate().alpha(1f).translationY(0f).setDuration(320L)
+            .setInterpolator(DecelerateInterpolator(1.1f)).start()
+    }
+
+    private fun auroraSheetHead(title: String, sub: String, intro: String): View {
+        val head = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        val top = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        val textCol = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        textCol.addView(TextView(this).apply {
+            text = title
+            textSize = 19f
+            typeface = auroraFont(R.font.unbounded_600)
+            letterSpacing = -0.01f
+            setTextColor(auroraColor(R.color.au_fg))
+        })
+        textCol.addView(TextView(this).apply {
+            text = sub
+            textSize = 13f
+            typeface = auroraFont(R.font.onest_400)
+            setTextColor(auroraColor(R.color.au_fg_2))
+        }, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        ).apply { topMargin = gdp(4) })
+        top.addView(textCol, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+
+        val close = FrameLayout(this).apply {
+            background = ContextCompat.getDrawable(context, R.drawable.bg_au_glass_circle)
+        }
+        close.addView(ImageView(this).apply {
+            setImageResource(R.drawable.ic_close)
+            imageTintList = ColorStateList.valueOf(auroraColor(R.color.au_fg_2))
+            layoutParams = FrameLayout.LayoutParams(gdp(20), gdp(20), Gravity.CENTER)
+        })
+        close.setOnClickListener { dismissAuroraSheet() }
+        top.addView(close, LinearLayout.LayoutParams(gdp(40), gdp(40)))
+
+        head.addView(top, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        ).apply { topMargin = gdp(12) })
+        head.addView(TextView(this).apply {
+            text = intro
+            textSize = 14f
+            typeface = auroraFont(R.font.onest_400)
+            setTextColor(auroraColor(R.color.au_fg_2))
+        }, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        ).apply { topMargin = gdp(10) })
+        return head
+    }
+
+    private fun auroraSheetItem(
+        content: LinearLayout,
+        iconRes: Int,
+        tint: Int,
+        title: String,
+        desc: String,
+        url: String
+    ) {
+        val item = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            minHeight = gdp(68)
+            background = auroraGlassBg(24)
+            clipToOutline = true
+            setPaddingRelative(gdp(14), gdp(14), gdp(14), gdp(14))
+        }
+        val tile = auroraTileFrame()
+        auroraTileChild(tile, iconRes, tint)
+        item.addView(tile)
+
+        val col = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        col.addView(TextView(this).apply {
+            text = title
+            textSize = 15f
+            typeface = auroraFont(R.font.onest_600)
+            setTextColor(auroraColor(R.color.au_fg))
+        })
+        col.addView(TextView(this).apply {
+            text = desc
+            textSize = 13f
+            typeface = auroraFont(R.font.onest_400)
+            setTextColor(auroraColor(R.color.au_fg_2))
+        }, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        ).apply { topMargin = gdp(3) })
+        item.addView(col, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
+            marginStart = gdp(14)
+        })
+
+        val go = TextView(this).apply {
+            text = getString(R.string.action_go)
+            textSize = 14f
+            typeface = auroraFont(R.font.onest_600)
+            setTextColor(auroraColor(R.color.au_accent_text))
+            background = ContextCompat.getDrawable(context, R.drawable.bg_au_btn_ghost)
+            setPaddingRelative(gdp(15), gdp(9), gdp(15), gdp(9))
+        }
+        go.setOnClickListener {
+            AnimationHelper.bounceClick(go, minScale = 0.93f, durationMs = 130)
+            dismissAuroraSheet()
+            openExternalLink(url)
+        }
+        item.addView(go)
+        content.addView(item, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        ).apply { topMargin = gdp(10) })
+    }
+
+    private fun dismissAuroraSheet() {
+        val container = binding.auroraShell.auSheetContainer
+        val scrim = binding.auroraShell.auScrim
+        if (container.visibility != View.VISIBLE) return
+        scrim.animate().alpha(0f).setDuration(200L).withEndAction {
+            scrim.visibility = View.GONE
+        }.start()
+        container.animate().alpha(0f).translationY(gdp(48).toFloat()).setDuration(260L)
+            .withEndAction {
+                container.visibility = View.GONE
+                container.removeAllViews()
+            }.start()
+    }
+
+    /** true — close consumed the event (sheet or country menu was open) */
+    private fun closeAuroraOverlay(): Boolean {
+        if (settingsRepository.uiStyle != SettingsRepository.UI_STYLE_GLASS) return false
+        val shell = binding.auroraShell
+        var consumed = false
+        if (shell.auSheetContainer.visibility == View.VISIBLE) {
+            dismissAuroraSheet()
+            consumed = true
+        }
+        if (shell.auCountryMenu.visibility == View.VISIBLE) {
+            setAuroraCountryMenu(false)
+            consumed = true
+        }
+        return consumed
+    }
+
+    private fun showAuroraToast(text: String) {
+        val toast = binding.auroraShell.auToast
+        toast.text = text
+        auroraToastRunnable?.let { toast.removeCallbacks(it) }
+        toast.animate().cancel()
+        toast.alpha = 0f
+        toast.translationY = gdp(16).toFloat()
+        toast.scaleX = 0.9f
+        toast.scaleY = 0.9f
+        toast.visibility = View.VISIBLE
+        toast.animate().alpha(1f).translationY(0f).scaleX(1f).scaleY(1f).setDuration(260L).start()
+        auroraToastRunnable = Runnable {
+            toast.animate().alpha(0f).translationY(gdp(16).toFloat()).scaleX(0.9f).scaleY(0.9f)
+                .setDuration(240L).withEndAction {
+                    toast.visibility = View.GONE
+                    toast.translationY = 0f
+                    toast.scaleX = 1f
+                    toast.scaleY = 1f
+                }.start()
+        }
+        toast.postDelayed(auroraToastRunnable, 2200L)
+    }
+
+    // ---------------- small aurora building blocks ----------------
+
+    private fun auroraHeader(title: String, eyebrow: String): View =
+        LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }.also { head ->
+            head.addView(TextView(this).apply {
+                text = title
+                textSize = 28f
+                typeface = auroraFont(R.font.unbounded_600)
+                letterSpacing = -0.015f
+                setTextColor(auroraColor(R.color.au_fg))
+            })
+            head.addView(TextView(this).apply {
+                text = eyebrow
+                textSize = 13f
+                typeface = auroraFont(R.font.onest_400)
+                setTextColor(auroraColor(R.color.au_fg_2))
+            }, LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply { topMargin = gdp(6) })
+        }
 
     private fun extractPing(raw: String?): String? {
         if (raw.isNullOrBlank()) return null
@@ -3841,8 +5544,15 @@ class MainActivity : AppCompatActivity() {
             closeAppearance()
         } else if (binding.viewSettings.visibility == View.VISIBLE) {
             closeSettings()
-        } else if (binding.glassShell.root.visibility == View.VISIBLE && currentGlassTab != GLASS_TAB_HOME) {
-            selectGlassTab(GLASS_TAB_HOME)
+        } else if (binding.auroraShell.root.visibility == View.VISIBLE) {
+            when {
+                closeAuroraOverlay() -> {}
+                currentGlassTab != GLASS_TAB_HOME -> selectGlassTab(GLASS_TAB_HOME)
+                else -> {
+                    @Suppress("DEPRECATION")
+                    super.onBackPressed()
+                }
+            }
         } else {
             @Suppress("DEPRECATION")
             super.onBackPressed()
@@ -7035,7 +8745,7 @@ class MainActivity : AppCompatActivity() {
             binding.vBackgroundDim.visibility = View.GONE
 
             if (isGlass) {
-                binding.rootContainer.setBackgroundResource(R.drawable.bg_glass_root)
+                binding.rootContainer.setBackgroundColor(Color.parseColor("#06070B"))
                 isLightContext = false
             } else {
                 val finalBg = if (customBg != 0) {
@@ -7444,7 +9154,7 @@ class MainActivity : AppCompatActivity() {
         updatePerAppFilterChips()
         updateWebsiteFilterChips()
 
-        binding.glassShell.root.visibility = if (isGlass) View.VISIBLE else View.GONE
+        binding.auroraShell.root.visibility = if (isGlass) View.VISIBLE else View.GONE
         binding.viewMain.visibility = if (isGlass) View.INVISIBLE else View.VISIBLE
         if (isGlass) {
             selectGlassTab(currentGlassTab, animate = false)
