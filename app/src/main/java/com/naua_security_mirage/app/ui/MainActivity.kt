@@ -136,6 +136,7 @@ class MainActivity : AppCompatActivity() {
     private var isSpeedExpanded = false
 
     private var currentGlassTab = GLASS_TAB_HOME
+    private var lastNodeCore: String? = null
     private val glassSyncHandler = Handler(Looper.getMainLooper())
     private val glassSyncRunnable = object : Runnable {
         override fun run() {
@@ -2619,6 +2620,7 @@ class MainActivity : AppCompatActivity() {
                     "NodeStatus",
                     "Франция: state=${status.state} core=${status.core} reported=${status.reportedAt}"
                 )
+                lastNodeCore = status.core
                 val reported = status.reportedAt
                 val stale = reported == null ||
                         System.currentTimeMillis() - reported > STATUS_STALE_MS
@@ -3337,6 +3339,10 @@ class MainActivity : AppCompatActivity() {
         }
         shell.gsVersionCard.setOnClickListener { checkUpdatesFromGlass() }
         shell.gsCheckUpdates.setOnClickListener { checkUpdatesFromGlass() }
+        shell.gsUpdateSourceRow.setOnClickListener {
+            AnimationHelper.bounceClick(shell.gsUpdateSourceRow, minScale = 0.98f, durationMs = 140)
+            showUpdateSourceDialog()
+        }
 
         val amber = ContextCompat.getColor(this, R.color.glass_amber)
         listOf(shell.gsSwitchGlass, shell.gsSwitchKill, shell.gsSwitchDirectRu).forEach { toggle ->
@@ -3359,7 +3365,13 @@ class MainActivity : AppCompatActivity() {
         shell.gsDockFaq.setOnClickListener { selectGlassTab(GLASS_TAB_FAQ) }
         shell.gsDockVersion.setOnClickListener { selectGlassTab(GLASS_TAB_VERSION) }
 
-        shell.gsVersionName.text = "Mirage ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})"
+        shell.gsVersionName.text = getString(R.string.brand_name)
+        shell.gsVersionBuild.text = getString(
+            R.string.glass_version_build,
+            BuildConfig.VERSION_NAME,
+            BuildConfig.VERSION_CODE
+        )
+        shell.gsSettingsVersion.text = getString(R.string.app_version, BuildConfig.VERSION_NAME)
         selectGlassTab(GLASS_TAB_HOME, animate = false)
         syncGlassShell()
     }
@@ -3583,17 +3595,19 @@ class MainActivity : AppCompatActivity() {
         )
 
         val loggedOut = binding.cardAccount.layoutAccountLoggedOut.visibility == View.VISIBLE
-        shell.gsAccountEmail.text = if (loggedOut) {
-            binding.cardAccount.tvAccountLoggedOutTitle.text
+        if (loggedOut) {
+            shell.gsAccountEmail.text = binding.cardAccount.tvAccountPrompt.text
+            shell.gsAccountStatus.visibility = View.GONE
+            shell.gsAccountCacheAge.visibility = View.GONE
         } else {
-            binding.cardAccount.tvAccountEmail.text
+            shell.gsAccountEmail.text = binding.cardAccount.tvAccountEmail.text
+            shell.gsAccountStatus.visibility = View.VISIBLE
+            shell.gsAccountStatus.text = binding.cardAccount.tvAccountSubscriptionStatus.text
+            shell.gsAccountStatus.setTextColor(binding.cardAccount.tvAccountSubscriptionStatus.currentTextColor)
+            val cacheAge = binding.cardAccount.tvAccountCacheAge
+            shell.gsAccountCacheAge.visibility = cacheAge.visibility
+            shell.gsAccountCacheAge.text = cacheAge.text
         }
-        shell.gsAccountStatus.text = if (loggedOut) {
-            binding.cardAccount.tvAccountPrompt.text
-        } else {
-            binding.cardAccount.tvAccountSubscriptionStatus.text
-        }
-        shell.gsAccountStatus.setTextColor(binding.cardAccount.tvAccountSubscriptionStatus.currentTextColor)
         shell.gsNodeStatus.text = nodeStatusCard
             ?.findViewById<TextView>(R.id.tvNodeStatusState)
             ?.text
@@ -3601,6 +3615,15 @@ class MainActivity : AppCompatActivity() {
 
         shell.gsSwitchKill.setChecked(settingsRepository.isKillSwitchEnabled, false)
         shell.gsSwitchDirectRu.setChecked(settingsRepository.isDirectRuEnabled, false)
+
+        shell.gsVersionCore.text = lastNodeCore?.let {
+            getString(R.string.glass_version_core, it)
+        } ?: getString(R.string.glass_version_core_unknown)
+        shell.gsUpdateSourceValue.text = when (settingsRepository.updateSource) {
+            SettingsRepository.UPDATE_SOURCE_UPTODOWN ->
+                getString(R.string.setting_updates_source_uptodown)
+            else -> getString(R.string.setting_updates_source_github)
+        }
 
         val updateAvailable = binding.containerUpdateBadge.visibility == View.VISIBLE
         shell.gsUpdateStatus.setText(

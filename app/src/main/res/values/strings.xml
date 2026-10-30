@@ -560,7 +560,7 @@
   <string name="glass_telegram_title">Telegram</string>
   <string name="glass_telegram_sub">Канал / Бот / Чат</string>
   <string name="glass_auto_title">Mirage сам выбирает сервер</string>
-  <string name="glass_auto_desc">Выбор локации не нужен — просто нажми кнопку подключения.</string>
+  <string name="glass_auto_desc">Выбор локации не нужен. Просто нажми кнопку подключения.</string>
   <string name="glass_settings_glass_title">Жидкое стекло (Morphix Glass)</string>
   <string name="glass_settings_glass_desc">Размытие фона и блик граней</string>
   <string name="glass_kill_desc">Блокировать трафик без VPN</string>
@@ -572,4 +572,11 @@
   <string name="glass_version_update">Доступно обновление — нажми, чтобы установить</string>
   <string name="glass_renew">Продлить ›</string>
   <string name="glass_ping_placeholder">— ms</string>
+  <string name="glass_download">Загрузка</string>
+  <string name="glass_upload">Отдача</string>
+  <string name="glass_faq_subtitle">Ответы на частые вопросы</string>
+  <string name="glass_version_subtitle">Обновления и сведения</string>
+  <string name="glass_version_build">%1$s (%2$d)</string>
+  <string name="glass_version_core">ядро %1$s · NAUA Security</string>
+  <string name="glass_version_core_unknown">NAUA Security</string>
 </resources>

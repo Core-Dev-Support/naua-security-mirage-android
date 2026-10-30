@@ -280,38 +280,36 @@
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="↓"
-                            android:textColor="@color/glass_green"
-                            android:textSize="13sp"
-                            android:textStyle="bold" />
+                            android:text="@string/glass_download"
+                            android:textColor="@color/glass_text_dim"
+                            android:textSize="11sp" />
 
                         <TextView
                             android:id="@+id/gsSpeedDown"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:layout_marginStart="6dp"
+                            android:layout_marginStart="5dp"
                             android:text="0.0 KB/s"
                             android:textColor="@color/glass_text"
-                            android:textSize="13sp"
+                            android:textSize="12.5sp"
                             android:textStyle="bold" />
 
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:layout_marginStart="22dp"
-                            android:text="↑"
-                            android:textColor="@color/glass_blue"
-                            android:textSize="13sp"
-                            android:textStyle="bold" />
+                            android:layout_marginStart="20dp"
+                            android:text="@string/glass_upload"
+                            android:textColor="@color/glass_text_dim"
+                            android:textSize="11sp" />
 
                         <TextView
                             android:id="@+id/gsSpeedUp"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:layout_marginStart="6dp"
+                            android:layout_marginStart="5dp"
                             android:text="0.0 KB/s"
                             android:textColor="@color/glass_text"
-                            android:textSize="13sp"
+                            android:textSize="12.5sp"
                             android:textStyle="bold" />
                     </LinearLayout>
 
@@ -501,6 +499,15 @@
                     android:orientation="vertical"
                     android:visibility="gone">
 
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginBottom="12dp"
+                        android:text="@string/settings_title"
+                        android:textColor="@color/glass_text"
+                        android:textSize="21sp"
+                        android:textStyle="bold" />
+
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
@@ -529,26 +536,45 @@
                                 android:orientation="vertical">
 
                                 <TextView
-                                    android:id="@+id/gsAccountEmail"
                                     android:layout_width="wrap_content"
                                     android:layout_height="wrap_content"
-                                    android:ellipsize="end"
-                                    android:maxLines="1"
                                     android:text="@string/account_title"
                                     android:textColor="@color/glass_text"
                                     android:textSize="13.5sp"
                                     android:textStyle="bold" />
 
                                 <TextView
+                                    android:id="@+id/gsAccountEmail"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginTop="2dp"
+                                    android:ellipsize="end"
+                                    android:maxLines="1"
+                                    android:text="@string/account_title"
+                                    android:textColor="@color/glass_text_dim"
+                                    android:textSize="11.5sp" />
+
+                                <TextView
                                     android:id="@+id/gsAccountStatus"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginTop="2dp"
+                                    android:ellipsize="end"
+                                    android:maxLines="2"
+                                    android:text="@string/status_sub_disconnected"
+                                    android:textColor="@color/glass_green"
+                                    android:textSize="10.5sp" />
+
+                                <TextView
+                                    android:id="@+id/gsAccountCacheAge"
                                     android:layout_width="wrap_content"
                                     android:layout_height="wrap_content"
                                     android:layout_marginTop="1dp"
                                     android:ellipsize="end"
                                     android:maxLines="1"
-                                    android:text="@string/status_sub_disconnected"
-                                    android:textColor="@color/glass_green"
-                                    android:textSize="11sp" />
+                                    android:visibility="gone"
+                                    android:textColor="@color/glass_text_dim"
+                                    android:textSize="10sp" />
                             </LinearLayout>
 
                             <TextView
@@ -775,6 +801,16 @@
                                 app:tint="@color/glass_amber" />
                         </LinearLayout>
                     </LinearLayout>
+
+                    <TextView
+                        android:id="@+id/gsSettingsVersion"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="14dp"
+                        android:gravity="center"
+                        android:text="@string/app_name"
+                        android:textColor="@color/glass_text_dim"
+                        android:textSize="11.5sp" />
                 </LinearLayout>
 
                 <!-- FAQ -->
@@ -784,6 +820,23 @@
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
                     android:visibility="gone">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/dock_faq"
+                        android:textColor="@color/glass_text"
+                        android:textSize="21sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:layout_marginBottom="12dp"
+                        android:text="@string/glass_faq_subtitle"
+                        android:textColor="@color/glass_text_dim"
+                        android:textSize="12sp" />
 
                     <LinearLayout
                         android:layout_width="match_parent"
@@ -847,6 +900,35 @@
                                 android:textColor="@color/glass_text_dim"
                                 android:textSize="11.5sp" />
                         </LinearLayout>
+
+                        <View
+                            android:layout_width="match_parent"
+                            android:layout_height="1dp"
+                            android:background="@color/glass_divider" />
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical"
+                            android:paddingTop="10dp"
+                            android:paddingBottom="10dp">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="@string/faq_q3"
+                                android:textColor="@color/glass_amber"
+                                android:textSize="13.5sp"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="3dp"
+                                android:text="@string/faq_a3"
+                                android:textColor="@color/glass_text_dim"
+                                android:textSize="11.5sp" />
+                        </LinearLayout>
                     </LinearLayout>
                 </LinearLayout>
 
@@ -858,69 +940,148 @@
                     android:orientation="vertical"
                     android:visibility="gone">
 
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/dock_version"
+                        android:textColor="@color/glass_text"
+                        android:textSize="21sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:layout_marginBottom="12dp"
+                        android:text="@string/glass_version_subtitle"
+                        android:textColor="@color/glass_text_dim"
+                        android:textSize="12sp" />
+
                     <LinearLayout
                         android:id="@+id/gsVersionCard"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:background="@drawable/bg_glass_list_card"
-                        android:clickable="true"
-                        android:focusable="true"
-                        android:gravity="center_horizontal"
                         android:orientation="vertical"
-                        android:padding="18dp">
+                        android:paddingStart="16dp"
+                        android:paddingTop="16dp"
+                        android:paddingEnd="16dp"
+                        android:paddingBottom="6dp">
 
-                        <TextView
-                            android:layout_width="wrap_content"
+                        <LinearLayout
+                            android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:text="¡"
-                            android:textColor="@color/glass_amber"
-                            android:textSize="28sp"
-                            android:textStyle="bold" />
+                            android:gravity="center_horizontal"
+                            android:orientation="vertical"
+                            android:paddingBottom="10dp">
 
-                        <TextView
-                            android:id="@+id/gsVersionName"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="4dp"
-                            android:text="@string/app_name"
-                            android:textColor="@color/glass_text"
-                            android:textSize="18sp"
-                            android:textStyle="bold" />
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="¡"
+                                android:textColor="@color/glass_amber"
+                                android:textSize="28sp"
+                                android:textStyle="bold" />
 
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="3dp"
-                            android:text="@string/glass_version_tagline"
-                            android:textColor="@color/glass_text_dim"
-                            android:textSize="12sp" />
+                            <TextView
+                                android:id="@+id/gsVersionName"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="4dp"
+                                android:text="@string/brand_name"
+                                android:textColor="@color/glass_text"
+                                android:textSize="19sp"
+                                android:textStyle="bold" />
 
-                        <TextView
-                            android:id="@+id/gsUpdateStatus"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="12dp"
-                            android:gravity="center"
-                            android:text="@string/glass_version_ok"
-                            android:textColor="@color/glass_green"
-                            android:textSize="12sp" />
+                            <TextView
+                                android:id="@+id/gsVersionBuild"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="2dp"
+                                android:text="@string/glass_version_tagline"
+                                android:textColor="@color/glass_text"
+                                android:textSize="13sp" />
 
-                        <TextView
-                            android:id="@+id/gsCheckUpdates"
-                            android:layout_width="wrap_content"
+                            <TextView
+                                android:id="@+id/gsVersionCore"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="6dp"
+                                android:text="@string/glass_version_core_unknown"
+                                android:textColor="@color/glass_text_dim"
+                                android:textSize="11sp" />
+
+                            <TextView
+                                android:id="@+id/gsUpdateStatus"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="12dp"
+                                android:gravity="center"
+                                android:text="@string/glass_version_ok"
+                                android:textColor="@color/glass_green"
+                                android:textSize="12sp" />
+
+                            <TextView
+                                android:id="@+id/gsCheckUpdates"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="10dp"
+                                android:background="@drawable/bg_glass_pill"
+                                android:clickable="true"
+                                android:focusable="true"
+                                android:paddingStart="16dp"
+                                android:paddingTop="8dp"
+                                android:paddingEnd="16dp"
+                                android:paddingBottom="8dp"
+                                android:text="@string/btn_check_updates_now"
+                                android:textColor="@color/glass_amber"
+                                android:textSize="12sp"
+                                android:textStyle="bold" />
+                        </LinearLayout>
+
+                        <View
+                            android:layout_width="match_parent"
+                            android:layout_height="1dp"
+                            android:background="@color/glass_divider" />
+
+                        <LinearLayout
+                            android:id="@+id/gsUpdateSourceRow"
+                            android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:layout_marginTop="10dp"
-                            android:background="@drawable/bg_glass_pill"
                             android:clickable="true"
                             android:focusable="true"
-                            android:paddingStart="16dp"
-                            android:paddingTop="8dp"
-                            android:paddingEnd="16dp"
-                            android:paddingBottom="8dp"
-                            android:text="@string/btn_check_updates_now"
-                            android:textColor="@color/glass_amber"
-                            android:textSize="12sp"
-                            android:textStyle="bold" />
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal"
+                            android:paddingTop="12dp"
+                            android:paddingBottom="12dp">
+
+                            <TextView
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:text="@string/setting_updates"
+                                android:textColor="@color/glass_text"
+                                android:textSize="13.5sp"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:id="@+id/gsUpdateSourceValue"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginEnd="6dp"
+                                android:ellipsize="end"
+                                android:maxLines="1"
+                                android:maxWidth="170dp"
+                                android:textColor="@color/glass_text_dim"
+                                android:textSize="11.5sp" />
+
+                            <ImageView
+                                android:layout_width="18dp"
+                                android:layout_height="18dp"
+                                android:contentDescription="@null"
+                                android:src="@drawable/ic_chevron_right"
+                                app:tint="@color/glass_amber" />
+                        </LinearLayout>
                     </LinearLayout>
                 </LinearLayout>
             </LinearLayout>

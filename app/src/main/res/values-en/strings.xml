@@ -560,7 +560,7 @@
   <string name="glass_telegram_title">Telegram</string>
   <string name="glass_telegram_sub">Channel / Bot / Chat</string>
   <string name="glass_auto_title">Mirage picks the server for you</string>
-  <string name="glass_auto_desc">No location choice needed — just tap the connect sphere.</string>
+  <string name="glass_auto_desc">No location choice needed. Just tap the connect sphere.</string>
   <string name="glass_settings_glass_title">Liquid glass (Morphix Glass)</string>
   <string name="glass_settings_glass_desc">Background blur and edge highlight</string>
   <string name="glass_kill_desc">Block traffic without VPN</string>
@@ -572,4 +572,11 @@
   <string name="glass_version_update">Update available — tap to install</string>
   <string name="glass_renew">Renew ›</string>
   <string name="glass_ping_placeholder">— ms</string>
+  <string name="glass_download">Download</string>
+  <string name="glass_upload">Upload</string>
+  <string name="glass_faq_subtitle">Answers to common questions</string>
+  <string name="glass_version_subtitle">Updates and details</string>
+  <string name="glass_version_build">%1$s (%2$d)</string>
+  <string name="glass_version_core">core %1$s · NAUA Security</string>
+  <string name="glass_version_core_unknown">NAUA Security</string>
 </resources>
