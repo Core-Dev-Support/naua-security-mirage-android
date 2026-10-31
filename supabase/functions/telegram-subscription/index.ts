@@ -368,10 +368,10 @@ async function fetchFreeNodes(deviceId: string): Promise<string[]> {
 
 // Детерминированный deviceId для бесплатного пула.
 //
-// Версия ссылки здесь всегда нулевая: сброс ссылки не должен выдавать
-// пользователю новый бесплатный узел у чужого провайдера.
-async function deviceIdFor(tgId: number): Promise<string> {
-  const hex = (await subscriptionSignature(tgId, secret(), 0)).padEnd(32, "0").slice(0, 32);
+// salt — фиксированная версия пула, а не версия ссылки: сброс ссылки
+// не должен выдавать пользователю новый бесплатный узел у провайдера.
+async function deviceIdFor(tgId: number, salt: number): Promise<string> {
+  const hex = (await subscriptionSignature(tgId, secret(), salt)).padEnd(32, "0").slice(0, 32);
   return [
     hex.slice(0, 8),
     hex.slice(8, 12),
@@ -558,10 +558,31 @@ serve(async (req) => {
     const wantFree = (Boolean(freeParam) && Boolean(freeExpected) &&
       constantTimeEqual(freeParam, freeExpected)) || hasPaid;
     if (INCLUDE_FREE_NODES && tgId && wantFree) {
-      const free = await fetchFreeNodes(await deviceIdFor(tgId));
-      for (const link of free) {
+      // Happ склеивает узлы с одинаковым UUID, а провайдер выдаёт один UUID
+      // на оба своих сервера. Берём по одному серверу из двух независимых
+      // пулов — так в Happ видно оба бесплатных узла.
+      const [poolA, poolB] = await Promise.all([
+        fetchFreeNodes(await deviceIdFor(tgId, 1)),
+        fetchFreeNodes(await deviceIdFor(tgId, 2)),
+      ]);
+      const picked: string[] = [];
+      for (const pool of [poolA, poolB]) {
+        for (const link of pool) {
+          const uuid = link.match(/^vless:\/\/([0-9a-fA-F-]{36})@/)?.[1] || "";
+          if (!uuid || picked.some((item) => item.includes(`vless://${uuid}@`))) continue;
+          picked.push(
+            picked.length === 0 ? link : withNodeName(link, `${FREE_NAME} ${picked.length + 1}`),
+          );
+          break;
+        }
+      }
+      for (const [index, link] of picked.entries()) {
         links.push(link);
-        nodes.push({ host: "free", label: FREE_NAME, uuid: "" });
+        nodes.push({
+          host: "free",
+          label: index === 0 ? FREE_NAME : `${FREE_NAME} ${index + 1}`,
+          uuid: "",
+        });
       }
     }
 
