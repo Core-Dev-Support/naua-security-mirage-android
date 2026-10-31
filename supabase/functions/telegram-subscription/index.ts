@@ -333,20 +333,22 @@ async function fetchFreeNodes(deviceId: string): Promise<string[]> {
         const stream = outbound?.streamSettings || {};
         const reality = stream?.realitySettings || {};
         const xhttp = stream?.xhttpSettings || {};
+        // Порядок и набор параметров повторяют платные ссылки H1: их Happ
+        // парсит целиком, а строку провайдера выкидывает (голый vless/TCP).
+        // mode=packet-up и пустой shortId — как у провайдера: с auto сервер
+        // не работает (проверено живым xray до 204 через socks).
         const params = new URLSearchParams();
         params.set("type", stream?.network || "tcp");
         params.set("security", "reality");
-        if (reality.publicKey) params.set("pbk", reality.publicKey);
-        params.set("fp", reality.fingerprint || "chrome");
+        if (xhttp.path) params.set("path", xhttp.path);
+        if (xhttp.host) params.set("host", xhttp.host);
+        if (xhttp.mode) params.set("mode", xhttp.mode);
         params.set("sni", reality.serverName || address);
-        if (reality.shortId) params.set("sid", reality.shortId);
+        params.set("fp", reality.fingerprint || "chrome");
+        if (reality.publicKey) params.set("pbk", reality.publicKey);
+        params.set("sid", reality.shortId ?? "");
         params.set("spx", reality.spiderX || "/");
         params.set("encryption", "none");
-        if (stream?.network === "xhttp") {
-          if (xhttp.host) params.set("host", xhttp.host);
-          if (xhttp.mode) params.set("mode", xhttp.mode);
-          if (xhttp.path) params.set("path", xhttp.path);
-        }
         const label = encodeURIComponent(
           links.length === 0 ? FREE_NAME : `${FREE_NAME} ${links.length + 1}`,
         );
