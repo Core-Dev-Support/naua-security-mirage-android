@@ -1,9 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.8";
-import {
-  h1EnsureNode,
-  h1PanelConfigured,
-} from "../_shared/h1panel.ts";
+import { h1EnsureNode } from "../_shared/h1panel.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") || "";
@@ -80,9 +77,6 @@ serve(async (req) => {
     }
     if (paidUntil.getTime() <= Date.now()) {
       return json({ error: "Subscription expired" }, 403);
-    }
-    if (!h1PanelConfigured()) {
-      throw new Error("H1 panel configuration is incomplete");
     }
 
     const node = await h1EnsureNode(email, row.paid_until);
