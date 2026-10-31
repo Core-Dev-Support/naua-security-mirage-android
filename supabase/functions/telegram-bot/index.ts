@@ -132,7 +132,12 @@ export function formatAmount(value: string | null | undefined): string {
 
 async function subscriptionLink(tgId: number): Promise<string> {
   const signature = await subscriptionSignature(tgId, SUBSCRIPTION_SECRET);
-  return `${SUPABASE_URL}/functions/v1/telegram-subscription?user=${tgId}_${signature}`;
+  const url = new URL(`${SUPABASE_URL}/functions/v1/telegram-subscription`);
+  url.searchParams.set("user", `${tgId}_${signature}`);
+  // Happ кеширует подписку по адресу на сутки; метка времени заставляет
+  // клиент скачать свежий список после смены узлов.
+  url.searchParams.set("v", String(Date.now()));
+  return url.toString();
 }
 
 // connectPage — ссылка на страницу подключения.
