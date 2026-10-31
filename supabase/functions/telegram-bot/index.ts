@@ -162,12 +162,10 @@ async function connectPage(link: string, lang: Lang, tgId: number): Promise<stri
 // настройки не должны быть видны пользователю.
 const HAPP_CRYPTO_API = Deno.env.get("HAPP_CRYPTO_API") ||
   "https://crypto.happ.su/api-v2.php";
-const HAPP_LINK_TTL_MS = 6 * 60 * 60 * 1000;
-const happLinks = new Map<string, { link: string; at: number }>();
 
+// Не кешируем: зашифрованная ссылка может нести снимок подписки, и после
+// смены узлов старый снимок показывает прежний список.
 async function encryptForHapp(link: string): Promise<string | null> {
-  const cached = happLinks.get(link);
-  if (cached && Date.now() - cached.at < HAPP_LINK_TTL_MS) return cached.link;
   try {
     // Сервис внешний: если он молчит, экран не должен ждать его вечно.
     const response = await fetch(HAPP_CRYPTO_API, {
@@ -180,7 +178,6 @@ async function encryptForHapp(link: string): Promise<string | null> {
     const parsed = await response.json();
     const encrypted = String(parsed?.encrypted_link || "");
     if (!encrypted.startsWith("happ://")) return null;
-    happLinks.set(link, { link: encrypted, at: Date.now() });
     return encrypted;
   } catch {
     // Не вышло — страница возьмёт обычную ссылку happ://add/… .
