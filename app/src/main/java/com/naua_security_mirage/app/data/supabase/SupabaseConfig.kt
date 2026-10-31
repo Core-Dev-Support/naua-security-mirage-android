@@ -44,12 +44,15 @@ private val fallbackAddresses: List<InetAddress> by lazy {
     listOf("8.47.69.8", "8.6.112.8").map { InetAddress.getByName(it) }
 }
 
-private val supabaseDns: Dns by lazy {
-    val dohClient = OkHttpClient.Builder()
+private val dohClient: OkHttpClient by lazy {
+    OkHttpClient.Builder()
         .connectTimeout(5, TimeUnit.SECONDS)
         .readTimeout(5, TimeUnit.SECONDS)
         .build()
-    val providers = listOf(
+}
+
+private val dohProviders: List<Dns> by lazy {
+    listOf(
         DnsOverHttps.Builder()
             .client(dohClient)
             .url("https://cloudflare-dns.com/dns-query".toHttpUrl())
@@ -67,6 +70,9 @@ private val supabaseDns: Dns by lazy {
             )
             .build()
     )
+}
+
+private val supabaseDns: Dns by lazy {
     object : Dns {
         private val nextAddress = java.util.concurrent.atomic.AtomicInteger()
 
@@ -83,7 +89,7 @@ private val supabaseDns: Dns by lazy {
                 if (system.isNotEmpty()) return system
             } catch (_: Exception) {
             }
-            for (provider in providers) {
+            for (provider in dohProviders) {
                 try {
                     val addresses = provider.lookup(hostname)
                     if (addresses.isNotEmpty()) return addresses
@@ -112,6 +118,20 @@ object SupabaseConfig {
         }
 
         return SUPABASE_ANON_KEY
+    }
+
+    // Системный DNS оператора часто отдаёт заглушку вместо заблокированного
+    // домена узла; туннель резолвит его через DoH, поэтому и проверка
+    // задержки должна идти тем же путём.
+    fun resolveHostDoh(host: String): List<InetAddress> {
+        for (provider in dohProviders) {
+            try {
+                val addresses = provider.lookup(host)
+                if (addresses.isNotEmpty()) return addresses
+            } catch (_: Exception) {
+            }
+        }
+        return emptyList()
     }
 
     val FRANCE_HOST: String get() = BuildConfig.FRANCE_HOST

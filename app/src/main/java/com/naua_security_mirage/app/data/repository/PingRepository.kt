@@ -97,7 +97,12 @@ class PingRepository {
         if (cached != null && now - cached.at < RESOLVE_TTL_MS) {
             return InetAddress.getByName(cached.ip)
         }
-        val resolved = InetAddress.getByName(key)
+        val resolved = try {
+            com.naua_security_mirage.app.data.supabase.SupabaseConfig
+                .resolveHostDoh(key).firstOrNull() ?: InetAddress.getByName(key)
+        } catch (_: Exception) {
+            null
+        } ?: return null
         val literal = resolved.hostAddress
         if (literal != null) {
             if (addressCache.size > 64) addressCache.clear()
