@@ -555,9 +555,7 @@ serve(async (req) => {
     const freeExpected = tgId ? await freeToken(tgId, secret()) : "";
     const wantFree = Boolean(freeParam) && Boolean(freeExpected) &&
       constantTimeEqual(freeParam, freeExpected);
-    // Резерв, а не третий узел в каждой подписке: пока работает хоть один
-    // платный сервер, бесплатный чужой узел в список не попадает.
-    if (INCLUDE_FREE_NODES && tgId && wantFree && links.length === 0) {
+    if (INCLUDE_FREE_NODES && tgId && wantFree) {
       const free = await fetchFreeNodes(await deviceIdFor(tgId));
       for (const link of free) {
         links.push(link);
