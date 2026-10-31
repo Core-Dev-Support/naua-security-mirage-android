@@ -134,12 +134,25 @@ Deno.test("тело подписки содержит метаданные и с
   const body = buildSubscriptionBody(
     ["vless://uuid@a:1?x=1#one", "vless://uuid@b:2?x=1#two"],
     "2026-12-31T23:59:59.000Z",
+    true,
   );
   if (!body.includes("#hide-settings: 1")) throw new Error("нет hide-settings");
-  if (!body.includes("#profile-title: NAUA Security Mirage")) throw new Error("нет заголовка");
+  if (!body.includes("#profile-title: NAUA Security Mirage\n")) throw new Error("нет заголовка");
+  if (body.includes("🛒")) throw new Error("у платного просьба о покупке");
+  if (!body.includes("#support-url: https://t.me/")) throw new Error("нет кнопки бота");
+  if (!body.includes("#profile-update-interval: 1")) throw new Error("нет часового автообновления");
   if (!body.includes("expire=")) throw new Error("нет срока подписки");
   if (!body.includes("vless://uuid@a:1")) throw new Error("потеряна первая ссылка");
   if (!body.includes("vless://uuid@b:2")) throw new Error("потеряна вторая ссылка");
+});
+
+Deno.test("у неплатного подписка — просьба купить и без ссылок", () => {
+  const body = buildSubscriptionBody([], null, false);
+  if (!body.includes("#profile-title: NAUA Security Mirage — 🛒 купите подписку в боте")) {
+    throw new Error("нет просьбы купить");
+  }
+  if (!body.includes("#support-url: https://t.me/")) throw new Error("нет кнопки бота");
+  if (body.includes("vless://")) throw new Error("у неплатного есть узел");
 });
 
 Deno.test("тело подписки без срока не содержит expire", () => {

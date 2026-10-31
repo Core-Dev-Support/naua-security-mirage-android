@@ -98,14 +98,21 @@ export async function verifySignedUser(
 }
 
 // Тело подписки для VPN-клиентов (Hiddify, Happ).
+//
+// hasPaid = false означает бесплатного пользователя: узлов в теле нет, вместо
+// них — просьба купить (заголовок профиля и кнопка поддержки).
 export function buildSubscriptionBody(
   links: string[],
   paidUntil: string | null,
+  hasPaid = true,
 ): string {
+  const botUsername = Deno.env.get("BOT_USERNAME") || "NAUA_Security_Mirage_Bot";
   const meta = [
     "#hide-settings: 1",
-    "#profile-title: NAUA Security Mirage",
-    "#profile-update-interval: 24",
+    `#profile-title: ${hasPaid ? "NAUA Security Mirage" : "NAUA Security Mirage — 🛒 купите подписку в боте"}`,
+    `#support-url: https://t.me/${botUsername}`,
+    // Час вместо суток: смена узлов и оплата доезжают сами.
+    "#profile-update-interval: 1",
   ];
   const expiry = paidUntil ? Date.parse(paidUntil) : 0;
   if (Number.isFinite(expiry) && expiry > 0) {

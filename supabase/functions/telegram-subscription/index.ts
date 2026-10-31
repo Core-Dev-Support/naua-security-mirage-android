@@ -3,7 +3,6 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.8";
 import {
   base64Url,
   buildSubscriptionBody,
-  constantTimeEqual,
   freeToken,
   parseSignedUser,
   subscriptionSignature,
@@ -30,18 +29,10 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") || "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
 const SUBSCRIPTION_SECRET = Deno.env.get("SUBSCRIPTION_SECRET") || "";
-const INCLUDE_FREE_NODES = (Deno.env.get("INCLUDE_FREE_NODES") || "true") !== "false";
-// Сколько бесплатных узлов отдавать. Внешний API обычно возвращает два сервера
-// (Server #3 и #5) с одним UUID: два адреса дают запас, если один не отвечает.
-const FREE_NODES_LIMIT = Number(Deno.env.get("FREE_NODES_LIMIT") || "2");
-const FREE_API_URL = Deno.env.get("FREE_API_URL") || "";
 
 // Названия узлов. Одно место, чтобы в клиенте не было служебных имён
-// панелей вроде «mrge_<почта>_<хэш>». Бесплатный узел не входит в обычную
-// подписку и выдаётся только по отдельной подписи.
+// панелей вроде «mrge_<почта>_<хэш>».
 import { h1EnsureNode } from "../_shared/h1panel.ts";
-
-const FREE_NAME = "Бесплатный";
 
 type PaidNodeConfig = {
   id: string;
@@ -51,8 +42,8 @@ type PaidNodeConfig = {
 };
 
 const DEFAULT_PAID_NODES: PaidNodeConfig[] = [
-  { id: "premium_france", label: "Швейцария (Платная)", configFunction: "france-config", sort: 10 },
-  { id: "premium_belarus", label: "Беларусь (Платная)", configFunction: "belarus-config", sort: 20 },
+  { id: "premium_france", label: "🇨🇭 Швейцария (Платная)", configFunction: "france-config", sort: 10 },
+  { id: "premium_belarus", label: "🇧🇾 Беларусь (Платная)", configFunction: "belarus-config", sort: 20 },
 ];
 
 // loadPaidNodes — каталог платных узлов из app_config.
@@ -288,103 +279,6 @@ function storedNodeLink(
   return { link, uuid };
 }
 
-// Бесплатные обходы внешнего API — тот же источник, что и у бота раньше.
-//
-// Внешний API отвечает медленно и иногда сбоит, поэтому две попытки с таймаутом:
-// зависший запрос не должен держать всю подписку. Если оба раза пусто —
-// отдаём подписку без free-узла, платные узлы при этом не страдают.
-async function fetchFreeNodes(deviceId: string): Promise<string[]> {
-  if (!FREE_API_URL) {
-    console.warn("FREE_API_URL is not configured, skipping free nodes");
-    return [];
-  }
-  for (let attempt = 0; attempt < 2; attempt++) {
-    try {
-      const response = await fetch(FREE_API_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "User-Agent":
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36",
-        },
-        body: JSON.stringify({ deviceId }),
-        signal: AbortSignal.timeout(10_000),
-      });
-      if (!response.ok) {
-        if (attempt === 0) {
-          await new Promise((resolve) => setTimeout(resolve, 400));
-          continue;
-        }
-        return [];
-      }
-      const root = await response.json();
-      const outbounds = Array.isArray(root?.config?.outbounds) ? root.config.outbounds : [];
-      const links: string[] = [];
-      for (const outbound of outbounds) {
-        if (links.length >= FREE_NODES_LIMIT) break;
-        const vnext = Array.isArray(outbound?.settings?.vnext) ? outbound.settings.vnext : [];
-        if (vnext.length === 0) continue;
-        const node = vnext[0];
-        const uuid = node?.users?.[0]?.id;
-        const address = node?.address;
-        const port = node?.port;
-        if (!uuid || !address || !port) continue;
-
-        const stream = outbound?.streamSettings || {};
-        const reality = stream?.realitySettings || {};
-        const xhttp = stream?.xhttpSettings || {};
-        // Порядок и набор параметров повторяют платные ссылки H1: их Happ
-        // парсит целиком, а строку провайдера выкидывает (голый vless/TCP).
-        // mode=packet-up и пустой shortId — как у провайдера: с auto сервер
-        // не работает (проверено живым xray до 204 через socks).
-        const params = new URLSearchParams();
-        params.set("type", stream?.network || "tcp");
-        params.set("security", "reality");
-        if (xhttp.path) params.set("path", xhttp.path);
-        if (xhttp.host) params.set("host", xhttp.host);
-        if (xhttp.mode) params.set("mode", xhttp.mode);
-        params.set("sni", reality.serverName || address);
-        params.set("fp", reality.fingerprint || "chrome");
-        if (reality.publicKey) params.set("pbk", reality.publicKey);
-        params.set("sid", reality.shortId ?? "");
-        params.set("spx", reality.spiderX || "/");
-        params.set("encryption", "none");
-        const label = encodeURIComponent(
-          links.length === 0 ? FREE_NAME : `${FREE_NAME} ${links.length + 1}`,
-        );
-        links.push(`vless://${uuid}@${address}:${port}?${params.toString()}#${label}`);
-      }
-      if (links.length === 0 && attempt === 0) {
-        await new Promise((resolve) => setTimeout(resolve, 400));
-        continue;
-      }
-      return links;
-    } catch {
-      if (attempt === 0) {
-        await new Promise((resolve) => setTimeout(resolve, 400));
-        continue;
-      }
-      return [];
-    }
-  }
-  return [];
-}
-
-// Детерминированный deviceId для бесплатного пула.
-//
-// salt — фиксированная версия пула, а не версия ссылки: сброс ссылки
-// не должен выдавать пользователю новый бесплатный узел у провайдера.
-async function deviceIdFor(tgId: number, salt: number): Promise<string> {
-  const hex = (await subscriptionSignature(tgId, secret(), salt)).padEnd(32, "0").slice(0, 32);
-  return [
-    hex.slice(0, 8),
-    hex.slice(8, 12),
-    `4${hex.slice(13, 16)}`,
-    `8${hex.slice(17, 20)}`,
-    hex.slice(20, 32),
-  ].join("-");
-}
-
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   if (req.method !== "GET") return json({ error: "method not allowed" }, 405);
@@ -551,66 +445,18 @@ serve(async (req) => {
       nodes.push({ host: node.id, label, uuid: resolved.uuid });
     }
 
-    // Бесплатный узел — только по ссылке с валидной подписью free. Её бот
-    // кладёт внутрь зашифрованной ссылки Happ, где конфиги не видны. В обычной
-    // подписке (Hiddify, v2rayTun) бесплатного узла нет: его адрес, UUID и
-    // PublicKey не должны быть доступны ни в одном клиенте.
-    const freeParam = url.searchParams.get("free") || "";
-    const freeExpected = tgId ? await freeToken(tgId, secret()) : "";
-    // Старые ссылки подписки пришли с ?free=1 и больше не проходят проверку
-    // токена. Оплатившему бесплатные узлы можно отдавать и без него.
-    const wantFree = (Boolean(freeParam) && Boolean(freeExpected) &&
-      constantTimeEqual(freeParam, freeExpected)) || hasPaid;
-    if (INCLUDE_FREE_NODES && tgId && wantFree) {
-      // Happ склеивает узлы с одинаковым UUID, а провайдер выдаёт один UUID
-      // на оба своих сервера. Берём по одному серверу из двух независимых
-      // пулов — так в Happ видно оба бесплатных узла.
-      const [poolA, poolB] = await Promise.all([
-        fetchFreeNodes(await deviceIdFor(tgId, 1)),
-        fetchFreeNodes(await deviceIdFor(tgId, 2)),
-      ]);
-      const picked: string[] = [];
-      const hostOf = (link: string): string => link.match(/@([^/?#]+)/)?.[1] || "";
-      const add = (link: string): boolean => {
-        const uuid = link.match(/^vless:\/\/([0-9a-fA-F-]{36})@/)?.[1] || "";
-        if (!uuid || picked.some((item) => item.includes(`vless://${uuid}@`))) return false;
-        picked.push(
-          picked.length === 0 ? link : withNodeName(link, `${FREE_NAME} ${picked.length + 1}`),
-        );
-        return true;
-      };
-      const all = [...poolA, ...poolB];
-      const first = poolA[0] || poolB[0];
-      if (first) add(first);
-      // Сначала берём узел с другим адресом (Happ склеивает и по хосту),
-      // затем — любой с другим UUID.
-      for (const link of all) {
-        if (picked.length >= 2) break;
-        if (picked.some((item) => hostOf(item) === hostOf(link))) continue;
-        add(link);
-      }
-      for (const link of all) {
-        if (picked.length >= 2) break;
-        add(link);
-      }
-      for (const [index, link] of picked.entries()) {
-        links.push(link);
-        nodes.push({
-          host: "free",
-          label: index === 0 ? FREE_NAME : `${FREE_NAME} ${index + 1}`,
-          uuid: "",
-        });
-      }
-    }
-
+    // Бесплатные узлы в подписке не выдаются: их парсер Happ всё равно не
+    // читает, а приложение получает пул провайдера само. Пришедшему из бота
+    // без платной подписки остаётся просьба купить — заголовок и кнопка ниже.
     const body = buildSubscriptionBody(
       links,
       hasPaid ? subscription?.paid_until ?? null : null,
+      hasPaid,
     );
     const encoded = base64Url(body);
 
     // Пустая подписка — нормальный случай для бесплатного пользователя:
-    // бесплатный узел в обычной ссылке не выдаётся по замыслу.
+    // в теле только заголовок с просьбой купить и кнопка бота.
     // Ошибку отдаём, только если узлы должны были быть.
     if (links.length === 0 && (hasPaid || !tgId)) {
       return json({ error: "Узлы сейчас недоступны. Попробуй позже." }, 502);
