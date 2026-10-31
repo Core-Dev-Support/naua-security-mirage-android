@@ -36,14 +36,15 @@ import { h1EnsureNode } from "../_shared/h1panel.ts";
 
 type PaidNodeConfig = {
   id: string;
+  kind: string;
   label: string;
   configFunction: string;
   sort: number;
 };
 
 const DEFAULT_PAID_NODES: PaidNodeConfig[] = [
-  { id: "premium_france", label: "🇨🇭 Швейцария (Платная)", configFunction: "france-config", sort: 10 },
-  { id: "premium_belarus", label: "🇧🇾 Беларусь (Платная)", configFunction: "belarus-config", sort: 20 },
+  { id: "premium_france", kind: "france", label: "Швейцария (Платная)", configFunction: "france-config", sort: 10 },
+  { id: "premium_belarus", kind: "belarus", label: "Беларусь (Платная)", configFunction: "belarus-config", sort: 20 },
 ];
 
 // loadPaidNodes — каталог платных узлов из app_config.
@@ -79,9 +80,11 @@ async function loadPaidNodes(): Promise<PaidNodeConfig[]> {
       if (!/^[a-z0-9][a-z0-9-]{1,63}$/.test(configFunction)) continue;
       if (nodes.some((node) => node.id === id)) continue;
       const label = String(item.label_ru || item.label_en || id).trim() || id;
+      const kind = String(item.kind || "").trim();
       const sort = Number(item.sort);
       nodes.push({
         id,
+        kind,
         label,
         configFunction,
         sort: Number.isFinite(sort) ? sort : 100,
@@ -440,7 +443,12 @@ serve(async (req) => {
         }
       }
       if (!resolved) continue;
-      const label = `NAUA Security Mirage ${node.label}`;
+      // Флаг остаётся у названия для Happ/других клиентов: в приложении его
+      // даёт то же поле, вшитых иконок больше нет. Двойной флаг не склеиваем.
+      const flag = node.kind === "belarus" ? "🇧🇾" : "🇨🇭";
+      const label = node.label.startsWith(flag)
+        ? `NAUA Security Mirage ${node.label}`
+        : `NAUA Security Mirage ${flag} ${node.label}`;
       links.push(withNodeName(resolved.link, label));
       nodes.push({ host: node.id, label, uuid: resolved.uuid });
     }
