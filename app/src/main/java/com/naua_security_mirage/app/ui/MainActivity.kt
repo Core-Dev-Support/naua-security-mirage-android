@@ -2298,9 +2298,16 @@ class MainActivity : AppCompatActivity() {
                                     }
                                     PaidNode.Kind.FRANCE -> {
                                         val manager = com.naua_security_mirage.app.data.supabase.SupabaseManager.instance
-                                        val uuid = manager.getActiveClientUuid()
-                                        val server = com.naua_security_mirage.app.data.supabase.SupabaseConfig
-                                            .getFranceServer(uuid, manager.getActiveClientFlow(uuid))
+                                        // Пингуем тот же сервер, на который реально пойдёт туннель:
+                                        // ключ из базы, а не зашитый в APK адрес (он может отставать).
+                                        val server = manager.getActiveVlessKey()?.let {
+                                            com.naua_security_mirage.app.data.model.VlessServer
+                                                .fromUri(it, paidNode.label())
+                                        } ?: run {
+                                            val uuid = manager.getActiveClientUuid()
+                                            com.naua_security_mirage.app.data.supabase.SupabaseConfig
+                                                .getFranceServer(uuid, manager.getActiveClientFlow(uuid))
+                                        }
                                         val p = pingRepository.measurePing(server, timeoutMs = 1800)
                                         if (p in 1..9998) "$p ms" else getString(R.string.ping_timeout)
                                     }
