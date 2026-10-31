@@ -757,11 +757,11 @@ class MainActivity : AppCompatActivity() {
         updateUiStyleRow()
     }
 
-    private data class PaidNodeChoice(val plan: String, val label: String, val flag: String)
+    private data class PaidNodeChoice(val plan: String, val label: String)
 
     private fun paidNodeChoices(): List<PaidNodeChoice> {
         return AppConfigRepository.nodes().map { node ->
-            PaidNodeChoice(node.id, node.label(), node.flag)
+            PaidNodeChoice(node.id, node.label())
         }
     }
 
@@ -801,23 +801,6 @@ class MainActivity : AppCompatActivity() {
             return
         }
         commit()
-    }
-
-    private fun paidNodeFlagRes(plan: String): Int {
-        val flag = AppConfigRepository.node(plan)?.flag ?: when (plan) {
-            SettingsRepository.PLAN_PREMIUM_BELARUS -> "belarus"
-            SettingsRepository.PLAN_PREMIUM_FRANCE -> "switzerland"
-            else -> "generic"
-        }
-        return flagDrawable(flag)
-    }
-
-    private fun flagDrawable(flag: String): Int = when (flag.lowercase()) {
-        "switzerland" -> R.drawable.ic_switzerland
-        "france" -> R.drawable.ic_france
-        "belarus" -> R.drawable.ic_belarus
-        "finland" -> R.drawable.ic_finland
-        else -> R.drawable.ic_node_generic
     }
 
     private class PlanPickerStyle(
@@ -920,14 +903,6 @@ class MainActivity : AppCompatActivity() {
                     requestPaidPlan(choice.plan)
                 }
             }
-            row.addView(ImageView(this).apply {
-                setImageResource(flagDrawable(choice.flag))
-                layoutParams = LinearLayout.LayoutParams(
-                    (20f * density).toInt(),
-                    (20f * density).toInt()
-                )
-                contentDescription = null
-            })
             row.addView(TextView(this).apply {
                 text = choice.label
                 setTextColor(if (selected) style.accent else style.titleColor)
@@ -936,9 +911,7 @@ class MainActivity : AppCompatActivity() {
                 layoutParams = LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.WRAP_CONTENT,
                     LinearLayout.LayoutParams.WRAP_CONTENT
-                ).apply {
-                    marginStart = (10f * density).toInt()
-                }
+                )
             })
             if (selected) {
                 row.addView(TextView(this).apply {
@@ -1228,16 +1201,9 @@ class MainActivity : AppCompatActivity() {
         val chevron = binding.containerServerPlan.btnPaidServerChevron
         val paidTarget = if (isPaid) plan else paidNodePlanForLabel()
         label.setText(paidNodeLabel(paidTarget))
-        val flag = binding.containerServerPlan.ivPaidNodeFlag
-        flag.visibility = View.VISIBLE
-        flag.setImageResource(paidNodeFlagRes(paidTarget))
-        val flagDensity = resources.displayMetrics.density
-        label.setPaddingRelative(
-            (2f * flagDensity).toInt(),
-            label.paddingTop,
-            label.paddingEnd,
-            label.paddingBottom
-        )
+        // Флаг рисует само название (эмодзи идёт с сервера): отдельная иконка
+        // дублировала его рядом.
+        binding.containerServerPlan.ivPaidNodeFlag.visibility = View.GONE
         label.setTextColor(if (isPaid) Color.WHITE else inactiveText)
         chevron.visibility = View.VISIBLE
         chevron.imageTintList = ColorStateList.valueOf(
@@ -3811,10 +3777,6 @@ class MainActivity : AppCompatActivity() {
                     setBackgroundResource(out.resourceId)
                 }
             }
-            val flag = com.naua_security_mirage.app.ui.view.AuroraFlagView(this).apply {
-                code = if (choice.plan == SettingsRepository.PLAN_PREMIUM_BELARUS) "by" else "ch"
-                layoutParams = LinearLayout.LayoutParams(gdp(26), gdp(18))
-            }
             val name = TextView(this).apply {
                 text = choice.label
                 textSize = 15f
@@ -3824,7 +3786,7 @@ class MainActivity : AppCompatActivity() {
                     0,
                     ViewGroup.LayoutParams.WRAP_CONTENT,
                     1f
-                ).apply { marginStart = gdp(12) }
+                ).apply { marginStart = gdp(4) }
             }
             val check = ImageView(this).apply {
                 setImageResource(R.drawable.au_check)
@@ -3832,7 +3794,6 @@ class MainActivity : AppCompatActivity() {
                 visibility = View.INVISIBLE
                 layoutParams = LinearLayout.LayoutParams(gdp(20), gdp(20))
             }
-            row.addView(flag)
             row.addView(name)
             row.addView(check)
             row.setOnClickListener {
@@ -3864,8 +3825,8 @@ class MainActivity : AppCompatActivity() {
         }
         auroraMenuRows.forEach { row ->
             val selected = row.tag == selectedPlan
-            val name = row.getChildAt(1) as? TextView ?: return@forEach
-            val check = row.getChildAt(2) as? ImageView ?: return@forEach
+            val name = row.getChildAt(0) as? TextView ?: return@forEach
+            val check = row.getChildAt(1) as? ImageView ?: return@forEach
             name.setTextColor(
                 ContextCompat.getColor(this, if (selected) R.color.au_accent_text else R.color.au_fg)
             )
