@@ -11,12 +11,12 @@ import {
   isAcceptedTransfer,
   isAllowedNotificationType,
   isRubleCurrency,
-  makeVlessUrl,
   nextPaidUntil,
   parsePaymentLabel,
   planDaysForPayment,
   type Plan,
 } from "./contract.ts";
+import { h1EnsureNode } from "../_shared/h1panel.ts";
 
 type SubscriptionRow = {
   user_id: string;
@@ -30,51 +30,9 @@ type SubscriptionRow = {
   operation_id: string | null;
 };
 
-type ThreeXClient = {
-  id: string;
-  email?: string;
-  flow?: string;
-  enable?: boolean;
-  expiryTime?: number;
-};
-
-const THREE_X_UI_BASE_URL = Deno.env.get("THREE_X_UI_BASE_URL") || "";
-const THREE_X_UI_USER = Deno.env.get("THREE_X_UI_USERNAME") || Deno.env.get("THREE_X_UI_USER") || "";
-const THREE_X_UI_PASS = Deno.env.get("THREE_X_UI_PASSWORD") || Deno.env.get("THREE_X_UI_PASS") || "";
-const THREE_X_UI_INBOUND_ID = Number(Deno.env.get("THREE_X_UI_INBOUND_ID") || "2");
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
 const YOOMONEY_SECRET = Deno.env.get("YOOMONEY_SECRET") || "";
-const FRANCE_HOST = Deno.env.get("FRANCE_HOST") || "";
-const FRANCE_PORT = Deno.env.get("FRANCE_PORT") || "443";
-const FRANCE_PBK = Deno.env.get("FRANCE_PBK") || "";
-const FRANCE_SNI = Deno.env.get("FRANCE_SNI") || "";
-const FRANCE_SID = Deno.env.get("FRANCE_SID") || "";
-const FRANCE_SPX = Deno.env.get("FRANCE_SPX") || "/";
-const FRANCE_FINGERPRINT = Deno.env.get("FRANCE_FINGERPRINT") || "chrome";
-
-const DEFAULT_CLIENT_FLOW = Deno.env.get("THREE_X_UI_DEFAULT_FLOW") || "";
-
-function assert3xSuccess(response: Response, body: string, operation: string, allowEmpty = false): void {
-  if (!response.ok) {
-    throw new Error(`${operation} failed with HTTP ${response.status}`);
-  }
-  if (!body) {
-    if (allowEmpty) return;
-    throw new Error(`${operation} returned an empty response`);
-  }
-  try {
-    const parsed = JSON.parse(body);
-    if (!parsed || parsed.success !== true) {
-      throw new Error(`${operation} was rejected by 3X-UI`);
-    }
-  } catch (error) {
-    if (error instanceof SyntaxError) {
-      throw new Error(`${operation} returned invalid JSON`);
-    }
-    throw error;
-  }
-}
 
 // Verifies the "sign" parameter: HMAC-SHA256, lowercase hex, over the alphabetically ordered
 // percent-encoded parameters other than "sign" itself, keyed with the secret from the merchant's
@@ -135,177 +93,11 @@ async function verifyYooMoneySign(entries: Array<[string, string]>): Promise<voi
   throw new Error("YooMoney signature is missing");
 }
 
-function vlessUrl(uuid: string, flow: string): string {
-  return makeVlessUrl(
-    uuid,
-    flow,
-    FRANCE_HOST,
-    FRANCE_PORT,
-    FRANCE_PBK,
-    FRANCE_FINGERPRINT,
-    FRANCE_SNI,
-    FRANCE_SID,
-    FRANCE_SPX,
-  );
-}
-
-async function getInboundClient(cookie: string, userId: string, email: string, clientUuid: string | null): Promise<ThreeXClient | null> {
-  const response = await fetch(`${THREE_X_UI_BASE_URL}/panel/api/inbounds/get/${THREE_X_UI_INBOUND_ID}`, {
-    headers: { Cookie: cookie },
-  });
-  const body = await response.text();
-  assert3xSuccess(response, body, "3X-UI inbound lookup");
-  const root = JSON.parse(body);
-  const rawSettings = root.obj?.settings;
-  const settings = typeof rawSettings === "string"
-    ? JSON.parse(rawSettings)
-    : (rawSettings || {});
-  const clients: ThreeXClient[] = Array.isArray(settings.clients) ? settings.clients : [];
-  const now = Date.now();
-  const matching = clients.filter((client) => {
-    const id = (client.id || "").toLowerCase();
-    const clientEmail = (client.email || "").toLowerCase();
-    const matches = (clientUuid && id === clientUuid.toLowerCase()) ||
-      (clientEmail && clientEmail === email.toLowerCase()) ||
-      clientEmail === `user_${userId.substring(0, 8).toLowerCase()}@mirage.app`;
-    const expiry = Number(client.expiryTime || 0);
-    return matches && client.enable !== false && (expiry === 0 || expiry > now);
-  });
-  matching.sort((left, right) => {
-    const leftExact = Boolean(clientUuid && (left.id || "").toLowerCase() === clientUuid.toLowerCase());
-    const rightExact = Boolean(clientUuid && (right.id || "").toLowerCase() === clientUuid.toLowerCase());
-    if (leftExact !== rightExact) return leftExact ? -1 : 1;
-    return Number(right.expiryTime || 0) - Number(left.expiryTime || 0);
-  });
-  return matching[0] || null;
-}
-
-type InboundObj = Record<string, unknown> & { settings?: unknown };
-
-async function readInboundObj(cookie: string): Promise<InboundObj> {
-  const response = await fetch(`${THREE_X_UI_BASE_URL}/panel/api/inbounds/get/${THREE_X_UI_INBOUND_ID}`, {
-    headers: { Cookie: cookie },
-  });
-  const body = await response.text();
-  assert3xSuccess(response, body, "3X-UI inbound lookup");
-  const obj = JSON.parse(body)?.obj;
-  if (!obj || typeof obj !== "object") throw new Error("3X-UI inbound response has no object");
-  return obj as InboundObj;
-}
-
-function parseSettings(raw: unknown): Record<string, unknown> {
-  if (typeof raw === "string") {
-    try {
-      return JSON.parse(raw) as Record<string, unknown>;
-    } catch {
-      return {};
-    }
-  }
-  return raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
-}
-
-async function renew3xClient(cookie: string, uuid: string, expiryMs: number): Promise<ThreeXClient> {
-  const obj = await readInboundObj(cookie);
-  const settings = parseSettings(obj.settings);
-  const clients: ThreeXClient[] = Array.isArray(settings.clients) ? settings.clients : [];
-  const target = clients.find((client) => (client.id || "").toLowerCase() === uuid.toLowerCase());
-  if (!target) throw new Error("3X-UI client is no longer present in the inbound");
-  target.expiryTime = expiryMs;
-  target.enable = true;
-
-  target.flow = "";
-  settings.clients = clients;
-  obj.settings = JSON.stringify(settings);
-
-  const response = await fetch(`${THREE_X_UI_BASE_URL}/panel/api/inbounds/update/${THREE_X_UI_INBOUND_ID}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Cookie: cookie },
-    body: JSON.stringify(obj),
-  });
-  const body = await response.text();
-  assert3xSuccess(response, body, "3X-UI inbound update");
-
-  const verifiedSettings = parseSettings((await readInboundObj(cookie)).settings);
-  const verified = (Array.isArray(verifiedSettings.clients) ? verifiedSettings.clients : [])
-    .find((client) => (client.id || "").toLowerCase() === uuid.toLowerCase());
-  if (!verified || Number(verified.expiryTime || 0) < expiryMs) {
-    throw new Error("3X-UI did not apply the new client expiry");
-  }
-  return verified;
-}
-
-async function loginTo3xUi(): Promise<string> {
-  if (!THREE_X_UI_BASE_URL || !THREE_X_UI_USER || !THREE_X_UI_PASS) {
-    throw new Error("3X-UI configuration is incomplete");
-  }
-  const body = new URLSearchParams({ username: THREE_X_UI_USER, password: THREE_X_UI_PASS });
-  const response = await fetch(`${THREE_X_UI_BASE_URL}/login`, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body,
-  });
-  const responseBody = await response.text();
-  assert3xSuccess(response, responseBody, "3X-UI login");
-  const cookie = response.headers.get("set-cookie")?.split(";")[0] || "";
-  if (!cookie) throw new Error("3X-UI login did not return a session cookie");
-  return cookie;
-}
-
-async function ensure3xClient(
-  cookie: string,
-  userId: string,
-  email: string,
-  existing: SubscriptionRow | null,
-  expiryMs: number,
-): Promise<{ uuid: string; flow: string }> {
-  const existingClient = await getInboundClient(
-    cookie,
-    userId,
-    email,
-    existing?.client_uuid || null,
-  );
-  if (existingClient) {
-
-    const renewed = await renew3xClient(cookie, existingClient.id, expiryMs);
-    return { uuid: renewed.id, flow: "" };
-  }
-
-  const uuid = crypto.randomUUID();
-  const flow = DEFAULT_CLIENT_FLOW;
-  const client = {
-    id: uuid,
-
-    email: `user_${userId.substring(0, 8).toLowerCase()}@mirage.app`,
-    flow,
-    limitIp: 0,
-    totalGB: 0,
-    expiryTime: expiryMs,
-    enable: true,
-    tgId: "",
-    subId: uuid.replace(/-/g, "").slice(0, 16),
-  };
-  const settings = JSON.stringify({ clients: [client] });
-  const response = await fetch(`${THREE_X_UI_BASE_URL}/panel/api/inbounds/addClient`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Cookie: cookie },
-    body: JSON.stringify({ id: THREE_X_UI_INBOUND_ID, settings }),
-  });
-  const body = await response.text();
-
-  assert3xSuccess(response, body, "3X-UI addClient", true);
-  const verified = await getInboundClient(cookie, userId, email, uuid);
-  const verifiedExpiry = Number(verified?.expiryTime || 0);
-  if (!verified || verified.id.toLowerCase() !== uuid.toLowerCase() || (verifiedExpiry !== 0 && verifiedExpiry < expiryMs)) {
-    throw new Error("3X-UI addClient was not verified in the inbound");
-  }
-  return { uuid: verified.id, flow: verified.flow ?? flow };
-}
-
 // creditReferralBonus — начисляет пригласившему бонус за первую оплату реферала.
 //
 // Платёж пришёл -> user_id плательщика -> его telegram id -> кто его пригласил
-// -> аккаунт пригласившего. Продлеваем его подписку и узел в 3X-UI, иначе панель
-// отрежет клиента раньше, чем закончится подписка в базе.
+// -> аккаунт пригласившего. Продлеваем его подписку и узел в панели H1, иначе
+// панель отрежет клиента раньше, чем закончится подписка в базе.
 async function creditReferralBonus(
   payerUserId: string,
   payerOperationId: string,
@@ -374,19 +166,15 @@ async function creditReferralBonus(
     const expiryMs = Date.parse(paidUntil);
     if (!Number.isFinite(expiryMs)) return;
 
-    // Узел в 3X-UI продлеваем тем же сроком.
+    // Узел в панели H1 продлеваем тем же сроком.
     try {
-      const cookie = await loginTo3xUi();
-      await ensure3xClient(
-        cookie,
-        referrer.user_id,
+      await h1EnsureNode(
         referrer.email ?? refSub?.email ?? "",
-        refSub,
-        expiryMs,
+        paidUntil,
       );
     } catch (error) {
       console.error(
-        "3X-UI referral renew failed:",
+        "H1 referral renew failed:",
         error instanceof Error ? error.message : error,
       );
     }
@@ -665,9 +453,8 @@ serve(async (req) => {
       const expiryMs = Date.parse(paidUntil);
       if (!Number.isFinite(expiryMs)) throw new Error("Invalid subscription expiry");
 
-      const cookie = await loginTo3xUi();
-      const client = await ensure3xClient(cookie, userId, email, existing, expiryMs);
-      const key = vlessUrl(client.uuid, client.flow);
+      const node = await h1EnsureNode(email, paidUntil);
+      const key = node.link;
       const { error: upsertError } = await supabase
         .from("subscriptions")
         .upsert({
@@ -677,8 +464,8 @@ serve(async (req) => {
           plan: "premium",
           paid_until: paidUntil,
           vless_key: key,
-          client_uuid: client.uuid,
-          flow: client.flow,
+          client_uuid: node.uuid,
+          flow: "",
           operation_id: operationId,
           updated_at: new Date().toISOString(),
         }, { onConflict: "user_id" });

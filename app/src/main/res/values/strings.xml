@@ -165,7 +165,7 @@
     <string name="sub_option_price_discount">%1$d рублей (%2$s)</string>
     <string name="sub_option_cancel">Отмена</string>
     <string name="sub_trial_button">Попробовать 1 день бесплатно</string>
-    <string name="sub_trial_desc">Один бесплатный день платной подписки: Франция и Беларусь — чтобы попробовать без оплаты.</string>
+    <string name="sub_trial_desc">Один бесплатный день платной подписки: Швейцария и Беларусь — чтобы попробовать без оплаты.</string>
     <string name="sub_trial_granted">Пробный день выдан: платный узел доступен до %1$s</string>
     <string name="sub_trial_used">Пробный день уже использован</string>
     <string name="sub_trial_failed">Не удалось выдать пробный день: %1$s</string>
@@ -201,9 +201,9 @@
     <string name="node_status_title">Состояние платного узла</string>
     <string name="node_status_checking">Проверяем…</string>
     <string name="node_status_refresh">Обновить</string>
-    <string name="node_status_up">Франция отвечает · ядро %1$s</string>
-    <string name="node_status_down">Франция не отвечает с %1$s</string>
-    <string name="node_status_wedged">Франция поднята, но трафик не идёт с %1$s</string>
+    <string name="node_status_up">Швейцария отвечает · ядро %1$s</string>
+    <string name="node_status_down">Швейцария не отвечает с %1$s</string>
+    <string name="node_status_wedged">Швейцария поднята, но трафик не идёт с %1$s</string>
     <string name="node_status_unknown">Нет данных о состоянии</string>
     <string name="node_status_fetch_failed">Не удалось получить состояние</string>
     <string name="node_status_no_subscription">Требуется активная подписка</string>
@@ -229,11 +229,11 @@
     <string name="node_alert_channel_name">Состояние узлов</string>
     <string name="node_alert_channel_description">Уведомления %1$s о недоступности платного узла</string>
     <string name="node_alert_down_title">Платный узел недоступен</string>
-    <string name="node_alert_down_body">Франция не отвечает с %1$s. Откройте настройки, чтобы проверить состояние.</string>
+    <string name="node_alert_down_body">Швейцария не отвечает с %1$s. Откройте настройки, чтобы проверить состояние.</string>
     <string name="node_alert_wedged_title">Платный узел не передаёт трафик</string>
-    <string name="node_alert_wedged_body">Франция поднята, но трафик не идёт с %1$s. Откройте настройки, чтобы проверить состояние.</string>
+    <string name="node_alert_wedged_body">Швейцария поднята, но трафик не идёт с %1$s. Откройте настройки, чтобы проверить состояние.</string>
     <string name="node_alert_recovered_title">Платный узел снова отвечает</string>
-    <string name="node_alert_recovered_body">Франция отвечает · ядро %1$s</string>
+    <string name="node_alert_recovered_body">Швейцария отвечает · ядро %1$s</string>
     <string name="subscription_channel_name">Подписка</string>
     <string name="subscription_channel_description">Напоминания %1$s об окончании подписки</string>
     <string name="subscription_expiring_days_title">Подписка истекает через %1$d дн.</string>
@@ -373,11 +373,11 @@
     <string name="doc_developer">Разработчик: Core Dev Support</string>
     <string name="doc_open_original">Открыть оригинал документа в Google Docs ↗</string>
     <string name="action_got_it">Понятно</string>
-    <string name="sub_premium_title">Платная подписка: Франция 🇫🇷 и Беларусь 🇧🇾</string>
+    <string name="sub_premium_title">Платная подписка: Швейцария 🇨🇭 и Беларусь 🇧🇾</string>
     <string name="sub_premium_desc">Выделенные серверы без ограничений</string>
     <string name="sub_plan_30days">От 30 дней доступа</string>
     <string name="sub_hit_badge">ХИТ</string>
-    <string name="sub_features">• Выделенный сервер во Франции (Париж)\n• Выделенный сервер в Беларуси\n• Максимальная скорость до 1 Гбит/с без лимитов\n• Протокол Reality против любых блокировок\n• Моментальная онлайн-активация</string>
+    <string name="sub_features">• Выделенный сервер в Швейцарии\n• Выделенный сервер в Беларуси\n• Максимальная скорость до 1 Гбит/с без лимитов\n• Протокол Reality против любых блокировок\n• Моментальная онлайн-активация</string>
     <string name="sub_pay_button">Выбрать срок и оплатить</string>
     <string name="sub_check_payment">Проверить оплату</string>
     <string name="update_badge_sample">Версия 1.5.0</string>
@@ -392,7 +392,7 @@
     <string name="site_direct">Прямое подключение</string>
     <string name="site_via_tunnel">Через туннель (по умолчанию)</string>
     <string name="plan_free">⚡ Бесплатный</string>
-    <string name="plan_france">Франция (Платная)</string>
+    <string name="plan_france">Швейцария (Платная)</string>
 
     <string name="toast_vpn_denied">Разрешение на VPN не получено</string>
     <string name="toast_storage_denied">Разрешение на запись файлов не предоставлено</string>
@@ -548,8 +548,8 @@
   <string name="dock_faq">FAQ</string>
   <string name="dock_version">Версия</string>
   <string name="dock_version_current">Версия %1$s (%2$d)</string>
-  <string name="faq_q1">Чем отличаются Франция и Беларусь?</string>
-  <string name="faq_a1">Оба узла входят в платную подписку. Франция лучше для европейских сервисов, Беларусь — минимальный пинг для СНГ.</string>
+  <string name="faq_q1">Чем отличаются Швейцария и Беларусь?</string>
+  <string name="faq_a1">Оба узла входят в платную подписку. Швейцария лучше для европейских сервисов, Беларусь — минимальный пинг для СНГ.</string>
   <string name="faq_q2">Как работают сайты .ru напрямую?</string>
   <string name="faq_a2">Российские сайты и банки идут напрямую, остальной трафик — через защищённый туннель.</string>
   <string name="faq_q3">Что такое Kill Switch?</string>
@@ -593,7 +593,7 @@
   <string name="au_faq_1_q">Как подключиться?</string>
   <string name="au_faq_1_a">Нажми большую кнопку на главном экране. Mirage сам выбирает сервер. Выбор локации не нужен.</string>
   <string name="au_faq_2_q">Чем отличаются бесплатный и платный узлы?</string>
-  <string name="au_faq_2_a">Бесплатный узел подходит для базовых задач. Платный узел во Франции доступен по подписке. Переключай их под кнопкой подключения.</string>
+  <string name="au_faq_2_a">Бесплатный узел подходит для базовых задач. Платный узел в Швейцарии доступен по подписке. Переключай их под кнопкой подключения.</string>
   <string name="au_faq_3_q">Что делает раздельное туннелирование?</string>
   <string name="au_faq_3_a">Сайты зоны .ru работают напрямую на максимальной скорости. Остальные сайты идут через защищённый туннель. Исключения для приложений и сайтов настраиваются в разделе «Настройки».</string>
   <string name="au_faq_4_q">Что такое Kill Switch?</string>

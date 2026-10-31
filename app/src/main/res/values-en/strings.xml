@@ -165,7 +165,7 @@
     <string name="sub_option_price_discount">%1$d rubles (%2$s)</string>
     <string name="sub_option_cancel">Cancel</string>
     <string name="sub_trial_button">Try 1 day for free</string>
-    <string name="sub_trial_desc">One free day of the paid subscription: France and Belarus — to try it without paying.</string>
+    <string name="sub_trial_desc">One free day of the paid subscription: Switzerland and Belarus — to try it without paying.</string>
     <string name="sub_trial_granted">Trial granted: the paid node is available until %1$s</string>
     <string name="sub_trial_used">The trial has already been used</string>
     <string name="sub_trial_failed">Could not grant the trial: %1$s</string>
@@ -201,9 +201,9 @@
     <string name="node_status_title">Paid node status</string>
     <string name="node_status_checking">Checking…</string>
     <string name="node_status_refresh">Refresh</string>
-    <string name="node_status_up">France responds · core %1$s</string>
-    <string name="node_status_down">France is silent since %1$s</string>
-    <string name="node_status_wedged">France is up but no traffic flows since %1$s</string>
+    <string name="node_status_up">Switzerland responds · core %1$s</string>
+    <string name="node_status_down">Switzerland is silent since %1$s</string>
+    <string name="node_status_wedged">Switzerland is up but no traffic flows since %1$s</string>
     <string name="node_status_unknown">No status data</string>
     <string name="node_status_fetch_failed">Could not fetch the status</string>
     <string name="node_status_no_subscription">An active subscription is required</string>
@@ -229,11 +229,11 @@
     <string name="node_alert_channel_name">Node status</string>
     <string name="node_alert_channel_description">%1$s notifications about paid node outages</string>
     <string name="node_alert_down_title">Paid node is unreachable</string>
-    <string name="node_alert_down_body">France is silent since %1$s. Open the settings to check the status.</string>
+    <string name="node_alert_down_body">Switzerland is silent since %1$s. Open the settings to check the status.</string>
     <string name="node_alert_wedged_title">Paid node carries no traffic</string>
-    <string name="node_alert_wedged_body">France is up but no traffic flows since %1$s. Open the settings to check the status.</string>
+    <string name="node_alert_wedged_body">Switzerland is up but no traffic flows since %1$s. Open the settings to check the status.</string>
     <string name="node_alert_recovered_title">Paid node responds again</string>
-    <string name="node_alert_recovered_body">France responds · core %1$s</string>
+    <string name="node_alert_recovered_body">Switzerland responds · core %1$s</string>
     <string name="subscription_channel_name">Subscription</string>
     <string name="subscription_channel_description">%1$s reminders about the subscription ending</string>
     <string name="subscription_expiring_days_title">Subscription expires in %1$d days</string>
@@ -373,11 +373,11 @@
     <string name="doc_developer">Developer: Core Dev Support</string>
     <string name="doc_open_original">Open the original document in Google Docs ↗</string>
     <string name="action_got_it">Got it</string>
-    <string name="sub_premium_title">Paid subscription: France 🇫🇷 and Belarus 🇧🇾</string>
+    <string name="sub_premium_title">Paid subscription: Switzerland 🇨🇭 and Belarus 🇧🇾</string>
     <string name="sub_premium_desc">Dedicated servers with no limits</string>
     <string name="sub_plan_30days">Access from 30 days</string>
     <string name="sub_hit_badge">HIT</string>
-    <string name="sub_features">• Dedicated server in France (Paris)\n• Dedicated server in Belarus\n• Top speed up to 1 Gbps with no caps\n• Reality protocol against any blocking\n• Instant online activation</string>
+    <string name="sub_features">• Dedicated server in Switzerland\n• Dedicated server in Belarus\n• Top speed up to 1 Gbps with no caps\n• Reality protocol against any blocking\n• Instant online activation</string>
     <string name="sub_pay_button">Choose a term and pay</string>
     <string name="sub_check_payment">Check the payment</string>
     <string name="update_badge_sample">Version 1.5.0</string>
@@ -392,7 +392,7 @@
     <string name="site_direct">Direct connection</string>
     <string name="site_via_tunnel">Via tunnel (default)</string>
     <string name="plan_free">⚡ Free</string>
-    <string name="plan_france">France (Paid)</string>
+    <string name="plan_france">Switzerland (Paid)</string>
 
     <string name="toast_vpn_denied">VPN permission not granted</string>
     <string name="toast_storage_denied">File write permission not granted</string>
@@ -548,8 +548,8 @@
   <string name="dock_faq">FAQ</string>
   <string name="dock_version">Version</string>
   <string name="dock_version_current">Version %1$s (%2$d)</string>
-  <string name="faq_q1">What is the difference between France and Belarus?</string>
-  <string name="faq_a1">Both nodes are part of the paid subscription. France works best for European services, while Belarus gives the lowest ping for CIS resources.</string>
+  <string name="faq_q1">What is the difference between Switzerland and Belarus?</string>
+  <string name="faq_a1">Both nodes are part of the paid subscription. Switzerland works best for European services, while Belarus gives the lowest ping for CIS resources.</string>
   <string name="faq_q2">How does direct .ru routing work?</string>
   <string name="faq_a2">Russian sites and banks go directly, while the rest of the traffic passes through the encrypted tunnel.</string>
   <string name="faq_q3">What is Kill Switch?</string>
@@ -593,7 +593,7 @@
   <string name="au_faq_1_q">How do I connect?</string>
   <string name="au_faq_1_a">Tap the big button on the home screen. Mirage picks the server for you — no location choice needed.</string>
   <string name="au_faq_2_q">How do free and paid nodes differ?</string>
-  <string name="au_faq_2_a">The free node is fine for basic tasks. The France node is available by subscription. Switch between them under the connect button.</string>
+  <string name="au_faq_2_a">The free node is fine for basic tasks. The Switzerland node is available by subscription. Switch between them under the connect button.</string>
   <string name="au_faq_3_q">What does split tunneling do?</string>
   <string name="au_faq_3_a">Sites in the .ru zone go directly at full speed. The rest pass through the encrypted tunnel. App and site exceptions are configured in Settings.</string>
   <string name="au_faq_4_q">What is Kill Switch?</string>

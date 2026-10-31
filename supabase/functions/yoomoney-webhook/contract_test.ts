@@ -4,7 +4,6 @@ import {
   isAllowedNotificationType,
   isExpectedAmount,
   isRubleCurrency,
-  makeVlessUrl,
   nextPaidUntil,
   parseDate,
   parsePaymentLabel,
@@ -117,25 +116,6 @@ Deno.test("the tariff table matches the bot plans", () => {
     assertEquals(plan.amountRub, expected[index][0]);
     assertEquals(plan.days, expected[index][1]);
   });
-});
-
-Deno.test("VLESS URL keeps Reality and flow parameters", () => {
-  const link = makeVlessUrl(
-    "11111111-1111-1111-1111-111111111111",
-    "xtls-rprx-vision",
-    "example.org",
-    "443",
-    "public-key",
-    "chrome",
-    "cdn.example",
-    "abcd",
-    "/",
-  );
-  assertStringIncludes(link, "type=tcp");
-  assertStringIncludes(link, "security=reality");
-  assertStringIncludes(link, "sni=cdn.example");
-  assertStringIncludes(link, "sid=abcd");
-  assertStringIncludes(link, "flow=xtls-rprx-vision");
 });
 
 Deno.test("the label carries the payer and the chosen term", () => {

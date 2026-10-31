@@ -806,13 +806,14 @@ class MainActivity : AppCompatActivity() {
     private fun paidNodeFlagRes(plan: String): Int {
         val flag = AppConfigRepository.node(plan)?.flag ?: when (plan) {
             SettingsRepository.PLAN_PREMIUM_BELARUS -> "belarus"
-            SettingsRepository.PLAN_PREMIUM_FRANCE -> "france"
+            SettingsRepository.PLAN_PREMIUM_FRANCE -> "switzerland"
             else -> "generic"
         }
         return flagDrawable(flag)
     }
 
     private fun flagDrawable(flag: String): Int = when (flag.lowercase()) {
+        "switzerland" -> R.drawable.ic_switzerland
         "france" -> R.drawable.ic_france
         "belarus" -> R.drawable.ic_belarus
         "finland" -> R.drawable.ic_finland
@@ -3587,7 +3588,7 @@ class MainActivity : AppCompatActivity() {
         val paidTarget = (if (paid) plan else paidNodePlanForLabel())
             .ifBlank { SettingsRepository.PLAN_PREMIUM_FRANCE }
         shell.auPaidName.text = paidNodeLabel(paidTarget)
-        shell.auPaidFlagView.code = if (paidTarget == SettingsRepository.PLAN_PREMIUM_BELARUS) "by" else "fr"
+        shell.auPaidFlagView.code = if (paidTarget == SettingsRepository.PLAN_PREMIUM_BELARUS) "by" else "ch"
         shell.auFreeName.setTextColor(
             ContextCompat.getColor(this, if (!paid) R.color.au_fg else R.color.au_fg_2)
         )
@@ -3804,7 +3805,7 @@ class MainActivity : AppCompatActivity() {
                 }
             }
             val flag = com.naua_security_mirage.app.ui.view.AuroraFlagView(this).apply {
-                code = if (choice.plan == SettingsRepository.PLAN_PREMIUM_BELARUS) "by" else "fr"
+                code = if (choice.plan == SettingsRepository.PLAN_PREMIUM_BELARUS) "by" else "ch"
                 layoutParams = LinearLayout.LayoutParams(gdp(26), gdp(18))
             }
             val name = TextView(this).apply {

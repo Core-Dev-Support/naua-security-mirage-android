@@ -60,6 +60,9 @@ android {
         buildConfigField("String", "FRANCE_SNI", "\"${getSecret("FRANCE_SNI")}\"")
         buildConfigField("String", "FRANCE_SID", "\"${getSecret("FRANCE_SID")}\"")
         buildConfigField("String", "FRANCE_SPX", "\"${getSecret("FRANCE_SPX", "/")}\"")
+        buildConfigField("String", "FRANCE_PATH", "\"${getSecret("FRANCE_PATH", "/api/v1/collect")}\"")
+        buildConfigField("String", "FRANCE_HOST_HEADER", "\"${getSecret("FRANCE_HOST_HEADER", "cloudflare.com")}\"")
+        buildConfigField("String", "FRANCE_MODE", "\"${getSecret("FRANCE_MODE", "auto")}\"")
         buildConfigField("String", "FRANCE_FINGERPRINT", "\"${getSecret("FRANCE_FINGERPRINT", "chrome")}\"")
 
         buildConfigField(

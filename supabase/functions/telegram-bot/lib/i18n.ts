@@ -1,4 +1,4 @@
-// Языки и переводы бота.
+﻿// Языки и переводы бота.
 //
 // Пользователь выбирает язык один раз (при первом входе), дальше выбор
 // хранится в bot_users.lang. Функция t() умеет подстановку {placeholders}
@@ -49,7 +49,7 @@ const ru: Record<string, string> = {
     "<b>Что это такое?</b>\n\n" +
     "<b>Личный VPN: приватный доступ к YouTube, играм и соцсетям — без " +
     "лагов, без блокировок и без слежки за тем, что ты смотришь.</b>\n\n" +
-    "<b>🇫🇷 Франция и 🇧🇾 Беларусь в одной подписке. Безлимитный трафик. " +
+    "<b>🇨🇭 Швейцария и 🇧🇾 Беларусь в одной подписке. Безлимитный трафик. " +
     "Одна подписка — и для бота, и для приложения.</b>",
   "welcome.hint":
     "🔐 Войди через Google — это привяжет подписку к этому Telegram. " +
@@ -60,7 +60,7 @@ const ru: Record<string, string> = {
   "menu.greeting": "👋 <b>Привет{comma} {name}!</b> ✌️",
   "menu.greeting.plain": "👋 <b>Привет!</b> ✌️",
   "menu.body":
-    "🔗 Два узла — Франция и Беларусь. Одна подписка на бота и приложение.\n\n" +
+    "🔗 Два узла — Швейцария и Беларусь. Одна подписка на бота и приложение.\n\n" +
     "🆔 Твой ID: <code>{id}</code>\n\n{status}",
   "menu.choose": "Выбери нужное действие:",
   "menu.status.none": "💳 Статус: 🔴 Нет подписки",
@@ -115,7 +115,7 @@ const ru: Record<string, string> = {
   "google.start":
     "🔐 <b>Вход через Google</b>\n\n" +
     "<blockquote><b>Что это:</b> вход через Google-аккаунт. Он связывает бота и приложение: один вход — и подписка с узлами везде.</blockquote>\n\n" +
-    "Нажми «Войти в Google-аккаунт» — и подписка с узлами (Франция и Беларусь) приедет сюда же.\n\n<i>Тем же аккаунтом потом войдёшь в приложение — всё подтянется само.</i>",
+    "Нажми «Войти в Google-аккаунт» — и подписка с узлами (Швейцария и Беларусь) приедет сюда же.\n\n<i>Тем же аккаунтом потом войдёшь в приложение — всё подтянется само.</i>",
   "google.continue": "🔐 Войти в Google-аккаунт",
   "google.linked": "✅ <b>Готово!</b> Аккаунт {email} привязан.",
   "google.linked.app":
@@ -136,7 +136,7 @@ const ru: Record<string, string> = {
   "google.error.default":
     "Не получилось войти через Google. Попробуй ещё раз.",
   "google.logout.question":
-    "🚪 <b>Выйти из Google-аккаунта?</b>\n\nБот перестанет видеть твои узлы (Франция и Беларусь) и подписку.\n\nСам Google-аккаунт не пострадает: в приложении этим же аккаунтом по-прежнему можно войти.",
+    "🚪 <b>Выйти из Google-аккаунта?</b>\n\nБот перестанет видеть твои узлы (Швейцария и Беларусь) и подписку.\n\nСам Google-аккаунт не пострадает: в приложении этим же аккаунтом по-прежнему можно войти.",
   "google.logout.done.short": "🚪 <b>Готово.</b>\n\nАккаунт {email} отвязан от Telegram.",
   "google.logout.absent": "🚪 Google-аккаунт и так не был привязан.",
   "google.already": "🔐 Google-аккаунт и так не привязан.",
@@ -144,10 +144,10 @@ const ru: Record<string, string> = {
   // --- подключение ---
   "connect.title": "🔗 <b>Подключение</b>",
   "connect.need_login":
-    "Сначала войди через Google — тогда подтянутся твои узлы (Франция и Беларусь) и действующая подписка.",
+    "Сначала войди через Google — тогда подтянутся твои узлы (Швейцария и Беларусь) и действующая подписка.",
   "connect.text":
     "<blockquote><b>Что это:</b> одна ссылка с твоими VPN-узлами. Открываешь её в Hiddify, Happ или в приложении — и трафик идёт через личный узел.\n\n" +
-    "Сейчас в ссылке два узла с разных хостеров: 🇫🇷 Франция и 🇧🇾 Беларусь. " +
+    "Сейчас в ссылке два узла с разных хостеров: 🇨🇭 Швейцария и 🇧🇾 Беларусь. " +
     "Подписка одна и та же для бота и приложения.\n\n" +
     "🎁 Бесплатный узел — только в Happ.</blockquote>",
   "connect.open": "🚀 Открыть подписку",
@@ -160,7 +160,7 @@ const ru: Record<string, string> = {
   "sub.title_short": "💳 Подписка",
   "sub.intro":
     "<b>📦 Что входит:</b>\n\n" +
-    "• 🇫🇷 Франция и 🇧🇾 Беларусь — оба платных узла в одной подписке;\n" +
+    "• 🇨🇭 Швейцария и 🇧🇾 Беларусь — оба платных узла в одной подписке;\n" +
     "• ♾ безлимитный трафик и скорость без ограничений;\n" +
     "• 🔗 одна ссылка на узлы: работает в Hiddify, Happ и в приложении;\n" +
     "• 📱 подписка общая для бота и приложения — платишь один раз, пользуешься везде.",
@@ -318,7 +318,7 @@ const en: Record<string, string> = {
     "<b>What is this?</b>\n\n" +
     "<b>A personal VPN: private access to YouTube, games and social networks " +
     "— no lag, no blocking, no one watching what you open.</b>\n\n" +
-    "<b>🇫🇷 France and 🇧🇾 Belarus in one subscription. Unlimited traffic. " +
+    "<b>🇨🇭 Switzerland and 🇧🇾 Belarus in one subscription. Unlimited traffic. " +
     "One subscription — for the bot and for the app.</b>",
   "welcome.hint":
     "🔐 Sign in with Google — this links the subscription to this Telegram. " +
@@ -329,7 +329,7 @@ const en: Record<string, string> = {
   "menu.greeting": "👋 <b>Hi{comma} {name}!</b> ✌️",
   "menu.greeting.plain": "👋 <b>Hi!</b> ✌️",
   "menu.body":
-    "🔗 Two nodes — France and Belarus. One subscription for the bot and the app.\n\n" +
+    "🔗 Two nodes — Switzerland and Belarus. One subscription for the bot and the app.\n\n" +
     "🆔 Your ID: <code>{id}</code>\n\n{status}",
   "menu.choose": "Pick what you need:",
   "menu.status.none": "💳 Status: 🔴 No subscription",
@@ -385,7 +385,7 @@ const en: Record<string, string> = {
   "google.start":
     "🔐 <b>Sign in with Google</b>\n\n" +
     "<blockquote><b>What is this:</b> signing in with a Google account. It links the bot and the app: one sign-in — and your subscription with its nodes everywhere.</blockquote>\n\n" +
-    "Tap “Sign in with Google” and your subscription with its nodes (France and Belarus) will show up right here.\n\n<i>Later you sign in to the app with the same account — everything pulls in on its own.</i>",
+    "Tap “Sign in with Google” and your subscription with its nodes (Switzerland and Belarus) will show up right here.\n\n<i>Later you sign in to the app with the same account — everything pulls in on its own.</i>",
   "google.continue": "🔐 Sign in with Google",
   "google.linked": "✅ <b>All set!</b> Account {email} is linked.",
   "google.linked.app":
@@ -406,7 +406,7 @@ const en: Record<string, string> = {
   "google.error.default":
     "We could not sign you in with Google. Please try again.",
   "google.logout.question":
-    "🚪 <b>Sign out of the Google account?</b>\n\nThe bot will no longer see your nodes (France and Belarus) or your subscription.\n\nYour Google account itself is not affected: you can still sign in to the app with it.",
+    "🚪 <b>Sign out of the Google account?</b>\n\nThe bot will no longer see your nodes (Switzerland and Belarus) or your subscription.\n\nYour Google account itself is not affected: you can still sign in to the app with it.",
   "google.logout.done.short": "🚪 <b>All set.</b>\n\nAccount {email} is unlinked from Telegram.",
   "google.logout.absent": "🚪 No Google account was linked in the first place.",
   "google.already": "🔐 No Google account is linked.",
@@ -414,10 +414,10 @@ const en: Record<string, string> = {
   // --- connect ---
   "connect.title": "🔗 <b>Connect</b>",
   "connect.need_login":
-    "Sign in with Google first — that pulls in your nodes (France and Belarus) and your active subscription.",
+    "Sign in with Google first — that pulls in your nodes (Switzerland and Belarus) and your active subscription.",
   "connect.text":
     "<blockquote><b>What is this:</b> a single link with your VPN nodes. Open it in Hiddify, Happ or the app and your traffic goes through a private node.\n\n" +
-    "The link holds two nodes from different hosts: 🇫🇷 France and 🇧🇾 Belarus. " +
+    "The link holds two nodes from different hosts: 🇨🇭 Switzerland and 🇧🇾 Belarus. " +
     "The bot and the app share the same subscription.\n\n" +
     "🎁 The free node is available in Happ only.</blockquote>",
   "connect.open": "🚀 Open subscription",
@@ -430,7 +430,7 @@ const en: Record<string, string> = {
   "sub.title_short": "💳 Subscription",
   "sub.intro":
     "<b>📦 What you get:</b>\n\n" +
-    "• 🇫🇷 France and 🇧🇾 Belarus — both paid nodes in one subscription;\n" +
+    "• 🇨🇭 Switzerland and 🇧🇾 Belarus — both paid nodes in one subscription;\n" +
     "• ♾ unlimited traffic and speed;\n" +
     "• 🔗 a single node link that works in Hiddify, Happ and the app;\n" +
     "• 📱 one subscription for the bot and the app — pay once, use it everywhere.",

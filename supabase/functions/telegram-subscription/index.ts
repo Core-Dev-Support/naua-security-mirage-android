@@ -12,7 +12,7 @@ import {
 
 // Единая подписка NAUA: платные узлы с двух разных хостеров в одной ссылке.
 //
-//   Франция  — 3X-UI панель (inbound из FRANCE_* / THREE_X_UI_*)
+//   Швейцария — панель H1 (inbound из H1_* / FRANCE_*)
 //   Беларусь — H1Cloud панель (H1CLOUD_*)
 //
 // Логику выдачи узлов НЕ дублируем: готовые ссылки запрашиваются у уже
@@ -49,7 +49,7 @@ type PaidNodeConfig = {
 };
 
 const DEFAULT_PAID_NODES: PaidNodeConfig[] = [
-  { id: "premium_france", label: "Франция (Платная)", configFunction: "france-config", sort: 10 },
+  { id: "premium_france", label: "Швейцария (Платная)", configFunction: "france-config", sort: 10 },
   { id: "premium_belarus", label: "Беларусь (Платная)", configFunction: "belarus-config", sort: 20 },
 ];
 

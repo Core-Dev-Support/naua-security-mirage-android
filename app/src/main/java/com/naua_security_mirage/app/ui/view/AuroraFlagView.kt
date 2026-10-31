@@ -35,6 +35,11 @@ class AuroraFlagView @JvmOverloads constructor(
             stripe(canvas, 0f, 0f, w * 0.07f, h, r, COLOR_BY_WHITE)
             stripe(canvas, w * 0.07f, 0f, w * 0.13f, h, r, COLOR_BY_RED)
             stripe(canvas, w * 0.13f, 0f, w * 0.19f, h, r, COLOR_BY_WHITE)
+        } else if (code == "ch") {
+            // Switzerland: red field with a white cross
+            stripe(canvas, 0f, 0f, w, h, r, COLOR_CH_RED)
+            stripe(canvas, w * 0.42f, h * 0.2f, w * 0.58f, h * 0.8f, r * 0.5f, COLOR_CH_WHITE)
+            stripe(canvas, w * 0.26f, h * 0.38f, w * 0.74f, h * 0.62f, r * 0.5f, COLOR_CH_WHITE)
         } else {
             // France: blue | white | red
             stripe(canvas, 0f, 0f, w, h, r, COLOR_FR_BLUE)
@@ -62,6 +67,8 @@ class AuroraFlagView @JvmOverloads constructor(
         private val COLOR_FR_BLUE = 0xFF0055A4.toInt()
         private val COLOR_FR_WHITE = 0xFFFFFFFF.toInt()
         private val COLOR_FR_RED = 0xFFEF4135.toInt()
+        private val COLOR_CH_RED = 0xFFD52B1E.toInt()
+        private val COLOR_CH_WHITE = 0xFFFFFFFF.toInt()
         private val COLOR_BY_RED = 0xFFC8313E.toInt()
         private val COLOR_BY_GREEN = 0xFF4AA657.toInt()
         private val COLOR_BY_WHITE = 0xFFFFFFFF.toInt()

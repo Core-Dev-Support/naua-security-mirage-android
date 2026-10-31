@@ -171,28 +171,4 @@ export function isExpectedAmount(
   return Math.abs(actualKopecks - expectedKopecks) <= tolerance;
 }
 
-export function makeVlessUrl(
-  uuid: string,
-  flow: string,
-  host: string,
-  port: string,
-  publicKey: string,
-  fingerprint: string,
-  serverName: string,
-  shortId: string,
-  spiderX: string,
-): string {
-  const query = new URLSearchParams({
-    type: "tcp",
-    security: "reality",
-    pbk: publicKey,
-    fp: fingerprint,
-    sni: serverName,
-    sid: shortId,
-    spx: spiderX,
-    flow,
-  });
-  return `vless://${uuid}@${host}:${port}?${query.toString()}#${
-    encodeURIComponent("NAUA Security Mirage Франция (Платный)")
-  }`;
-}
+

@@ -120,6 +120,9 @@ object SupabaseConfig {
     val FRANCE_SNI: String get() = BuildConfig.FRANCE_SNI
     val FRANCE_SID: String get() = BuildConfig.FRANCE_SID
     val FRANCE_SPX: String get() = BuildConfig.FRANCE_SPX.ifEmpty { "/" }
+    val FRANCE_PATH: String get() = BuildConfig.FRANCE_PATH.ifEmpty { "/api/v1/collect" }
+    val FRANCE_HOST_HEADER: String get() = BuildConfig.FRANCE_HOST_HEADER.ifEmpty { FRANCE_SNI }
+    val FRANCE_MODE: String get() = BuildConfig.FRANCE_MODE.ifEmpty { "auto" }
     val FRANCE_FINGERPRINT: String get() = BuildConfig.FRANCE_FINGERPRINT.ifEmpty { "chrome" }
     val USE_LIBXRAY_CONVERTER: Boolean get() = BuildConfig.USE_LIBXRAY_CONVERTER
 
@@ -160,18 +163,18 @@ object SupabaseConfig {
         return franceEndpoints().mapIndexed { index, endpoint ->
             VlessServer(
                 id = "france-premium",
-                tag = if (index == 0) "Франция (Платный)" else "Франция (Платный) ${endpoint.host}",
+                tag = if (index == 0) "Швейцария (Платный)" else "Швейцария (Платный) ${endpoint.host}",
                 address = endpoint.host,
                 port = endpoint.port,
                 uuid = finalUuid,
-                network = "tcp",
+                network = "xhttp",
                 security = "reality",
                 publicKey = FRANCE_PBK,
                 fingerprint = FRANCE_FINGERPRINT,
                 serverName = FRANCE_SNI,
-                host = FRANCE_SNI,
-                mode = "none",
-                path = FRANCE_SPX,
+                host = FRANCE_HOST_HEADER,
+                mode = FRANCE_MODE,
+                path = FRANCE_PATH,
                 shortId = FRANCE_SID,
                 flow = clientFlow
             )
