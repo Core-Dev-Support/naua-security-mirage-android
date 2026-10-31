@@ -340,6 +340,8 @@ async function fetchFreeNodes(deviceId: string): Promise<string[]> {
         params.set("fp", reality.fingerprint || "chrome");
         params.set("sni", reality.serverName || address);
         if (reality.shortId) params.set("sid", reality.shortId);
+        params.set("spx", reality.spiderX || "/");
+        params.set("encryption", "none");
         if (stream?.network === "xhttp") {
           if (xhttp.host) params.set("host", xhttp.host);
           if (xhttp.mode) params.set("mode", xhttp.mode);
@@ -566,15 +568,28 @@ serve(async (req) => {
         fetchFreeNodes(await deviceIdFor(tgId, 2)),
       ]);
       const picked: string[] = [];
-      for (const pool of [poolA, poolB]) {
-        for (const link of pool) {
-          const uuid = link.match(/^vless:\/\/([0-9a-fA-F-]{36})@/)?.[1] || "";
-          if (!uuid || picked.some((item) => item.includes(`vless://${uuid}@`))) continue;
-          picked.push(
-            picked.length === 0 ? link : withNodeName(link, `${FREE_NAME} ${picked.length + 1}`),
-          );
-          break;
-        }
+      const hostOf = (link: string): string => link.match(/@([^/?#]+)/)?.[1] || "";
+      const add = (link: string): boolean => {
+        const uuid = link.match(/^vless:\/\/([0-9a-fA-F-]{36})@/)?.[1] || "";
+        if (!uuid || picked.some((item) => item.includes(`vless://${uuid}@`))) return false;
+        picked.push(
+          picked.length === 0 ? link : withNodeName(link, `${FREE_NAME} ${picked.length + 1}`),
+        );
+        return true;
+      };
+      const all = [...poolA, ...poolB];
+      const first = poolA[0] || poolB[0];
+      if (first) add(first);
+      // Сначала берём узел с другим адресом (Happ склеивает и по хосту),
+      // затем — любой с другим UUID.
+      for (const link of all) {
+        if (picked.length >= 2) break;
+        if (picked.some((item) => hostOf(item) === hostOf(link))) continue;
+        add(link);
+      }
+      for (const link of all) {
+        if (picked.length >= 2) break;
+        add(link);
       }
       for (const [index, link] of picked.entries()) {
         links.push(link);
