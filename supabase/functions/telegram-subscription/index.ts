@@ -198,15 +198,22 @@ function secret(): string {
 // Обновляет истёкший access_token через refresh_token.
 async function refreshAccessToken(account: AccountRow): Promise<string | null> {
   if (!account.refresh_token) return account.access_token;
-  const response = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
-    method: "POST",
-    headers: {
-      apikey: SUPABASE_ANON_KEY,
-      Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ refresh_token: account.refresh_token }),
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
+      method: "POST",
+      headers: {
+        apikey: SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ refresh_token: account.refresh_token }),
+      signal: AbortSignal.timeout(8_000),
+    });
+  } catch {
+    // Google/GoTrue молчит — подписка должна собраться на сохранённых ключах.
+    return account.access_token;
+  }
   if (!response.ok) return account.access_token;
   try {
     const parsed = await response.json();
@@ -237,6 +244,7 @@ async function fetchNode(
           apikey: SUPABASE_ANON_KEY,
           Authorization: `Bearer ${bearer}`,
         },
+        signal: AbortSignal.timeout(20_000),
       },
     );
     if (!response.ok) {
@@ -547,7 +555,9 @@ serve(async (req) => {
     const freeExpected = tgId ? await freeToken(tgId, secret()) : "";
     const wantFree = Boolean(freeParam) && Boolean(freeExpected) &&
       constantTimeEqual(freeParam, freeExpected);
-    if (INCLUDE_FREE_NODES && tgId && wantFree) {
+    // Резерв, а не третий узел в каждой подписке: пока работает хоть один
+    // платный сервер, бесплатный чужой узел в список не попадает.
+    if (INCLUDE_FREE_NODES && tgId && wantFree && links.length === 0) {
       const free = await fetchFreeNodes(await deviceIdFor(tgId));
       for (const link of free) {
         links.push(link);

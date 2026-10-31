@@ -10,7 +10,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-const NODE_TOKEN = Deno.env.get("NODE_STATUS_TOKEN") ?? "";
+const NODE_TOKEN = Deno.env.get("NODE_TOKEN") ?? Deno.env.get("NODE_STATUS_TOKEN") ?? "";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
