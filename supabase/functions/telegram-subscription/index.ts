@@ -553,8 +553,10 @@ serve(async (req) => {
     // PublicKey не должны быть доступны ни в одном клиенте.
     const freeParam = url.searchParams.get("free") || "";
     const freeExpected = tgId ? await freeToken(tgId, secret()) : "";
-    const wantFree = Boolean(freeParam) && Boolean(freeExpected) &&
-      constantTimeEqual(freeParam, freeExpected);
+    // Старые ссылки подписки пришли с ?free=1 и больше не проходят проверку
+    // токена. Оплатившему бесплатные узлы можно отдавать и без него.
+    const wantFree = (Boolean(freeParam) && Boolean(freeExpected) &&
+      constantTimeEqual(freeParam, freeExpected)) || hasPaid;
     if (INCLUDE_FREE_NODES && tgId && wantFree) {
       const free = await fetchFreeNodes(await deviceIdFor(tgId));
       for (const link of free) {
