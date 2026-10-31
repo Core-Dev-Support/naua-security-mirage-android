@@ -39,7 +39,9 @@ const FREE_API_URL = Deno.env.get("FREE_API_URL") || "";
 // Названия узлов. Одно место, чтобы в клиенте не было служебных имён
 // панелей вроде «mrge_<почта>_<хэш>». Бесплатный узел не входит в обычную
 // подписку и выдаётся только по отдельной подписи.
-const FREE_NAME = "NAUA Security Mirage Бесплатный";
+import { h1EnsureNode } from "../_shared/h1panel.ts";
+
+const FREE_NAME = "Бесплатный";
 
 type PaidNodeConfig = {
   id: string;
@@ -516,7 +518,21 @@ serve(async (req) => {
     for (const { node, result } of paidNodes) {
       // Сначала свежий ключ от config-функции; если сессия Google отозвана
       // или панель не ответила — уже выданный ключ из subscriptions.
-      const resolved = result ?? storedNodeLink(node.id, subscription);
+      let resolved = result ?? storedNodeLink(node.id, subscription);
+      // Токен в Happ-ссылке живёт недолго, а ключ мог быть очищен при смене
+      // узла. Для Швейцарии бот сам заводит/находит клиента в панели H1,
+      // иначе у оплатившего остаются только Беларусь и бесплатный узел.
+      if (!resolved && subscription && hasPaid && node.configFunction === "france-config" && subscription.email) {
+        try {
+          const ensured = await h1EnsureNode(subscription.email, subscription.paid_until);
+          resolved = { link: ensured.link, uuid: ensured.uuid };
+        } catch (error) {
+          console.warn(
+            "subscription: H1 fallback failed:",
+            error instanceof Error ? error.message : error,
+          );
+        }
+      }
       if (!resolved) continue;
       const label = `NAUA Security Mirage ${node.label}`;
       links.push(withNodeName(resolved.link, label));
