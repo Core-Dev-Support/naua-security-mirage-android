@@ -5,6 +5,7 @@
 set -euo pipefail
 
 : "${SUPABASE_URL:?SUPABASE_URL is required}"
+: "${SUPABASE_ANON_KEY:?SUPABASE_ANON_KEY is required}"
 : "${NODE_TOKEN:?NODE_TOKEN is required}"
 
 HOST="${NODE_HOST:-893427x.ch3.h1clayd.click}"
@@ -21,6 +22,7 @@ BODY=$(printf '{"node":"france","state":"%s","detail":"%s","core":"H1","changed_
 
 curl -fsS -X POST "${SUPABASE_URL}/functions/v1/node-status" \
   -H "Content-Type: application/json" \
+  -H "apikey: ${SUPABASE_ANON_KEY}" \
   -H "x-node-token: ${NODE_TOKEN}" \
   -d "$BODY"
 echo

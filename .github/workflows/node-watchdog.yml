@@ -19,6 +19,7 @@ jobs:
       - name: Report the paid node state
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
           NODE_TOKEN: ${{ secrets.NODE_TOKEN }}
           NODE_HOST: ${{ secrets.FRANCE_HOST }}
         run: bash .github/scripts/node_watchdog.sh
