@@ -8,7 +8,7 @@ set -euo pipefail
 : "${SUPABASE_ANON_KEY:?SUPABASE_ANON_KEY is required}"
 : "${NODE_TOKEN:?NODE_TOKEN is required}"
 
-HOST="${NODE_HOST:-893427x.ch3.h1clayd.click}"
+HOST="${NODE_HOST:?NODE_HOST is required}"
 STATE="down"
 DETAIL="no TLS response"
 if curl -fsS -o /dev/null -m 10 "https://${HOST}/"; then
