@@ -452,6 +452,7 @@ serve(async (req) => {
       links,
       hasPaid ? subscription?.paid_until ?? null : null,
       hasPaid,
+      Deno.env.get("BOT_USERNAME") || undefined,
     );
     const encoded = base64Url(body);
 

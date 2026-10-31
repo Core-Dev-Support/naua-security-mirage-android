@@ -105,8 +105,8 @@ export function buildSubscriptionBody(
   links: string[],
   paidUntil: string | null,
   hasPaid = true,
+  botUsername = "NAUA_Security_Mirage_Bot",
 ): string {
-  const botUsername = Deno.env.get("BOT_USERNAME") || "NAUA_Security_Mirage_Bot";
   const meta = [
     "#hide-settings: 1",
     `#profile-title: ${hasPaid ? "NAUA Security Mirage" : "NAUA Security Mirage — 🛒 купите подписку в боте"}`,
