@@ -1,0 +1,24 @@
+name: Node watchdog
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  report:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Report the paid node state
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          NODE_TOKEN: ${{ secrets.NODE_TOKEN }}
+          NODE_HOST: ${{ secrets.FRANCE_HOST }}
+        run: bash .github/scripts/node_watchdog.sh
