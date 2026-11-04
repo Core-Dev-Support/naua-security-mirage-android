@@ -34,6 +34,9 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.awt.Dimension
 import java.io.File
+import java.nio.channels.FileChannel
+import java.nio.file.StandardOpenOption
+import java.io.File
 
 enum class Screen {
     MAIN,
@@ -45,6 +48,17 @@ enum class Screen {
 }
 
 fun main() = application {
+    val instanceLock = remember {
+        try {
+            val f = File(System.getProperty("user.home"), ".naua-mirage.lock")
+            val ch = FileChannel.open(f.toPath(), StandardOpenOption.CREATE, StandardOpenOption.WRITE)
+            ch.tryLock()
+        } catch (e: Exception) { null }
+    }
+    if (instanceLock == null) {
+        LaunchedEffect(Unit) { exitApplication() }
+        return@application
+    }
     val settingsRepo = remember { SettingsRepository() }
     val deviceIdRepo = remember { DeviceIdRepository() }
     val keyRepo = remember { VlessKeyRepository(deviceIdRepo) }
