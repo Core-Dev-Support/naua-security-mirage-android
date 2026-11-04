@@ -23,6 +23,7 @@ import com.naua_security_mirage.app.data.repository.SettingsRepository
 import com.naua_security_mirage.app.ui.theme.LocalMirageColors
 import com.naua_security_mirage.app.ui.theme.MirageColors
 import org.jetbrains.skia.*
+import org.jetbrains.skia.Path
 import kotlin.math.*
 
 @Composable
@@ -180,7 +181,8 @@ private fun drawCyberEarth(
                 Color(0xFF0C1628).toArgb(),
                 Color(0xFF030611).toArgb()
             ),
-            floatArrayOf(0f, 0.6f, 1f)
+            floatArrayOf(0f, 0.6f, 1f),
+            GradientStyle.DEFAULT
         )
     }
     canvas.drawCircle(cx, cy, r, globeBgPaint)
@@ -311,7 +313,8 @@ private fun drawQuantumCore(
                 accentColor.toArgb(),
                 accentColor.copy(alpha = 0.1f).toArgb()
             ),
-            floatArrayOf(0f, 0.5f, 1f)
+            floatArrayOf(0f, 0.5f, 1f),
+            GradientStyle.DEFAULT
         )
     }
     canvas.drawCircle(cx, cy, coreR, corePaint)
@@ -380,7 +383,8 @@ private fun drawHoloShield(
                 Color(0xFF0D1B2A).toArgb(),
                 Color(0xFF030712).toArgb()
             ),
-            floatArrayOf(0f, 0.65f, 1f)
+            floatArrayOf(0f, 0.65f, 1f),
+            GradientStyle.DEFAULT
         )
     }
     canvas.drawCircle(cx, cy, r, bgPaint)
@@ -450,7 +454,8 @@ private fun drawRealisticEarth(
                 Color(0xFF0A2B68).toArgb(),
                 Color(0xFF030C24).toArgb()
             ),
-            floatArrayOf(0f, 0.55f, 1f)
+            floatArrayOf(0f, 0.55f, 1f),
+            GradientStyle.DEFAULT
         )
     }
     canvas.drawCircle(cx, cy, r, oceanPaint)
@@ -514,7 +519,8 @@ private fun drawRealisticEarth(
                 Color(0xCC040C1C).toArgb(),
                 Color(0xF001040D).toArgb()
             ),
-            floatArrayOf(0f, 0.45f, 0.56f, 0.72f, 1f)
+            floatArrayOf(0f, 0.45f, 0.56f, 0.72f, 1f),
+            GradientStyle.DEFAULT
         )
     }
     canvas.drawCircle(cx, cy, r, shadowPaint)
@@ -615,5 +621,6 @@ private val CONTINENTS = listOf(
         -38f, 145f, -38f, 140f, -35f, 137f, -35f, 134f, -32f, 132f, -32f, 125f,
         -34f, 120f, -35f, 115f, -30f, 115f, -25f, 113f, -20f, 119f, -15f, 124f,
         -14f, 129f, -12f, 136f, -11f, 142f
-    )
+    ),
+            GradientStyle.DEFAULT
 )
