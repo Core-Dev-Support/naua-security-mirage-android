@@ -2,7 +2,7 @@
 ; Strictly contains ONLY two shortcut options: Desktop and Start Menu!
 
 #define MyAppName "NAUA Security Mirage"
-#define MyAppVersion "1.3.0"
+#define MyAppVersion "1.4.0"
 #define MyAppPublisher "Core Dev Support"
 #define MyAppURL "https://github.com/coredevsupport-hub/naua-security-mirage-android"
 #define MyAppExeName "NAUASecurityMirage.exe"

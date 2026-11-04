@@ -6,7 +6,7 @@ plugins {
 }
 
 group = "com.naua_security_mirage.app"
-version = "1.3.0"
+version = "1.4.0"
 
 dependencies {
     implementation(compose.desktop.currentOs)
@@ -55,7 +55,7 @@ compose.desktop {
         nativeDistributions {
             targetFormats(org.jetbrains.compose.desktop.application.dsl.TargetFormat.Msi, org.jetbrains.compose.desktop.application.dsl.TargetFormat.Exe)
             packageName = "NAUASecurityMirage"
-            packageVersion = "1.3.0"
+            packageversion = "1.4.0"
             description = "NAUA Security Mirage PC VPN Client"
             copyright = "© 2026 Core Dev Support"
             modules(

@@ -1,6 +1,8 @@
 name: Build Windows PC Desktop Release
 
 on:
+  push:
+    branches: [main, master]
   workflow_dispatch:
     inputs:
       create_release:
@@ -11,7 +13,7 @@ on:
       release_tag:
         description: 'Release Tag'
         required: false
-        default: 'v1.3.0'
+        default: 'v1.4.0'
   push:
     tags:
       - 'v*'
@@ -73,7 +75,7 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/v') || github.event.inputs.create_release == 'true' || github.event.inputs.create_release == true
         uses: softprops/action-gh-release@v3
         with:
-          tag_name: ${{ github.event.inputs.release_tag || (startsWith(github.ref, 'refs/tags/v') && github.ref_name) || 'v1.3.0' }}
-          name: NAUA Security Mirage ${{ github.event.inputs.release_tag || (startsWith(github.ref, 'refs/tags/v') && github.ref_name) || 'v1.3.0' }}
+          tag_name: ${{ github.event.inputs.release_tag || (startsWith(github.ref, 'refs/tags/v') && github.ref_name) || 'v1.4.0' }}
+          name: NAUA Security Mirage ${{ github.event.inputs.release_tag || (startsWith(github.ref, 'refs/tags/v') && github.ref_name) || 'v1.4.0' }}
           files: build/installer/NAUA-Security-Mirage-Setup-*.exe
           generate_release_notes: false
