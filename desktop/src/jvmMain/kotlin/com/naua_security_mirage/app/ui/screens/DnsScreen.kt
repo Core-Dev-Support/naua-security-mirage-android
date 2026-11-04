@@ -20,6 +20,18 @@ fun DnsScreen(
     val colors = LocalMirageColors.current
     Column(modifier = Modifier.fillMaxSize().background(colors.bg)) {
         MirageHeader(title = "DNS", isSubScreen = true, onBackClick = onBack)
-        Column(modifier = Modifier.fillMaxSize().padding(20.dp)) {\n            Text(text = "Выбор DNS-сервера", color = colors.ink, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)\n            Spacer(modifier = Modifier.height(12.dp))\n            listOf("Cloudflare (1.1.1.1)", "Google (8.8.8.8)", "Quad9 (9.9.9.9)", "Custom").forEach { name ->\n                androidx.compose.material.Surface(\n                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),\n                    color = colors.card,\n                    shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)\n                ) {\n                    Text(text = name, color = colors.ink, modifier = Modifier.padding(16.dp))\n                }\n            }\n        }
+        Column(modifier = Modifier.fillMaxSize().padding(20.dp)) {
+            Text(text = "Выбор DNS-сервера", color = colors.ink, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+            Spacer(modifier = Modifier.height(12.dp))
+            listOf("Cloudflare (1.1.1.1)", "Google (8.8.8.8)", "Quad9 (9.9.9.9)", "Custom").forEach { name ->
+                androidx.compose.material.Surface(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                    color = colors.card,
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
+                ) {
+                    Text(text = name, color = colors.ink, modifier = Modifier.padding(16.dp))
+                }
+            }
+        }
     }
 }

@@ -48,7 +48,8 @@ enum class Screen {
     WEBSITES,
     LOGS,
     DNS,
-    PRIVATE_DNS
+    PRIVATE_DNS,
+}
 fun main() {
     try {
         java.net.Socket("localhost", 45678).use { it.getOutputStream().write(1) }
@@ -275,6 +276,7 @@ fun main() {
                             onNavigateToLogs = { currentScreen = Screen.LOGS },
                             onNavigateToDns = { currentScreen = Screen.DNS },
                             onNavigateToPrivateDns = { currentScreen = Screen.PRIVATE_DNS }
+                        )
 
                         Screen.APPEARANCE -> AppearanceScreen(
                             settingsRepository = settingsRepo,

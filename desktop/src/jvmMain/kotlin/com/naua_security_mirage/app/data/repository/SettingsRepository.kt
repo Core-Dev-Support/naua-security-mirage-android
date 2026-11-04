@@ -49,11 +49,11 @@ class SettingsRepository {
         var geoLastUpdateTime: Long = 0L,
         var updateSource: String = UPDATE_SOURCE_GITHUB,
         var lastShownWhatsNewVersion: String? = null,
-        var customWebsites: MutableList<CustomWebsite> = mutableListOf()
-        var selectedDnsId: String = "
-        var customDnsUrl: String = "
-        var autoDnsPickedId: String = "
-        var autoDnsPickedAt: Long = 0L
+        var customWebsites: MutableList<CustomWebsite> = mutableListOf(),
+        var selectedDnsId: String = ""
+        var customDnsUrl: String = ""
+        var autoDnsPickedId: String = ""
+        var autoDnsPickedAt: Long = 0L,
         var privateDnsDialogTime: Long = 0L
     )
 
