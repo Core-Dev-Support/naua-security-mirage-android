@@ -313,7 +313,7 @@ fun SettingsScreen(
                         checked = autoStart,
                         onCheckedChange = {
                             autoStart = it
-                            settingsRepository.isAutoStartOnBootEnabled = it
+                            settingsRepository.setAutoStartOnBoot(it)
                         }
                     )
                 }

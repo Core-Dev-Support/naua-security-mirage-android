@@ -1,4 +1,4 @@
-﻿package com.naua_security_mirage.app.data.repository
+package com.naua_security_mirage.app.data.repository
 
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
@@ -52,6 +52,22 @@ class SettingsRepository {
         var customWebsites: MutableList<CustomWebsite> = mutableListOf()
     )
 
+    fun setAutoStartOnBoot(enabled: Boolean) {
+        state.isAutoStartOnBootEnabled = enabled
+        saveSettings()
+        try {
+            val regKey = "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run"
+            val appName = "NAUASecurityMirage"
+            if (enabled) {
+                val exe = ProcessHandle.current().info().command().orElse("")
+                if (exe.isNotBlank()) {
+                    Runtime.getRuntime().exec(arrayOf("reg", "add", regKey, "/v", appName, "/t", "REG_SZ", "/d", exe, "/f"))
+                }
+            } else {
+                Runtime.getRuntime().exec(arrayOf("reg", "delete", regKey, "/v", appName, "/f"))
+            }
+        } catch (_: Exception) {}
+    }
     private fun loadSettings(): SettingsState {
         return try {
             if (configFile.exists()) {
