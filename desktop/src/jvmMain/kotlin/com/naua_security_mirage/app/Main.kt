@@ -34,6 +34,9 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.awt.Dimension
 import java.io.File
+import java.net.ServerSocket
+import java.net.Socket
+import javax.swing.SwingUtilities
 import java.nio.channels.FileChannel
 import java.nio.file.StandardOpenOption
 
@@ -46,7 +49,12 @@ enum class Screen {
     LOGS
 }
 
-fun main() = application {
+fun main() {
+    try {
+        Socket("localhost", 45678).use { it.getOutputStream().write(1) }
+        kotlin.system.exitProcess(0)
+    } catch (e: Exception) { }
+    application {
     val instanceLock = remember {
         try {
             val f = File(System.getProperty("user.home"), ".naua-mirage.lock")
@@ -73,6 +81,20 @@ fun main() = application {
     var bestServer by remember { mutableStateOf<VlessServer?>(null) }
     var appearanceCounter by remember { mutableStateOf(0) }
     var isVisible by remember { mutableStateOf(true) }
+
+    val serverSocket = remember { try { ServerSocket(45678) } catch (e: Exception) { null } }
+    LaunchedEffect(serverSocket) {
+        serverSocket?.let { ss ->
+            while (isActive) {
+                try {
+                    val client = ss.accept()
+                    client.getInputStream().read()
+                    SwingUtilities.invokeLater { isVisible = true }
+                    client.close()
+                } catch (e: Exception) { }
+            }
+        }
+    }
     var isRefreshing by remember { mutableStateOf(false) }
     var sessionSeconds by remember { mutableStateOf(0L) }
 
@@ -278,4 +300,5 @@ fun main() = application {
             }
         }
     }
+}
 }
