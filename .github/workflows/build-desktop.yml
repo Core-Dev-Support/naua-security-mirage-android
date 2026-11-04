@@ -3,6 +3,8 @@ name: Build Windows PC Desktop Release
 on:
   push:
     branches: [main, master]
+    tags:
+      - 'v*'
   workflow_dispatch:
     inputs:
       create_release:
@@ -14,9 +16,6 @@ on:
         description: 'Release Tag'
         required: false
         default: 'v1.4.0'
-  push:
-    tags:
-      - 'v*'
 
 permissions:
   contents: write
