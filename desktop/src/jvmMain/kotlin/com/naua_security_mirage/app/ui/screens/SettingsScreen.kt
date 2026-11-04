@@ -43,10 +43,9 @@ fun SettingsScreen(
     onNavigateToAppearance: () -> Unit,
     onNavigateToApps: () -> Unit,
     onNavigateToWebsites: () -> Unit,
-    onNavigateToLogs: () -> Unit
+    onNavigateToLogs: () -> Unit,
+    onNavigateToDns: () -> Unit = {}
 ) {
-    val colors = LocalMirageColors.current
-    val scrollState = rememberScrollState()
     val scope = rememberCoroutineScope()
 
     val currentUser by SupabaseManager.instance.currentUser.collectAsState()
@@ -250,6 +249,13 @@ fun SettingsScreen(
                         title = "РћР±С…РѕРґ Р±Р»РѕРєРёСЂРѕРІРѕРє СЃР°Р№С‚РѕРІ",
                         subtitle = "РЎРїРёСЃРѕРє РґРѕРјРµРЅРѕРІ РґР»СЏ РёСЃРєР»СЋС‡РµРЅРёСЏ РёР· VPN",
                         onClick = onNavigateToWebsites
+                    )
+                    SettingsDivider()
+                    SettingsNavRow(
+                        icon = Icons.Default.Language,
+                        title = "DNS внутри туннеля",
+                        subtitle = "Выбор DNS-сервера для туннеля",
+                        onClick = onNavigateToDns
                     )
                     SettingsDivider()
                     SettingsNavRow(

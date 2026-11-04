@@ -46,10 +46,9 @@ enum class Screen {
     APPEARANCE,
     APPS,
     WEBSITES,
-    LOGS
+    LOGS,
+    DNS
 }
-
-fun main() {
     try {
         Socket("localhost", 45678).use { it.getOutputStream().write(1) }
         kotlin.system.exitProcess(0)
@@ -272,7 +271,8 @@ fun main() {
                             onNavigateToAppearance = { currentScreen = Screen.APPEARANCE },
                             onNavigateToApps = { currentScreen = Screen.APPS },
                             onNavigateToWebsites = { currentScreen = Screen.WEBSITES },
-                            onNavigateToLogs = { currentScreen = Screen.LOGS }
+                            onNavigateToLogs = { currentScreen = Screen.LOGS },
+                            onNavigateToDns = { currentScreen = Screen.DNS }
                         )
 
                         Screen.APPEARANCE -> AppearanceScreen(
@@ -293,6 +293,10 @@ fun main() {
 
                         Screen.LOGS -> LogsScreen(
                             settingsRepository = settingsRepo,
+                            onBack = { currentScreen = Screen.SETTINGS }
+                        )
+
+                        Screen.DNS -> DnsScreen(
                             onBack = { currentScreen = Screen.SETTINGS }
                         )
                     }
