@@ -49,7 +49,9 @@ enum class Screen {
     LOGS,
     DNS,
     PRIVATE_DNS
-}
+fun main() {
+    try {
+        java.net.Socket("localhost", 45678).use { it.getOutputStream().write(1) }
         kotlin.system.exitProcess(0)
     } catch (e: Exception) { }
     application {
