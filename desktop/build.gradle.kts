@@ -55,7 +55,7 @@ compose.desktop {
         nativeDistributions {
             targetFormats(org.jetbrains.compose.desktop.application.dsl.TargetFormat.Msi, org.jetbrains.compose.desktop.application.dsl.TargetFormat.Exe)
             packageName = "NAUASecurityMirage"
-            packageversion = "1.4.0"
+            packageVersion = "1.4.0"
             description = "NAUA Security Mirage PC VPN Client"
             copyright = "© 2026 Core Dev Support"
             modules(
