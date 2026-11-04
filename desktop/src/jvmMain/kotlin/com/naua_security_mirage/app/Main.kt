@@ -47,10 +47,9 @@ enum class Screen {
     APPS,
     WEBSITES,
     LOGS,
-    DNS
+    DNS,
+    PRIVATE_DNS
 }
-    try {
-        Socket("localhost", 45678).use { it.getOutputStream().write(1) }
         kotlin.system.exitProcess(0)
     } catch (e: Exception) { }
     application {
@@ -272,8 +271,8 @@ enum class Screen {
                             onNavigateToApps = { currentScreen = Screen.APPS },
                             onNavigateToWebsites = { currentScreen = Screen.WEBSITES },
                             onNavigateToLogs = { currentScreen = Screen.LOGS },
-                            onNavigateToDns = { currentScreen = Screen.DNS }
-                        )
+                            onNavigateToDns = { currentScreen = Screen.DNS },
+                            onNavigateToPrivateDns = { currentScreen = Screen.PRIVATE_DNS }
 
                         Screen.APPEARANCE -> AppearanceScreen(
                             settingsRepository = settingsRepo,
@@ -297,6 +296,10 @@ enum class Screen {
                         )
 
                         Screen.DNS -> DnsScreen(
+                            onBack = { currentScreen = Screen.SETTINGS }
+                        )
+
+                        Screen.PRIVATE_DNS -> PrivateDnsScreen(
                             onBack = { currentScreen = Screen.SETTINGS }
                         )
                     }

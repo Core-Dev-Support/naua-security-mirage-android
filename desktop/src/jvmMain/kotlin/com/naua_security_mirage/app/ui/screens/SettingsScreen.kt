@@ -44,10 +44,9 @@ fun SettingsScreen(
     onNavigateToApps: () -> Unit,
     onNavigateToWebsites: () -> Unit,
     onNavigateToLogs: () -> Unit,
-    onNavigateToDns: () -> Unit = {}
+    onNavigateToDns: () -> Unit = {},
+    onNavigateToPrivateDns: () -> Unit = {}
 ) {
-    val scope = rememberCoroutineScope()
-
     val currentUser by SupabaseManager.instance.currentUser.collectAsState()
     val subscription by SupabaseManager.instance.subscription.collectAsState()
 
@@ -256,6 +255,13 @@ fun SettingsScreen(
                         title = "DNS внутри туннеля",
                         subtitle = "Выбор DNS-сервера для туннеля",
                         onClick = onNavigateToDns
+                    )
+                    SettingsDivider()
+                    SettingsNavRow(
+                        icon = Icons.Default.Lock,
+                        title = "Приватный DNS",
+                        subtitle = "Настройка системного Private DNS",
+                        onClick = onNavigateToPrivateDns
                     )
                     SettingsDivider()
                     SettingsNavRow(
