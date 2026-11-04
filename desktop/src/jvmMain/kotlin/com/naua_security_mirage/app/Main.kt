@@ -36,7 +36,6 @@ import java.awt.Dimension
 import java.io.File
 import java.nio.channels.FileChannel
 import java.nio.file.StandardOpenOption
-import java.io.File
 
 enum class Screen {
     MAIN,
