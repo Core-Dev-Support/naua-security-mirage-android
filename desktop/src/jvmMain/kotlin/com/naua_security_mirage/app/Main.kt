@@ -32,6 +32,7 @@ import com.naua_security_mirage.app.util.AppLogger
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.awt.Dimension
 import java.io.File
 import java.net.ServerSocket
@@ -86,13 +87,15 @@ fun main() {
     val serverSocket = remember { try { ServerSocket(45678) } catch (e: Exception) { null } }
     LaunchedEffect(serverSocket) {
         serverSocket?.let { ss ->
-            while (isActive) {
-                try {
-                    val client = ss.accept()
-                    client.getInputStream().read()
-                    SwingUtilities.invokeLater { isVisible = true }
-                    client.close()
-                } catch (e: Exception) { }
+            withContext(kotlinx.coroutines.Dispatchers.IO) {
+                while (isActive) {
+                    try {
+                        val client = ss.accept()
+                        client.getInputStream().read()
+                        SwingUtilities.invokeLater { isVisible = true }
+                        client.close()
+                    } catch (e: Exception) { }
+                }
             }
         }
     }
