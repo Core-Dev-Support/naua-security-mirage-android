@@ -26,7 +26,7 @@ const PLAN_IDS = /^[a-z0-9][a-z0-9_-]{0,31}$/;
 const NODE_IDS = /^[a-z0-9][a-z0-9_]{1,47}$/;
 const FUNCTION_NAMES = /^[a-z0-9][a-z0-9-]{1,63}$/;
 const FLAGS = /^[a-z0-9][a-z0-9_-]{0,31}$/;
-const NODE_KINDS = new Set(["france", "belarus", "vless"]);
+const NODE_KINDS = new Set(["france", "belarus", "turkey", "vless"]);
 
 type Plan = {
   id: string;
@@ -39,7 +39,7 @@ type Plan = {
 
 type PaidNode = {
   id: string;
-  kind: "france" | "belarus" | "vless";
+  kind: "france" | "belarus" | "turkey" | "vless";
   label_ru: string;
   label_en: string;
   flag: string;
@@ -72,10 +72,10 @@ const DEFAULT_NODES: PaidNode[] = [
   },
   {
     id: "premium_belarus",
-    kind: "belarus",
-    label_ru: "🇧🇾 Беларусь (Платная)",
-    label_en: "🇧🇾 Belarus (Paid)",
-    flag: "belarus",
+    kind: "turkey",
+    label_ru: "🇹🇷 Турция (Платная)",
+    label_en: "🇹🇷 Turkey (Paid)",
+    flag: "turkey",
     config_function: "belarus-config",
     sort: 20,
   },

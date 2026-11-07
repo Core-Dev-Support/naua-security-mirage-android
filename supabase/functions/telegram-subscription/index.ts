@@ -44,14 +44,14 @@ type PaidNodeConfig = {
 
 const DEFAULT_PAID_NODES: PaidNodeConfig[] = [
   { id: "premium_france", kind: "france", label: "Швейцария (Платная)", configFunction: "france-config", sort: 10 },
-  { id: "premium_belarus", kind: "belarus", label: "Беларусь (Платная)", configFunction: "belarus-config", sort: 20 },
+  { id: "premium_belarus", kind: "turkey", label: "Турция (Платная)", configFunction: "belarus-config", sort: 20 },
 ];
 
 // loadPaidNodes — каталог платных узлов из app_config.
 //
 // Один и тот же список читают приложение и бот-подписка. Пустой массив —
 // осознанное «платных узлов нет»; ошибка или отсутствие строки — запасной
-// список Франция/Беларусь, чтобы подписка не опустела из-за сбоя базы.
+// список Швейцария/Турция, чтобы подписка не опустела из-за сбоя базы.
 async function loadPaidNodes(): Promise<PaidNodeConfig[]> {
   try {
     const { data, error } = await service()
@@ -265,7 +265,7 @@ async function fetchNode(
 //
 // Запасной путь на случай, когда Google-сессия бота отозвана или протухла:
 // подписка оплачена, ключи лежат в базе, и клиент не должен оставаться с
-// одним бесплатным узлом. Франция и Беларусь хранят ключи в отдельных
+// одним бесплатным узлом. Швейцария и Турция хранят ключи в отдельных
 // колонках; для остальных узлов ключа в базе нет.
 function storedNodeLink(
   nodeId: string,
@@ -430,7 +430,7 @@ serve(async (req) => {
       let resolved = result ?? storedNodeLink(node.id, subscription);
       // Токен в Happ-ссылке живёт недолго, а ключ мог быть очищен при смене
       // узла. Для Швейцарии бот сам заводит/находит клиента в панели H1,
-      // иначе у оплатившего остаются только Беларусь и бесплатный узел.
+      // иначе у оплатившего остаются только Турция и бесплатный узел.
       if (!resolved && subscription && hasPaid && node.configFunction === "france-config" && subscription.email) {
         try {
           const ensured = await h1EnsureNode(subscription.email, subscription.paid_until);
@@ -445,7 +445,7 @@ serve(async (req) => {
       if (!resolved) continue;
       // Флаг остаётся у названия для Happ/других клиентов: в приложении его
       // даёт то же поле, вшитых иконок больше нет. Двойной флаг не склеиваем.
-      const flag = node.kind === "belarus" ? "🇧🇾" : "🇨🇭";
+      const flag = node.kind === "belarus" ? "🇧🇾" : node.kind === "turkey" ? "🇹🇷" : "🇨🇭";
       const label = node.label.startsWith(flag)
         ? `NAUA Security Mirage ${node.label}`
         : `NAUA Security Mirage ${flag} ${node.label}`;

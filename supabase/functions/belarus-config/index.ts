@@ -470,7 +470,7 @@ serve(async (req) => {
     // Своё название узла: H1Cloud отдаёт служебное, вида
     // «mrge_<почта>_<хэш> · custom-vless-…», и его видно в клиенте.
     const namedLink = `${resolved.link.split("#")[0]}#${
-      encodeURIComponent("NAUA Security Mirage Беларусь (Платный)")
+      encodeURIComponent("NAUA Security Mirage Турция (Платная)")
     }`;
 
     if (
@@ -502,6 +502,6 @@ serve(async (req) => {
       "belarus-config failed:",
       error instanceof Error ? error.message : error,
     );
-    return json({ error: "Unable to resolve the Belarus node right now" }, 502);
+    return json({ error: "Unable to resolve the Turkey node right now" }, 502);
   }
 });
