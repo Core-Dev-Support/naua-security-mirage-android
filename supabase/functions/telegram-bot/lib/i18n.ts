@@ -148,8 +148,7 @@ const ru: Record<string, string> = {
   "connect.text":
     "<blockquote><b>Что это:</b> одна ссылка с твоими VPN-узлами. Открываешь её в Hiddify, Happ или в приложении — и трафик идёт через личный узел.\n\n" +
     "Сейчас в ссылке два узла с разных хостеров: 🇨🇭 Швейцария и 🇹🇷 Турция. " +
-    "Подписка одна и та же для бота и приложения.\n\n" +
-    "🎁 Бесплатный узел — только в Happ.</blockquote>",
+    "Подписка одна и та же для бота и приложения.</blockquote>",
   "connect.open": "🚀 Открыть подписку",
   "connect.copy": "📋 Скопировать ссылку",
   "connect.hint":
@@ -418,8 +417,7 @@ const en: Record<string, string> = {
   "connect.text":
     "<blockquote><b>What is this:</b> a single link with your VPN nodes. Open it in Hiddify, Happ or the app and your traffic goes through a private node.\n\n" +
     "The link holds two nodes from different hosts: 🇨🇭 Switzerland and 🇹🇷 Turkey. " +
-    "The bot and the app share the same subscription.\n\n" +
-    "🎁 The free node is available in Happ only.</blockquote>",
+    "The bot and the app share the same subscription.</blockquote>",
   "connect.open": "🚀 Open subscription",
   "connect.copy": "📋 Copy the link",
   "connect.hint":
