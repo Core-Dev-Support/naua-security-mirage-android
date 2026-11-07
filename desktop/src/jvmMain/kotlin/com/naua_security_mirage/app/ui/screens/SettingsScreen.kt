@@ -60,6 +60,10 @@ fun SettingsScreen(
     var pingInterval by remember { mutableStateOf(settingsRepository.autoPingIntervalSeconds) }
     var speedInterval by remember { mutableStateOf(settingsRepository.speedIntervalSeconds) }
 
+    val colors = LocalMirageColors.current
+    val scrollState = rememberScrollState()
+    val scope = rememberCoroutineScope()
+
     Column(
         modifier = Modifier
             .fillMaxSize()

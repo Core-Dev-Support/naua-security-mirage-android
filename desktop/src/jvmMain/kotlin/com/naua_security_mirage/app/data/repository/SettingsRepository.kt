@@ -59,7 +59,7 @@ class SettingsRepository {
 
     fun setAutoStartOnBoot(enabled: Boolean) {
         state.isAutoStartOnBootEnabled = enabled
-        saveSettings()
+        save()
         try {
             val regKey = "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run"
             val appName = "NAUASecurityMirage"
