@@ -12,24 +12,25 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.naua_security_mirage.app.ui.components.MirageHeader
 import com.naua_security_mirage.app.ui.theme.LocalMirageColors
+import com.naua_security_mirage.app.ui.theme.MirageColors
 
 @Composable
 fun DnsScreen(
     onBack: () -> Unit
 ) {
     val colors = LocalMirageColors.current
-    Column(modifier = Modifier.fillMaxSize().background(colors.bg)) {
+    Column(modifier = Modifier.fillMaxSize().background(MirageColors.AuBg)) {
         MirageHeader(title = "DNS", isSubScreen = true, onBackClick = onBack)
         Column(modifier = Modifier.fillMaxSize().padding(20.dp)) {
-            Text(text = "Выбор DNS-сервера", color = colors.ink, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+            Text(text = "Выбор DNS-сервера", color = MirageColors.AuFg, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
             Spacer(modifier = Modifier.height(12.dp))
             listOf("Cloudflare (1.1.1.1)", "Google (8.8.8.8)", "Quad9 (9.9.9.9)", "Custom").forEach { name ->
                 androidx.compose.material.Surface(
                     modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                    color = colors.card,
+                    color = MirageColors.AuSolid,
                     shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
                 ) {
-                    Text(text = name, color = colors.ink, modifier = Modifier.padding(16.dp))
+                    Text(text = name, color = MirageColors.AuFg, modifier = Modifier.padding(16.dp))
                 }
             }
         }

@@ -44,7 +44,7 @@ fun AppearanceScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(colors.bg)
+            .background(MirageColors.AuBg)
     ) {
         MirageHeader(
             title = "Внешний вид",
@@ -61,7 +61,7 @@ fun AppearanceScreen(
 
             Text(
                 text = "ТЕМА ОФОРМЛЕНИЯ",
-                color = colors.inkFaint,
+                color = MirageColors.AuFg3,
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(bottom = 8.dp, start = 4.dp)
@@ -99,7 +99,7 @@ fun AppearanceScreen(
 
             Text(
                 text = "СТИЛЬ КНОПКИ ПОДКЛЮЧЕНИЯ",
-                color = colors.inkFaint,
+                color = MirageColors.AuFg3,
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(bottom = 8.dp, start = 4.dp)
@@ -125,8 +125,8 @@ fun AppearanceScreen(
                                         settingsRepository.connectBtnStyle = id
                                         onAppearanceChanged()
                                     },
-                                backgroundColor = if (connectStyle == id) colors.accent.copy(alpha = 0.12f) else colors.card,
-                                borderColor = if (connectStyle == id) colors.accent else colors.cardStroke,
+                                backgroundColor = if (connectStyle == id) MirageColors.AuAccent.copy(alpha = 0.12f) else MirageColors.AuSolid,
+                                borderColor = if (connectStyle == id) MirageColors.AuAccent else MirageColors.AuSep,
                                 borderWidth = if (connectStyle == id) 2.dp else 1.dp
                             ) {
                                 Row(
@@ -137,7 +137,7 @@ fun AppearanceScreen(
                                 ) {
                                     Text(
                                         text = label,
-                                        color = if (connectStyle == id) colors.accent else colors.ink,
+                                        color = if (connectStyle == id) MirageColors.AuAccent else MirageColors.AuFg,
                                         fontSize = 14.sp,
                                         fontWeight = if (connectStyle == id) FontWeight.Bold else FontWeight.Normal,
                                         modifier = Modifier.weight(1f)
@@ -146,7 +146,7 @@ fun AppearanceScreen(
                                         Icon(
                                             imageVector = Icons.Default.Check,
                                             contentDescription = null,
-                                            tint = colors.accent,
+                                            tint = MirageColors.AuAccent,
                                             modifier = Modifier.size(20.dp)
                                         )
                                     }
@@ -161,7 +161,7 @@ fun AppearanceScreen(
 
             Text(
                 text = "ЦВЕТОВОЙ АКЦЕНТ",
-                color = colors.inkFaint,
+                color = MirageColors.AuFg3,
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(bottom = 8.dp, start = 4.dp)

@@ -1,4 +1,4 @@
-п»їpackage com.naua_security_mirage.app.ui.screens
+package com.naua_security_mirage.app.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -25,6 +25,7 @@ import com.naua_security_mirage.app.ui.components.MirageChip
 import com.naua_security_mirage.app.ui.components.MirageHeader
 import com.naua_security_mirage.app.ui.components.MirageSwitch
 import com.naua_security_mirage.app.ui.theme.LocalMirageColors
+import com.naua_security_mirage.app.ui.theme.MirageColors
 import kotlinx.coroutines.launch
 
 @Composable
@@ -65,10 +66,10 @@ fun AppsScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(colors.bg)
+            .background(MirageColors.AuBg)
     ) {
         MirageHeader(
-            title = "РџСЂРёР»РѕР¶РµРЅРёСЏ",
+            title = "Приложения",
             isSubScreen = true,
             onBackClick = onBack
         )
@@ -85,7 +86,7 @@ fun AppsScreen(
                     Icon(
                         imageVector = Icons.Default.Search,
                         contentDescription = null,
-                        tint = colors.inkMuted,
+                        tint = MirageColors.AuFg3,
                         modifier = Modifier.size(20.dp)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
@@ -94,8 +95,8 @@ fun AppsScreen(
                         onValueChange = { searchQuery = it },
                         placeholder = {
                             Text(
-                                text = "РџРѕРёСЃРє СѓСЃС‚Р°РЅРѕРІР»РµРЅРЅС‹С… РїСЂРѕРіСЂР°РјРј...",
-                                color = colors.inkMuted,
+                                text = "Поиск установленных программ...",
+                                color = MirageColors.AuFg3,
                                 fontSize = 13.sp
                             )
                         },
@@ -103,8 +104,8 @@ fun AppsScreen(
                             backgroundColor = Color.Transparent,
                             focusedIndicatorColor = Color.Transparent,
                             unfocusedIndicatorColor = Color.Transparent,
-                            textColor = colors.ink,
-                            cursorColor = colors.accent
+                            textColor = MirageColors.AuFg,
+                            cursorColor = MirageColors.AuAccent
                         ),
                         modifier = Modifier.weight(1f),
                         singleLine = true
@@ -113,8 +114,8 @@ fun AppsScreen(
                         IconButton(onClick = { searchQuery = "" }) {
                             Icon(
                                 imageVector = Icons.Default.Close,
-                                contentDescription = "РћС‡РёСЃС‚РёС‚СЊ",
-                                tint = colors.inkMuted,
+                                contentDescription = "Очистить",
+                                tint = MirageColors.AuFg3,
                                 modifier = Modifier.size(18.dp)
                             )
                         }
@@ -130,15 +131,15 @@ fun AppsScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    MirageChip(text = "Р’СЃРµ", selected = filterMode == 0, onClick = { filterMode = 0 })
+                    MirageChip(text = "Все", selected = filterMode == 0, onClick = { filterMode = 0 })
                     MirageChip(text = "VPN", selected = filterMode == 1, onClick = { filterMode = 1 })
-                    MirageChip(text = "Р’ РѕР±С…РѕРґ", selected = filterMode == 2, onClick = { filterMode = 2 })
+                    MirageChip(text = "В обход", selected = filterMode == 2, onClick = { filterMode = 2 })
                 }
 
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
-                        text = "Р’СЃРµ VPN",
-                        color = colors.accent,
+                        text = "Все VPN",
+                        color = MirageColors.AuAccent,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold,
                         modifier = Modifier.clickable {
@@ -147,13 +148,13 @@ fun AppsScreen(
                         }
                     )
                     Text(
-                        text = "вЂў",
-                        color = colors.inkMuted,
+                        text = "•",
+                        color = MirageColors.AuFg3,
                         fontSize = 12.sp
                     )
                     Text(
-                        text = "РЎРЅСЏС‚СЊ РІСЃРµ",
-                        color = colors.inkMuted,
+                        text = "Снять все",
+                        color = MirageColors.AuFg3,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold,
                         modifier = Modifier.clickable {
@@ -169,7 +170,7 @@ fun AppsScreen(
 
         if (isLoading) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(color = colors.accent)
+                CircularProgressIndicator(color = MirageColors.AuAccent)
             }
         } else {
             LazyColumn(
@@ -188,13 +189,13 @@ fun AppsScreen(
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
                                     text = app.appName,
-                                    color = colors.ink,
+                                    color = MirageColors.AuFg,
                                     fontSize = 14.sp,
                                     fontWeight = FontWeight.SemiBold
                                 )
                                 Text(
                                     text = app.packageName,
-                                    color = colors.inkMuted,
+                                    color = MirageColors.AuFg3,
                                     fontSize = 11.sp,
                                     maxLines = 1
                                 )

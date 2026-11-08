@@ -1,4 +1,4 @@
-п»їpackage com.naua_security_mirage.app.ui.screens
+package com.naua_security_mirage.app.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -23,6 +23,7 @@ import com.naua_security_mirage.app.ui.components.MirageChip
 import com.naua_security_mirage.app.ui.components.MirageHeader
 import com.naua_security_mirage.app.ui.components.MirageSwitch
 import com.naua_security_mirage.app.ui.theme.LocalMirageColors
+import com.naua_security_mirage.app.ui.theme.MirageColors
 
 @Composable
 fun WebsitesScreen(
@@ -45,10 +46,10 @@ fun WebsitesScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(colors.bg)
+            .background(MirageColors.AuBg)
     ) {
         MirageHeader(
-            title = "РћР±С…РѕРґ СЃР°Р№С‚РѕРІ",
+            title = "Обход сайтов",
             isSubScreen = true,
             onBackClick = onBack
         )
@@ -67,8 +68,8 @@ fun WebsitesScreen(
                         onValueChange = { newDomainInput = it },
                         placeholder = {
                             Text(
-                                text = "Р”РѕР±Р°РІРёС‚СЊ РґРѕРјРµРЅ (РЅР°РїСЂ. rutracker.org)...",
-                                color = colors.inkMuted,
+                                text = "Добавить домен (напр. rutracker.org)...",
+                                color = MirageColors.AuFg3,
                                 fontSize = 13.sp
                             )
                         },
@@ -76,8 +77,8 @@ fun WebsitesScreen(
                             backgroundColor = Color.Transparent,
                             focusedIndicatorColor = Color.Transparent,
                             unfocusedIndicatorColor = Color.Transparent,
-                            textColor = colors.ink,
-                            cursorColor = colors.accent
+                            textColor = MirageColors.AuFg,
+                            cursorColor = MirageColors.AuAccent
                         ),
                         modifier = Modifier.weight(1f),
                         singleLine = true
@@ -95,8 +96,8 @@ fun WebsitesScreen(
                     ) {
                         Icon(
                             imageVector = Icons.Default.Add,
-                            contentDescription = "Р”РѕР±Р°РІРёС‚СЊ",
-                            tint = colors.accent
+                            contentDescription = "Добавить",
+                            tint = MirageColors.AuAccent
                         )
                     }
                 }
@@ -110,14 +111,14 @@ fun WebsitesScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    MirageChip(text = "Р’СЃРµ (${websites.size})", selected = filterMode == 0, onClick = { filterMode = 0 })
-                    MirageChip(text = "Р’РєР»СЋС‡РµРЅС‹", selected = filterMode == 1, onClick = { filterMode = 1 })
-                    MirageChip(text = "РћС‚РєР»СЋС‡РµРЅС‹", selected = filterMode == 2, onClick = { filterMode = 2 })
+                    MirageChip(text = "Все (${websites.size})", selected = filterMode == 0, onClick = { filterMode = 0 })
+                    MirageChip(text = "Включены", selected = filterMode == 1, onClick = { filterMode = 1 })
+                    MirageChip(text = "Отключены", selected = filterMode == 2, onClick = { filterMode = 2 })
                 }
 
                 if (websites.isNotEmpty()) {
                     Text(
-                        text = "РћС‡РёСЃС‚РёС‚СЊ РІСЃРµ",
+                        text = "Очистить все",
                         color = Color(0xFFEF4444),
                         fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold,
@@ -138,8 +139,8 @@ fun WebsitesScreen(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = "РЎРїРёСЃРѕРє РёСЃРєР»СЋС‡РµРЅРЅС‹С… РґРѕРјРµРЅРѕРІ РїСѓСЃС‚.\nР”РѕР±Р°РІСЊС‚Рµ СЃР°Р№С‚С‹, РєРѕС‚РѕСЂС‹Рµ РґРѕР»Р¶РЅС‹ РѕС‚РєСЂС‹РІР°С‚СЊСЃСЏ РЅР°РїСЂСЏРјСѓСЋ.",
-                    color = colors.inkMuted,
+                    text = "Список исключенных доменов пуст.\nДобавьте сайты, которые должны открываться напрямую.",
+                    color = MirageColors.AuFg3,
                     fontSize = 13.sp,
                     textAlign = androidx.compose.ui.text.style.TextAlign.Center
                 )
@@ -160,7 +161,7 @@ fun WebsitesScreen(
                         ) {
                             Text(
                                 text = site.domain,
-                                color = if (site.isEnabled) colors.ink else colors.inkMuted,
+                                color = if (site.isEnabled) MirageColors.AuFg else MirageColors.AuFg3,
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.SemiBold,
                                 modifier = Modifier.weight(1f)
@@ -182,7 +183,7 @@ fun WebsitesScreen(
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Delete,
-                                    contentDescription = "РЈРґР°Р»РёС‚СЊ",
+                                    contentDescription = "Удалить",
                                     tint = Color(0xFFEF4444).copy(alpha = 0.7f),
                                     modifier = Modifier.size(18.dp)
                                 )

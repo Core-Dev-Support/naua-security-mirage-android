@@ -44,8 +44,8 @@ fun Mirage3DCanvas(
     ) {
         Canvas(modifier = Modifier.fillMaxSize()) {
             val r = size.minDimension / 2f
-            drawCircle(color = colors.accent.copy(alpha = 0.25f), radius = r)
-            drawCircle(color = colors.accent, radius = r * 0.7f)
+            drawCircle(color = MirageColors.AuAccent.copy(alpha = 0.25f), radius = r)
+            drawCircle(color = MirageColors.AuAccent, radius = r * 0.7f)
         }
         val isConn = vpnState == VpnState.CONNECTED
         Icon(

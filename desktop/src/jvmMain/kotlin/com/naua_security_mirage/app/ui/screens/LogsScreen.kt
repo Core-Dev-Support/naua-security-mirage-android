@@ -26,6 +26,7 @@ import com.naua_security_mirage.app.ui.components.MirageCard
 import com.naua_security_mirage.app.ui.components.MirageChip
 import com.naua_security_mirage.app.ui.components.MirageHeader
 import com.naua_security_mirage.app.ui.theme.LocalMirageColors
+import com.naua_security_mirage.app.ui.theme.MirageColors
 import com.naua_security_mirage.app.util.AppLogger
 import kotlinx.coroutines.flow.collectLatest
 import java.awt.Toolkit
@@ -53,7 +54,7 @@ fun LogsScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(colors.bg)
+            .background(MirageColors.AuBg)
     ) {
         MirageHeader(
             title = "Журнал",
@@ -65,7 +66,7 @@ fun LogsScreen(
 
             Text(
                 text = "ДЕТАЛИЗАЦИЯ ЛОГИРОВАНИЯ",
-                color = colors.inkFaint,
+                color = MirageColors.AuFg3,
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(bottom = 6.dp, start = 4.dp)
@@ -106,7 +107,7 @@ fun LogsScreen(
             ) {
                 Text(
                     text = "Записей: ${logs.size}",
-                    color = colors.inkMuted,
+                    color = MirageColors.AuFg3,
                     fontSize = 12.sp
                 )
 
@@ -122,13 +123,13 @@ fun LogsScreen(
                         Icon(
                             imageVector = Icons.Default.ContentCopy,
                             contentDescription = null,
-                            tint = colors.accent,
+                            tint = MirageColors.AuAccent,
                             modifier = Modifier.size(16.dp)
                         )
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(
                             text = "Копировать",
-                            color = colors.accent,
+                            color = MirageColors.AuAccent,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.SemiBold
                         )
@@ -173,7 +174,7 @@ fun LogsScreen(
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text(
                         text = "Журнал чист",
-                        color = colors.inkMuted,
+                        color = MirageColors.AuFg3,
                         fontSize = 13.sp
                     )
                 }
@@ -187,9 +188,9 @@ fun LogsScreen(
                         val lineColor = when {
                             line.contains("[ERROR]") -> Color(0xFFEF4444)
                             line.contains("[WARN]") -> Color(0xFFF59E0B)
-                            line.contains("[SYSTEM]") -> colors.accent
+                            line.contains("[SYSTEM]") -> MirageColors.AuAccent
                             line.contains("[DEBUG]") -> Color(0xFF60A5FA)
-                            else -> colors.ink
+                            else -> MirageColors.AuFg
                         }
                         Text(
                             text = line,

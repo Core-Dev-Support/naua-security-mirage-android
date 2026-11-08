@@ -34,6 +34,7 @@ import com.naua_security_mirage.app.ui.components.MirageSwitch
 import com.naua_security_mirage.app.ui.dialogs.AuthDialog
 import com.naua_security_mirage.app.ui.dialogs.SubscriptionDialog
 import com.naua_security_mirage.app.ui.theme.LocalMirageColors
+import com.naua_security_mirage.app.ui.theme.MirageColors
 import kotlinx.coroutines.launch
 
 @Composable
@@ -67,7 +68,7 @@ fun SettingsScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(colors.bg)
+            .background(MirageColors.AuBg)
     ) {
         MirageHeader(
             title = "Настройки",
@@ -84,7 +85,7 @@ fun SettingsScreen(
 
             Text(
                 text = "АККАУНТ И ПОДПИСКА",
-                color = colors.inkFaint,
+                color = MirageColors.AuFg3,
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(bottom = 8.dp, start = 4.dp)
@@ -101,21 +102,21 @@ fun SettingsScreen(
                         Icon(
                             imageVector = Icons.Default.AccountCircle,
                             contentDescription = null,
-                            tint = colors.accent,
+                            tint = MirageColors.AuAccent,
                             modifier = Modifier.size(42.dp)
                         )
                         Spacer(modifier = Modifier.width(14.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 text = "Войти в аккаунт",
-                                color = colors.ink,
+                                color = MirageColors.AuFg,
                                 fontSize = 14.5.sp,
                                 fontWeight = FontWeight.Bold
                             )
                             Spacer(modifier = Modifier.height(2.dp))
                             Text(
                                 text = "Для доступа к серверу Франция и подписке",
-                                color = colors.inkSoft,
+                                color = MirageColors.AuFg2,
                                 fontSize = 12.sp
                             )
                         }
@@ -123,7 +124,7 @@ fun SettingsScreen(
                         Button(
                             onClick = { showAuthDialog = true },
                             colors = ButtonDefaults.buttonColors(
-                                backgroundColor = colors.accent,
+                                backgroundColor = MirageColors.AuAccent,
                                 contentColor = Color.White
                             ),
                             shape = RoundedCornerShape(10.dp),
@@ -142,14 +143,14 @@ fun SettingsScreen(
                             Icon(
                                 imageVector = Icons.Default.AccountCircle,
                                 contentDescription = null,
-                                tint = colors.accent,
+                                tint = MirageColors.AuAccent,
                                 modifier = Modifier.size(42.dp)
                             )
                             Spacer(modifier = Modifier.width(14.dp))
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
                                     text = currentUser?.email ?: "Пользователь",
-                                    color = colors.ink,
+                                    color = MirageColors.AuFg,
                                     fontSize = 14.sp,
                                     fontWeight = FontWeight.Bold
                                 )
@@ -165,7 +166,7 @@ fun SettingsScreen(
                                 } else {
                                     Text(
                                         text = "Бесплатный тариф (Франция недоступна)",
-                                        color = colors.inkSoft,
+                                        color = MirageColors.AuFg2,
                                         fontSize = 12.sp
                                     )
                                 }
@@ -182,7 +183,7 @@ fun SettingsScreen(
                                 Button(
                                     onClick = { showSubscriptionDialog = true },
                                     colors = ButtonDefaults.buttonColors(
-                                        backgroundColor = colors.accent,
+                                        backgroundColor = MirageColors.AuAccent,
                                         contentColor = Color.White
                                     ),
                                     shape = RoundedCornerShape(10.dp),
@@ -204,10 +205,10 @@ fun SettingsScreen(
                                 },
                                 shape = RoundedCornerShape(10.dp),
                                 colors = ButtonDefaults.outlinedButtonColors(
-                                    backgroundColor = colors.card,
+                                    backgroundColor = MirageColors.AuSolid,
                                     contentColor = Color(0xFFEF4444)
                                 ),
-                                border = androidx.compose.foundation.BorderStroke(1.dp, colors.cardStroke),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, MirageColors.AuSep),
                                 modifier = if (subscription?.isActive != true) Modifier.width(90.dp).height(38.dp) else Modifier.fillMaxWidth().height(38.dp)
                             ) {
                                 Text(
@@ -225,7 +226,7 @@ fun SettingsScreen(
 
             Text(
                 text = "РАЗДЕЛЫ НАСТРОЕК",
-                color = colors.inkFaint,
+                color = MirageColors.AuFg3,
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(bottom = 8.dp, start = 4.dp)
@@ -281,7 +282,7 @@ fun SettingsScreen(
 
             Text(
                 text = "СЕТЬ И БЕЗОПАСНОСТЬ",
-                color = colors.inkFaint,
+                color = MirageColors.AuFg3,
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(bottom = 8.dp, start = 4.dp)
@@ -339,7 +340,7 @@ fun SettingsScreen(
 
             Text(
                 text = "ИНТЕРВАЛЫ ОБНОВЛЕНИЯ",
-                color = colors.inkFaint,
+                color = MirageColors.AuFg3,
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(bottom = 8.dp, start = 4.dp)
@@ -349,7 +350,7 @@ fun SettingsScreen(
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text(
                         text = "Интервал проверки пинга",
-                        color = colors.ink,
+                        color = MirageColors.AuFg,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.SemiBold
                     )
@@ -371,7 +372,7 @@ fun SettingsScreen(
 
                     Text(
                         text = "Интервал обновления скорости",
-                        color = colors.ink,
+                        color = MirageColors.AuFg,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.SemiBold
                     )
@@ -435,21 +436,21 @@ private fun SettingsNavRow(
         Icon(
             imageVector = icon,
             contentDescription = null,
-            tint = colors.accent,
+            tint = MirageColors.AuAccent,
             modifier = Modifier.size(22.dp)
         )
         Spacer(modifier = Modifier.width(14.dp))
         Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
             Text(
                 text = title,
-                color = colors.ink,
+                color = MirageColors.AuFg,
                 fontSize = 14.sp,
                 fontWeight = FontWeight.SemiBold
             )
             Spacer(modifier = Modifier.height(2.dp))
             Text(
                 text = subtitle,
-                color = colors.inkMuted,
+                color = MirageColors.AuFg3,
                 fontSize = 12.sp,
                 lineHeight = 16.sp
             )
@@ -457,7 +458,7 @@ private fun SettingsNavRow(
         Icon(
             imageVector = Icons.Default.ChevronRight,
             contentDescription = null,
-            tint = colors.inkMuted,
+            tint = MirageColors.AuFg3,
             modifier = Modifier.size(20.dp)
         )
     }
@@ -482,21 +483,21 @@ private fun SettingsSwitchRow(
         Icon(
             imageVector = icon,
             contentDescription = null,
-            tint = colors.accent,
+            tint = MirageColors.AuAccent,
             modifier = Modifier.size(22.dp)
         )
         Spacer(modifier = Modifier.width(14.dp))
         Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
             Text(
                 text = title,
-                color = colors.ink,
+                color = MirageColors.AuFg,
                 fontSize = 14.sp,
                 fontWeight = FontWeight.SemiBold
             )
             Spacer(modifier = Modifier.height(2.dp))
             Text(
                 text = subtitle,
-                color = colors.inkMuted,
+                color = MirageColors.AuFg3,
                 fontSize = 12.sp,
                 lineHeight = 16.sp
             )
@@ -516,6 +517,6 @@ private fun SettingsDivider() {
             .fillMaxWidth()
             .height(1.dp)
             .padding(horizontal = 16.dp)
-            .background(colors.cardStroke)
+            .background(MirageColors.AuSep)
     )
 }

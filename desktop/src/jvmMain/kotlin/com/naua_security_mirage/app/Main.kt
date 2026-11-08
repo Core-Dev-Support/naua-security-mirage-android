@@ -27,6 +27,7 @@ import com.naua_security_mirage.app.data.supabase.SupabaseConfig
 import com.naua_security_mirage.app.data.supabase.SupabaseManager
 import com.naua_security_mirage.app.ui.screens.*
 import com.naua_security_mirage.app.ui.theme.LocalMirageColors
+import com.naua_security_mirage.app.ui.theme.MirageColors
 import com.naua_security_mirage.app.ui.theme.MirageTheme
 import com.naua_security_mirage.app.util.AppLogger
 import kotlinx.coroutines.delay
@@ -198,7 +199,7 @@ fun main() {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(colors.bg)
+                    .background(MirageColors.AuBg)
             ) {
                 Crossfade(targetState = currentScreen) { screen ->
                     when (screen) {
