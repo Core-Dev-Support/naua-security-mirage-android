@@ -158,7 +158,7 @@ fun SettingsScreen(
                                 if (subscription?.isActive == true) {
                                     val dateStr = subscription?.paidUntil?.take(10) ?: "бессрочно"
                                     Text(
-                                        text = "Премиум активен до $dateStr",
+                                        text = "Премиум активен до ",
                                         color = Color(0xFF10B981),
                                         fontSize = 12.sp,
                                         fontWeight = FontWeight.SemiBold
@@ -237,14 +237,14 @@ fun SettingsScreen(
                     SettingsNavRow(
                         icon = Icons.Default.Palette,
                         title = "Внешний вид",
-                        subtitle = "Темы, 3D стиль кнопки, цветовые палитры",
+                        subtitle = "Темы, 3D-стиль кнопки, цветовые палитры",
                         onClick = onNavigateToAppearance
                     )
                     SettingsDivider()
                     SettingsNavRow(
                         icon = Icons.Default.Apps,
                         title = "Проксирование приложений",
-                        subtitle = "Раздельное туннелирование для Windows программ",
+                        subtitle = "Раздельное туннелирование для Windows-программ",
                         onClick = onNavigateToApps
                     )
                     SettingsDivider()
@@ -256,16 +256,16 @@ fun SettingsScreen(
                     )
                     SettingsDivider()
                     SettingsNavRow(
-                        icon = Icons.Default.Language,
-                        title = "DNS ������ �������",
-                        subtitle = "����� DNS-������� ��� �������",
+                        icon = Icons.Default.Dns,
+                        title = "DNS внутри туннеля",
+                        subtitle = "Выбор DNS-сервера для туннеля",
                         onClick = onNavigateToDns
                     )
                     SettingsDivider()
                     SettingsNavRow(
-                        icon = Icons.Default.Lock,
-                        title = "��������� DNS",
-                        subtitle = "��������� ���������� Private DNS",
+                        icon = Icons.Default.Security,
+                        title = "Приватный DNS",
+                        subtitle = "Настройка системного Private DNS",
                         onClick = onNavigateToPrivateDns
                     )
                     SettingsDivider()
@@ -304,7 +304,7 @@ fun SettingsScreen(
                     SettingsSwitchRow(
                         icon = Icons.Default.Lock,
                         title = "Защита от утечек (Kill Switch)",
-                        subtitle = "Блокировать трафик при внезапном обрыве VPN соединения",
+                        subtitle = "Блокировать трафик при внезапном обрыве VPN-соединения",
                         checked = killSwitch,
                         onCheckedChange = {
                             killSwitch = it
@@ -358,7 +358,7 @@ fun SettingsScreen(
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         listOf(1, 3, 5, 10).forEach { sec ->
                             MirageChip(
-                                text = "${sec} сек",
+                                text = " сек",
                                 selected = pingInterval == sec,
                                 onClick = {
                                     pingInterval = sec
@@ -380,7 +380,7 @@ fun SettingsScreen(
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         listOf(1, 2, 3, 5).forEach { sec ->
                             MirageChip(
-                                text = "${sec} сек",
+                                text = " сек",
                                 selected = speedInterval == sec,
                                 onClick = {
                                     speedInterval = sec

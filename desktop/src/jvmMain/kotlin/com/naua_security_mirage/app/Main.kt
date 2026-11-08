@@ -304,8 +304,9 @@ fun main() {
                         )
 
                         Screen.DNS -> DnsScreen(
-                            onBack = { currentScreen = Screen.SETTINGS }
-                        )
+                             settingsRepository = settingsRepo,
+                             onBack = { currentScreen = Screen.SETTINGS }
+                         )
 
                         Screen.PRIVATE_DNS -> PrivateDnsScreen(
                             onBack = { currentScreen = Screen.SETTINGS }

@@ -49,7 +49,7 @@ fun WebsitesScreen(
             .background(MirageColors.AuBg)
     ) {
         MirageHeader(
-            title = "Обход сайтов",
+            title = "РћР±С…РѕРґ СЃР°Р№С‚РѕРІ",
             isSubScreen = true,
             onBackClick = onBack
         )
@@ -68,7 +68,7 @@ fun WebsitesScreen(
                         onValueChange = { newDomainInput = it },
                         placeholder = {
                             Text(
-                                text = "Добавить домен (напр. rutracker.org)...",
+                                text = "Р”РѕР±Р°РІРёС‚СЊ РґРѕРјРµРЅ (РЅР°РїСЂ. rutracker.org)...",
                                 color = MirageColors.AuFg3,
                                 fontSize = 13.sp
                             )
@@ -96,7 +96,7 @@ fun WebsitesScreen(
                     ) {
                         Icon(
                             imageVector = Icons.Default.Add,
-                            contentDescription = "Добавить",
+                            contentDescription = "Р”РѕР±Р°РІРёС‚СЊ",
                             tint = MirageColors.AuAccent
                         )
                     }
@@ -111,14 +111,14 @@ fun WebsitesScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    MirageChip(text = "Все (${websites.size})", selected = filterMode == 0, onClick = { filterMode = 0 })
-                    MirageChip(text = "Включены", selected = filterMode == 1, onClick = { filterMode = 1 })
-                    MirageChip(text = "Отключены", selected = filterMode == 2, onClick = { filterMode = 2 })
+                    MirageChip(text = "Р’СЃРµ (${websites.size})", selected = filterMode == 0, onClick = { filterMode = 0 })
+                    MirageChip(text = "Р’РєР»СЋС‡РµРЅС‹", selected = filterMode == 1, onClick = { filterMode = 1 })
+                    MirageChip(text = "РћС‚РєР»СЋС‡РµРЅС‹", selected = filterMode == 2, onClick = { filterMode = 2 })
                 }
 
                 if (websites.isNotEmpty()) {
                     Text(
-                        text = "Очистить все",
+                        text = "РћС‡РёСЃС‚РёС‚СЊ РІСЃРµ",
                         color = Color(0xFFEF4444),
                         fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold,
@@ -139,7 +139,7 @@ fun WebsitesScreen(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = "Список исключенных доменов пуст.\nДобавьте сайты, которые должны открываться напрямую.",
+                    text = "РЎРїРёСЃРѕРє РёСЃРєР»СЋС‡РµРЅРЅС‹С… РґРѕРјРµРЅРѕРІ РїСѓСЃС‚.\nР”РѕР±Р°РІСЊС‚Рµ СЃР°Р№С‚С‹, РєРѕС‚РѕСЂС‹Рµ РґРѕР»Р¶РЅС‹ РѕС‚РєСЂС‹РІР°С‚СЊСЃСЏ РЅР°РїСЂСЏРјСѓСЋ.",
                     color = MirageColors.AuFg3,
                     fontSize = 13.sp,
                     textAlign = androidx.compose.ui.text.style.TextAlign.Center
@@ -183,7 +183,7 @@ fun WebsitesScreen(
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Delete,
-                                    contentDescription = "Удалить",
+                                    contentDescription = "РЈРґР°Р»РёС‚СЊ",
                                     tint = Color(0xFFEF4444).copy(alpha = 0.7f),
                                     modifier = Modifier.size(18.dp)
                                 )

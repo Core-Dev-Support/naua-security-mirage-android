@@ -6,6 +6,7 @@ import com.naua_security_mirage.app.data.model.VlessServer
 import com.naua_security_mirage.app.data.model.VpnState
 import com.naua_security_mirage.app.data.repository.GeoRoutingRepository
 import com.naua_security_mirage.app.data.repository.SettingsRepository
+import com.naua_security_mirage.app.data.model.DnsServer
 import com.naua_security_mirage.app.util.AppLogger
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -211,6 +212,21 @@ class VpnCoreService(
         }
     }
 
+    private fun resolveChosenDns(): DnsServer? {
+        val selectedId = settingsRepository.selectedDnsId
+        if (selectedId == DnsServer.PLAIN_ID) return null
+        if (selectedId == DnsServer.AUTO_ID) {
+            val picked = settingsRepository.autoDnsPickedId
+            return if (picked.isNotBlank() && picked != selectedId) DnsServer.byId(picked) else null
+        }
+        if (selectedId == DnsServer.CUSTOM_ID) {
+            val url = settingsRepository.customDnsUrl.trim()
+            return if (url.startsWith("https://")) DnsServer(id = DnsServer.CUSTOM_ID, url = url) else null
+        }
+        if (selectedId.isBlank()) return null
+        return DnsServer.byId(selectedId)
+    }
+
     private fun buildXrayConfig(server: VlessServer, coreDir: File): String {
         val root = JsonObject()
 
@@ -237,10 +253,36 @@ class VpnCoreService(
             add("settings", settings)
         }
         inbounds.add(tunInbound)
+        // Локальные SOCKS/HTTP-входы не используются: весь трафик идёт через TUN.
 
-        // Локальные SOCKS/HTTP-входы не используются: весь трафик приходит
-        // через TUN. Открытый 127.0.0.1:10808 без пароля позволял любому
-        // процессу на машине ходить через VPN пользователя.
+
+        val dns = JsonObject().apply {
+            val hosts = JsonObject().apply {
+                add("cloudflare-dns.com", JsonArray().apply { add("1.1.1.1"); add("1.0.0.1") })
+                add("one.one.one.one", JsonArray().apply { add("1.1.1.1"); add("1.0.0.1") })
+                add("dns.cloudflare.com", JsonArray().apply { add("162.159.61.8"); add("172.64.41.8") })
+                add("dns.google", JsonArray().apply { add("8.8.8.8"); add("8.8.4.4") })
+                add("common.dot.dns.yandex.net", JsonArray().apply { add("77.88.8.8"); add("77.88.8.1") })
+            }
+            val chosen = resolveChosenDns()
+            chosen?.let { c ->
+                try {
+                    val host = java.net.URI(c.url).host
+                    if (host != null && !hosts.has(host) && c.bootstrapIps.isNotEmpty()) {
+                        hosts.add(host, JsonArray().apply { c.bootstrapIps.forEach { ip -> add(ip) } })
+                    }
+                } catch (_: Exception) {}
+            }
+            add("hosts", hosts)
+            val servers = JsonArray()
+            chosen?.let { servers.add(JsonObject().apply { addProperty("address", it.url) }) }
+            servers.add(JsonObject().apply { addProperty("address", "https://cloudflare-dns.com/dns-query") })
+            servers.add(JsonObject().apply { addProperty("address", "https://dns.google/dns-query") })
+            servers.add("tcp://1.1.1.1:53"); servers.add("tcp://8.8.8.8:53")
+            add("servers", servers); addProperty("queryStrategy", "UseIPv4")
+        }
+        root.add("dns", dns)
+
         root.add("inbounds", inbounds)
 
         val outbounds = JsonArray()

@@ -69,7 +69,7 @@ fun AppsScreen(
             .background(MirageColors.AuBg)
     ) {
         MirageHeader(
-            title = "Приложения",
+            title = "РџСЂРёР»РѕР¶РµРЅРёСЏ",
             isSubScreen = true,
             onBackClick = onBack
         )
@@ -95,7 +95,7 @@ fun AppsScreen(
                         onValueChange = { searchQuery = it },
                         placeholder = {
                             Text(
-                                text = "Поиск установленных программ...",
+                                text = "РџРѕРёСЃРє СѓСЃС‚Р°РЅРѕРІР»РµРЅРЅС‹С… РїСЂРѕРіСЂР°РјРј...",
                                 color = MirageColors.AuFg3,
                                 fontSize = 13.sp
                             )
@@ -114,7 +114,7 @@ fun AppsScreen(
                         IconButton(onClick = { searchQuery = "" }) {
                             Icon(
                                 imageVector = Icons.Default.Close,
-                                contentDescription = "Очистить",
+                                contentDescription = "РћС‡РёСЃС‚РёС‚СЊ",
                                 tint = MirageColors.AuFg3,
                                 modifier = Modifier.size(18.dp)
                             )
@@ -131,14 +131,14 @@ fun AppsScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    MirageChip(text = "Все", selected = filterMode == 0, onClick = { filterMode = 0 })
+                    MirageChip(text = "Р’СЃРµ", selected = filterMode == 0, onClick = { filterMode = 0 })
                     MirageChip(text = "VPN", selected = filterMode == 1, onClick = { filterMode = 1 })
-                    MirageChip(text = "В обход", selected = filterMode == 2, onClick = { filterMode = 2 })
+                    MirageChip(text = "Р’ РѕР±С…РѕРґ", selected = filterMode == 2, onClick = { filterMode = 2 })
                 }
 
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
-                        text = "Все VPN",
+                        text = "Р’СЃРµ VPN",
                         color = MirageColors.AuAccent,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold,
@@ -148,12 +148,12 @@ fun AppsScreen(
                         }
                     )
                     Text(
-                        text = "•",
+                        text = "вЂў",
                         color = MirageColors.AuFg3,
                         fontSize = 12.sp
                     )
                     Text(
-                        text = "Снять все",
+                        text = "РЎРЅСЏС‚СЊ РІСЃРµ",
                         color = MirageColors.AuFg3,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold,

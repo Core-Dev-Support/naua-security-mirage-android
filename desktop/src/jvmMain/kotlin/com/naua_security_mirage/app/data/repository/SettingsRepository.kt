@@ -179,6 +179,26 @@ class SettingsRepository {
         get() = state.lastShownWhatsNewVersion
         set(value) { state.lastShownWhatsNewVersion = value; save() }
 
+    var selectedDnsId: String
+        get() = state.selectedDnsId
+        set(value) { state.selectedDnsId = value; save() }
+
+    var customDnsUrl: String
+        get() = state.customDnsUrl
+        set(value) { state.customDnsUrl = value; save() }
+
+    var autoDnsPickedId: String
+        get() = state.autoDnsPickedId
+        set(value) { state.autoDnsPickedId = value; save() }
+
+    var autoDnsPickedAt: Long
+        get() = state.autoDnsPickedAt
+        set(value) { state.autoDnsPickedAt = value; save() }
+
+    var privateDnsDialogTime: Long
+        get() = state.privateDnsDialogTime
+        set(value) { state.privateDnsDialogTime = value; save() }
+
     fun isAppProxied(packageName: String): Boolean {
         return !state.bypassedAppPackages.contains(packageName)
     }

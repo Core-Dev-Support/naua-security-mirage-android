@@ -50,7 +50,7 @@ fun Mirage3DCanvas(
         val isConn = vpnState == VpnState.CONNECTED
         Icon(
             imageVector = Icons.Default.PowerSettingsNew,
-            contentDescription = "Подключиться",
+            contentDescription = "РџРѕРґРєР»СЋС‡РёС‚СЊСЃСЏ",
             tint = if (isConn) MirageColors.PowerIconConnected else Color.White,
             modifier = Modifier.fillMaxSize(0.4f)
         )
