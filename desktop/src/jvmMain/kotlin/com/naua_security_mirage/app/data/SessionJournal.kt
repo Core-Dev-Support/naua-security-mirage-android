@@ -1,13 +1,14 @@
 package com.naua_security_mirage.app.data
 
-import org.json.JSONArray
-import org.json.JSONObject
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
 import java.io.File
 
 object SessionJournal {
 
     data class Entry(val startedAt: Long, val node: String, val seconds: Long)
 
+    private val gson = Gson()
     private val storageFile: File by lazy {
         val dir = File(System.getProperty("user.home"), ".naua-mirage")
         if (!dir.exists()) dir.mkdirs()
@@ -29,16 +30,7 @@ object SessionJournal {
                 )
             )
             while (list.size > MAX_ENTRIES) list.removeAt(list.size - 1)
-            val array = JSONArray()
-            for (entry in list) {
-                array.put(
-                    JSONObject()
-                        .put("at", entry.startedAt)
-                        .put("node", entry.node)
-                        .put("sec", entry.seconds)
-                )
-            }
-            storageFile.writeText(array.toString())
+            storageFile.writeText(gson.toJson(list))
         } catch (_: Throwable) {}
     }
 
@@ -47,15 +39,8 @@ object SessionJournal {
             if (!storageFile.exists()) return emptyList()
             val raw = storageFile.readText()
             if (raw.isBlank()) return emptyList()
-            val array = JSONArray(raw)
-            (0 until array.length()).mapNotNull { i ->
-                val obj = array.optJSONObject(i) ?: return@mapNotNull null
-                Entry(
-                    startedAt = obj.optLong("at", 0L),
-                    node = obj.optString("node", ""),
-                    seconds = obj.optLong("sec", 0L)
-                )
-            }
+            val type = object : TypeToken<List<Entry>>() {}.type
+            gson.fromJson<List<Entry>>(raw, type) ?: emptyList()
         } catch (_: Throwable) {
             emptyList()
         }
