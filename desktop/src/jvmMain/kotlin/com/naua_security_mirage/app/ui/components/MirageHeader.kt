@@ -65,8 +65,8 @@ fun MirageHeader(
                     modifier = Modifier
                         .size(38.dp)
                         .clip(RoundedCornerShape(12.dp))
-                        .background(MirageColors.AuSolid)
-                        .border(1.dp, MirageColors.AuSep, RoundedCornerShape(12.dp))
+                        .background(MirageColors.Card)
+                        .border(1.dp, MirageColors.CardStroke, RoundedCornerShape(12.dp))
                         .clickable { onBackClick() },
                     contentAlignment = Alignment.Center
                 ) {
@@ -119,8 +119,8 @@ fun MirageHeader(
                     modifier = Modifier
                         .size(40.dp)
                         .clip(RoundedCornerShape(12.dp))
-                        .background(MirageColors.AuSolid)
-                        .border(1.dp, MirageColors.AuSep, RoundedCornerShape(12.dp))
+                        .background(MirageColors.Card)
+                        .border(1.dp, MirageColors.CardStroke, RoundedCornerShape(12.dp))
                         .clickable { onLanguageClick?.invoke() },
                     contentAlignment = Alignment.Center
                 ) {
@@ -137,8 +137,8 @@ fun MirageHeader(
                     modifier = Modifier
                         .size(40.dp)
                         .clip(RoundedCornerShape(12.dp))
-                        .background(MirageColors.AuSolid)
-                        .border(1.dp, MirageColors.AuSep, RoundedCornerShape(12.dp))
+                        .background(MirageColors.Card)
+                        .border(1.dp, MirageColors.CardStroke, RoundedCornerShape(12.dp))
                         .clickable { onUpdateClick?.invoke() },
                     contentAlignment = Alignment.Center
                 ) {
@@ -182,8 +182,8 @@ fun MirageHeader(
                     modifier = Modifier
                         .size(40.dp)
                         .clip(RoundedCornerShape(12.dp))
-                        .background(MirageColors.AuSolid)
-                        .border(1.dp, MirageColors.AuSep, RoundedCornerShape(12.dp))
+                        .background(MirageColors.Card)
+                        .border(1.dp, MirageColors.CardStroke, RoundedCornerShape(12.dp))
                         .clickable { onRefreshClick?.invoke() },
                     contentAlignment = Alignment.Center
                 ) {
@@ -202,8 +202,8 @@ fun MirageHeader(
                     modifier = Modifier
                         .size(40.dp)
                         .clip(RoundedCornerShape(12.dp))
-                        .background(MirageColors.AuSolid)
-                        .border(1.dp, MirageColors.AuSep, RoundedCornerShape(12.dp))
+                        .background(MirageColors.Card)
+                        .border(1.dp, MirageColors.CardStroke, RoundedCornerShape(12.dp))
                         .clickable { onSettingsClick?.invoke() },
                     contentAlignment = Alignment.Center
                 ) {

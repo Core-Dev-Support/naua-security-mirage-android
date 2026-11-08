@@ -25,13 +25,13 @@ data class MirageThemeColors(
 
 val LocalMirageColors = staticCompositionLocalOf {
     MirageThemeColors(
-        bg = MirageColors.AuBg,
-        card = MirageColors.AuSolid,
-        cardStroke = MirageColors.AuSep,
-        ink = MirageColors.AuFg,
-        inkSoft = MirageColors.AuFg2,
-        inkMuted = MirageColors.AuFg3,
-        inkFaint = MirageColors.AuFg3,
+        bg = MirageColors.Bg,
+        card = MirageColors.Card,
+        cardStroke = MirageColors.CardStroke,
+        ink = MirageColors.Ink,
+        inkSoft = MirageColors.InkSoft,
+        inkMuted = MirageColors.InkMuted,
+        inkFaint = MirageColors.InkFaint,
         accent = MirageColors.Amber,
         accentLight = MirageColors.AmberLight,
         accentDeep = MirageColors.AmberDeep,
@@ -101,13 +101,13 @@ fun MirageTheme(
             isDark = true
         )
         else -> MirageThemeColors(
-            bg = MirageColors.AuBg,
-            card = MirageColors.AuSolid,
-            cardStroke = MirageColors.AuSep,
-            ink = MirageColors.AuFg,
-            inkSoft = MirageColors.AuFg2,
-            inkMuted = MirageColors.AuFg3,
-            inkFaint = MirageColors.AuFg3,
+            bg = MirageColors.Bg,
+            card = MirageColors.Card,
+            cardStroke = MirageColors.CardStroke,
+            ink = MirageColors.Ink,
+            inkSoft = MirageColors.InkSoft,
+            inkMuted = MirageColors.InkMuted,
+            inkFaint = MirageColors.InkFaint,
             accent = customAccent,
             accentLight = customAccent.copy(alpha = 0.8f),
             accentDeep = customAccent.copy(alpha = 0.9f),

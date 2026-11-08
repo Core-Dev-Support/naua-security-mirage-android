@@ -247,7 +247,7 @@ fun main() {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(MirageColors.AuBg)
+                        .background(LocalMirageColors.current.bg)
                 ) {
                     Crossfade(targetState = currentScreen) { screen ->
                         when (screen) {

@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     kotlin("jvm")
     id("org.jetbrains.compose")
@@ -25,17 +27,73 @@ dependencies {
     implementation("io.ktor:ktor-client-okhttp:2.3.12")
 }
 
-// Адрес API бесплатных узлов не хранится в исходниках: он приходит из
-// секрета CI и попадает в ресурс только на этапе сборки.
+fun getSecret(name: String, default: String = ""): String {
+    val prop = project.findProperty(name) as String?
+    if (!prop.isNullOrEmpty()) return prop.trim()
+    val env = System.getenv(name)
+    if (!env.isNullOrEmpty()) return env.trim()
+    val localProps = rootProject.file("local.properties")
+    if (localProps.exists()) {
+        val p = Properties()
+        localProps.inputStream().use { p.load(it) }
+        val v = p.getProperty(name)
+        if (!v.isNullOrEmpty()) return v.trim()
+    }
+    return default.trim()
+}
+
+// Конфигурационные секреты (адрес API бесплатных узлов, Supabase, VLESS серверы)
+// не хранятся в репозитории: они приходят из секретов CI и внедряются в ресурс
+// mirage.properties только на этапе сборки.
 val generateMirageConfig = tasks.register("generateMirageConfig") {
-    val apiUrl = providers.environmentVariable("MIRAGE_API_URL").orElse("")
-    val outputDir = layout.buildDirectory.dir("generated/mirage-config")
+    val apiUrl = getSecret("MIRAGE_API_URL")
+    val supabaseUrl = getSecret("SUPABASE_URL")
+    val supabaseAnonKey = getSecret("SUPABASE_ANON_KEY")
+    val franceHost = getSecret("FRANCE_HOST")
+    val francePort = getSecret("FRANCE_PORT", "443")
+    val francePbk = getSecret("FRANCE_PBK")
+    val franceSni = getSecret("FRANCE_SNI")
+    val franceSid = getSecret("FRANCE_SID")
+    val franceSpx = getSecret("FRANCE_SPX", "/")
+    val franceFingerprint = getSecret("FRANCE_FINGERPRINT", "chrome")
+    val franceDefaultUuid = getSecret("FRANCE_DEFAULT_UUID")
+    val franceEndpoints = getSecret("FRANCE_ENDPOINTS")
+    val yooMoneyWallet = getSecret("YOOMONEY_WALLET")
+
     inputs.property("apiUrl", apiUrl)
+    inputs.property("supabaseUrl", supabaseUrl)
+    inputs.property("supabaseAnonKey", supabaseAnonKey)
+    inputs.property("franceHost", franceHost)
+    inputs.property("francePort", francePort)
+    inputs.property("francePbk", francePbk)
+    inputs.property("franceSni", franceSni)
+    inputs.property("franceSid", franceSid)
+    inputs.property("franceSpx", franceSpx)
+    inputs.property("franceFingerprint", franceFingerprint)
+    inputs.property("franceDefaultUuid", franceDefaultUuid)
+    inputs.property("franceEndpoints", franceEndpoints)
+    inputs.property("yooMoneyWallet", yooMoneyWallet)
+
+    val outputDir = layout.buildDirectory.dir("generated/mirage-config")
     outputs.dir(outputDir)
     doLast {
         val file = outputDir.get().file("mirage.properties").asFile
         file.parentFile.mkdirs()
-        file.writeText("apiUrl=${apiUrl.get().trim()}\n")
+        val props = Properties()
+        props.setProperty("apiUrl", apiUrl)
+        props.setProperty("supabaseUrl", supabaseUrl)
+        props.setProperty("supabaseAnonKey", supabaseAnonKey)
+        props.setProperty("franceHost", franceHost)
+        props.setProperty("francePort", francePort)
+        props.setProperty("francePbk", francePbk)
+        props.setProperty("franceSni", franceSni)
+        props.setProperty("franceSid", franceSid)
+        props.setProperty("franceSpx", franceSpx)
+        props.setProperty("franceFingerprint", franceFingerprint)
+        props.setProperty("franceDefaultUuid", franceDefaultUuid)
+        props.setProperty("franceEndpoints", franceEndpoints)
+        props.setProperty("yooMoneyWallet", yooMoneyWallet)
+        file.outputStream().use { props.store(it, "Generated Mirage Properties") }
     }
 }
 

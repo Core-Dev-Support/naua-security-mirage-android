@@ -41,6 +41,18 @@ jobs:
       - name: Package Compose Desktop Application
         env:
           MIRAGE_API_URL: ${{ secrets.MIRAGE_API_URL }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          FRANCE_HOST: ${{ secrets.FRANCE_HOST }}
+          FRANCE_PORT: ${{ secrets.FRANCE_PORT }}
+          FRANCE_PBK: ${{ secrets.FRANCE_PBK }}
+          FRANCE_SNI: ${{ secrets.FRANCE_SNI }}
+          FRANCE_SID: ${{ secrets.FRANCE_SID }}
+          FRANCE_SPX: ${{ secrets.FRANCE_SPX }}
+          FRANCE_FINGERPRINT: ${{ secrets.FRANCE_FINGERPRINT }}
+          FRANCE_DEFAULT_UUID: ${{ secrets.FRANCE_DEFAULT_UUID }}
+          FRANCE_ENDPOINTS: ${{ secrets.FRANCE_ENDPOINTS }}
+          YOOMONEY_WALLET: ${{ secrets.YOOMONEY_WALLET }}
         run: |
           $StartTime = Get-Date
           Write-Host "========================================================="

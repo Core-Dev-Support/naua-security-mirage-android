@@ -52,7 +52,7 @@ fun AppearanceScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(MirageColors.Bg)
+            .background(colors.bg)
     ) {
         MirageHeader(
             title = "Внешний вид",
@@ -157,7 +157,7 @@ fun AppearanceScreen(
                                 .weight(1f)
                                 .height(42.dp)
                                 .clip(RoundedCornerShape(12.dp))
-                                .background(MirageColors.Bg)
+                                .background(colors.bg)
                                 .border(1.dp, MirageColors.CardStroke, RoundedCornerShape(12.dp))
                                 .clickable {
                                     try {
@@ -201,7 +201,7 @@ fun AppearanceScreen(
                                 modifier = Modifier
                                     .size(42.dp)
                                     .clip(RoundedCornerShape(12.dp))
-                                    .background(MirageColors.Bg)
+                                    .background(colors.bg)
                                     .border(1.dp, MirageColors.CardStroke, RoundedCornerShape(12.dp))
                                     .clickable {
                                         customBgImage = null

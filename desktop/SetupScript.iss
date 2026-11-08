@@ -25,7 +25,8 @@ Compression=lzma2/ultra64
 SolidCompression=yes
 WizardStyle=modern
 PrivilegesRequired=lowest
-CloseApplications=yes
+CloseApplications=force
+CloseApplicationsFilter=NAUASecurityMirage.exe,xray.exe,tun2socks.exe
 RestartApplications=no
 
 [Languages]
@@ -47,3 +48,29 @@ Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; IconFilen
 
 [Run]
 Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent
+
+[Code]
+procedure KillProcessTree(const ExeName: String);
+var
+  ResultCode: Integer;
+begin
+  Exec(ExpandConstant('{sys}\taskkill.exe'), '/F /T /IM "' + ExeName + '"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+end;
+
+function InitializeSetup(): Boolean;
+begin
+  KillProcessTree('{#MyAppExeName}');
+  KillProcessTree('xray.exe');
+  KillProcessTree('tun2socks.exe');
+  Sleep(500);
+  Result := True;
+end;
+
+function InitializeUninstall(): Boolean;
+begin
+  KillProcessTree('{#MyAppExeName}');
+  KillProcessTree('xray.exe');
+  KillProcessTree('tun2socks.exe');
+  Sleep(500);
+  Result := True;
+end;

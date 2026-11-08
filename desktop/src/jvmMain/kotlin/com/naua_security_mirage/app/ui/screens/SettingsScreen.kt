@@ -95,7 +95,7 @@ fun SettingsScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(MirageColors.AuBg)
+            .background(colors.bg)
     ) {
         MirageHeader(
             title = if (isEnglish) "Settings" else "Настройки",

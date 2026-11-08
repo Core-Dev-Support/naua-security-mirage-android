@@ -108,7 +108,7 @@ fun MainScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(MirageColors.AuBg)
+            .background(colors.bg)
     ) {
         MirageHeader(
             title = "Mirage",

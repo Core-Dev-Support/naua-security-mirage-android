@@ -66,8 +66,8 @@ class SupabaseManager {
     private val dynamicKeysCache = mutableMapOf<String, String>()
 
     val client: SupabaseClient = createSupabaseClient(
-        supabaseUrl = SupabaseConfig.SUPABASE_URL,
-        supabaseKey = SupabaseConfig.getAnonKey()
+        supabaseUrl = SupabaseConfig.SUPABASE_URL.ifBlank { "https://placeholder.supabase.co" },
+        supabaseKey = SupabaseConfig.getAnonKey().ifBlank { "placeholder" }
     ) {
         install(Auth)
         install(Postgrest)
@@ -94,12 +94,18 @@ class SupabaseManager {
     }
 
     suspend fun signInWithGoogle(): Result<Unit> {
+        val url = SupabaseConfig.SUPABASE_URL
+        if (url.isBlank()) {
+            val msg = "Supabase URL не сконфигурирован. Проверьте mirage.properties или переменные окружения."
+            AppLogger.error(TAG, msg)
+            return Result.failure(IllegalStateException(msg))
+        }
         return try {
             try {
                 client.auth.signInWith(Google)
             } catch (innerEx: Exception) {
                 AppLogger.warn(TAG, "Direct Google SDK sign in error (${innerEx.message}), opening browser OAuth...")
-                val oauthUrl = "${SupabaseConfig.SUPABASE_URL}/auth/v1/authorize?provider=google&redirect_to=http://localhost:8000/callback"
+                val oauthUrl = "${url.trimEnd('/')}/auth/v1/authorize?provider=google&redirect_to=http://localhost:8000/callback"
                 if (Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.BROWSE)) {
                     Desktop.getDesktop().browse(URI(oauthUrl))
                 } else {

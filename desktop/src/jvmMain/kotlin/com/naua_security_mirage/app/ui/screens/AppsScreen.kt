@@ -66,7 +66,7 @@ fun AppsScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(MirageColors.AuBg)
+            .background(LocalMirageColors.current.bg)
     ) {
         MirageHeader(
             title = "Приложения",

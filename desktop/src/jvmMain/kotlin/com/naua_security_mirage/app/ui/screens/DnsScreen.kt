@@ -65,7 +65,7 @@ fun DnsScreen(
         else -> DnsServer.byId(id)?.url ?: ""
     }
 
-    Column(modifier = Modifier.fillMaxSize().background(MirageColors.AuBg)) {
+    Column(modifier = Modifier.fillMaxSize().background(LocalMirageColors.current.bg)) {
         MirageHeader(title = "Шифрованный DNS", isSubScreen = true, onBackClick = onBack)
         Column(
             modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp)

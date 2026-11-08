@@ -59,7 +59,7 @@ fun LogsScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(MirageColors.AuBg)
+            .background(colors.bg)
     ) {
         // Logs Top Header matching viewLogs FrameLayout in activity_main.xml
         Box(

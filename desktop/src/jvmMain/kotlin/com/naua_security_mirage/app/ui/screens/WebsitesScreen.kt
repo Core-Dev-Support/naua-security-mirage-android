@@ -46,7 +46,7 @@ fun WebsitesScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(MirageColors.AuBg)
+            .background(LocalMirageColors.current.bg)
     ) {
         MirageHeader(
             title = "Обход сайтов",
