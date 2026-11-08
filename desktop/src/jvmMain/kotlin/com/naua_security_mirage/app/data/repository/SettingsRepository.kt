@@ -2,7 +2,6 @@ package com.naua_security_mirage.app.data.repository
 
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
-import com.google.gson.reflect.TypeToken
 import com.naua_security_mirage.app.data.model.CustomWebsite
 import java.io.File
 
@@ -54,7 +53,12 @@ class SettingsRepository {
         var customDnsUrl: String = "",
         var autoDnsPickedId: String = "",
         var autoDnsPickedAt: Long = 0L,
-        var privateDnsDialogTime: Long = 0L
+        var privateDnsDialogTime: Long = 0L,
+        var selectedServerPlan: String = PLAN_FREE,
+        var lastPaidPlan: String = PLAN_PREMIUM_FRANCE,
+        var appLanguage: String = LANG_RU,
+        var isEmailMasked: Boolean = false,
+        var areAnimationsEnabled: Boolean = true
     )
 
     fun setAutoStartOnBoot(enabled: Boolean) {
@@ -73,6 +77,7 @@ class SettingsRepository {
             }
         } catch (_: Exception) {}
     }
+
     private fun loadSettings(): SettingsState {
         return try {
             if (configFile.exists()) {
@@ -199,6 +204,28 @@ class SettingsRepository {
         get() = state.privateDnsDialogTime
         set(value) { state.privateDnsDialogTime = value; save() }
 
+    var selectedServerPlan: String
+        get() = state.selectedServerPlan
+        set(value) { state.selectedServerPlan = value; save() }
+
+    var lastPaidPlan: String
+        get() = state.lastPaidPlan
+        set(value) { state.lastPaidPlan = value; save() }
+
+    var appLanguage: String
+        get() = state.appLanguage
+        set(value) { state.appLanguage = value; save() }
+
+    var isEmailMasked: Boolean
+        get() = state.isEmailMasked
+        set(value) { state.isEmailMasked = value; save() }
+
+    var areAnimationsEnabled: Boolean
+        get() = state.areAnimationsEnabled
+        set(value) { state.areAnimationsEnabled = value; save() }
+
+    fun isPaidPlan(plan: String = selectedServerPlan): Boolean = plan != PLAN_FREE
+
     fun isAppProxied(packageName: String): Boolean {
         return !state.bypassedAppPackages.contains(packageName)
     }
@@ -270,10 +297,18 @@ class SettingsRepository {
         state.customActionBtnColor = 0
         state.customTextColor = 0
         state.customSwitchColor = 0
+        state.areAnimationsEnabled = true
         save()
     }
 
     companion object {
+        const val PLAN_FREE = "free"
+        const val PLAN_PREMIUM_FRANCE = "premium_france"
+        const val PLAN_PREMIUM_BELARUS = "premium_belarus"
+
+        const val LANG_RU = "ru"
+        const val LANG_EN = "en"
+
         const val THEME_DARK = "dark"
         const val THEME_LIGHT = "light"
         const val THEME_AMOLED = "amoled"

@@ -10,7 +10,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.Icon
 import androidx.compose.material.Text
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
@@ -33,6 +33,8 @@ fun MirageHeader(
     modifier: Modifier = Modifier,
     isSubScreen: Boolean = false,
     isRefreshing: Boolean = false,
+    languageText: String = "RU",
+    onLanguageClick: (() -> Unit)? = null,
     onBackClick: (() -> Unit)? = null,
     onUpdateClick: (() -> Unit)? = null,
     onRefreshClick: (() -> Unit)? = null,
@@ -52,7 +54,6 @@ fun MirageHeader(
     )
 
     if (isSubScreen) {
-
         Row(
             modifier = modifier
                 .fillMaxWidth()
@@ -70,7 +71,7 @@ fun MirageHeader(
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        imageVector = Icons.Default.ArrowBack,
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                         contentDescription = "Назад",
                         tint = MirageColors.AuFg,
                         modifier = Modifier.size(18.dp)
@@ -87,7 +88,6 @@ fun MirageHeader(
             )
         }
     } else {
-
         Row(
             modifier = modifier
                 .fillMaxWidth()
@@ -114,7 +114,25 @@ fun MirageHeader(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
+                // Language Switcher (RU / EN)
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(MirageColors.AuSolid)
+                        .border(1.dp, MirageColors.AuSep, RoundedCornerShape(12.dp))
+                        .clickable { onLanguageClick?.invoke() },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = languageText,
+                        color = MirageColors.AuFg,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
 
+                // Update Button with 'New' Badge
                 Box(
                     modifier = Modifier
                         .size(40.dp)
@@ -159,6 +177,7 @@ fun MirageHeader(
                     }
                 }
 
+                // Refresh Button
                 Box(
                     modifier = Modifier
                         .size(40.dp)
@@ -178,6 +197,7 @@ fun MirageHeader(
                     )
                 }
 
+                // Settings Button
                 Box(
                     modifier = Modifier
                         .size(40.dp)

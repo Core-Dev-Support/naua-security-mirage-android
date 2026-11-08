@@ -82,6 +82,7 @@ object AppLogger {
     fun i(tag: String, message: String) = log(LEVEL_INFO, tag, message)
     fun info(tag: String, message: String) = i(tag, message)
     fun w(tag: String, message: String, tr: Throwable? = null) = log(LEVEL_WARN, tag, if (tr != null) "$message: ${tr.message}" else message)
+    fun warn(tag: String, message: String, tr: Throwable? = null) = w(tag, message, tr)
     fun e(tag: String, message: String, tr: Throwable? = null) = log(LEVEL_ERROR, tag, if (tr != null) "$message: ${tr.message}" else message)
     fun error(tag: String, message: String, tr: Throwable? = null) = e(tag, message, tr)
 

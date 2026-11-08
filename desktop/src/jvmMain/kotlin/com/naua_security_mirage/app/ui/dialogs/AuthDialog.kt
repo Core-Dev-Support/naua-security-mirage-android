@@ -1,30 +1,27 @@
 package com.naua_security_mirage.app.ui.dialogs
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Email
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.naua_security_mirage.app.data.supabase.SupabaseManager
 import com.naua_security_mirage.app.ui.theme.LocalMirageColors
+import com.naua_security_mirage.app.ui.theme.MirageColors
 import kotlinx.coroutines.launch
 
 @Composable
@@ -35,10 +32,6 @@ fun AuthDialog(
     val colors = LocalMirageColors.current
     val scope = rememberCoroutineScope()
 
-    var isSignUp by remember { mutableStateOf(false) }
-    var email by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
-    var showPassword by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
@@ -51,24 +44,51 @@ fun AuthDialog(
         text = {
             Box(
                 modifier = Modifier
-                    .clip(RoundedCornerShape(20.dp))
+                    .clip(RoundedCornerShape(24.dp))
                     .background(colors.card)
-                    .border(1.dp, colors.cardStroke, RoundedCornerShape(20.dp))
+                    .border(1.2.dp, colors.cardStroke, RoundedCornerShape(24.dp))
                     .padding(22.dp)
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
 
+                    // Header Row
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            text = if (isSignUp) "Регистрация" else "Вход в аккаунт",
-                            color = colors.ink,
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold
-                        )
+                        Box(
+                            modifier = Modifier
+                                .size(38.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(Color(0xFF1C2130)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Settings,
+                                contentDescription = null,
+                                tint = Color(0xFFE8A33D),
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.width(12.dp))
+
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Вход в Mirage",
+                                color = colors.ink,
+                                fontSize = 17.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = "Авторизация откроет доступ к платным серверам",
+                                color = colors.inkSoft,
+                                fontSize = 12.sp,
+                                lineHeight = 16.sp
+                            )
+                        }
+
                         IconButton(
                             onClick = onDismiss,
                             modifier = Modifier.size(28.dp)
@@ -84,199 +104,39 @@ fun AuthDialog(
 
                     Spacer(modifier = Modifier.height(14.dp))
 
-                    Row(
+                    // Divider
+                    Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(40.dp)
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(colors.bg)
-                            .padding(3.dp)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .fillMaxHeight()
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(if (!isSignUp) colors.card else Color.Transparent)
-                                .clickable {
-                                    isSignUp = false
-                                    errorMessage = null
-                                },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = "Вход",
-                                color = if (!isSignUp) colors.accent else colors.inkSoft,
-                                fontSize = 13.sp,
-                                fontWeight = if (!isSignUp) FontWeight.Bold else FontWeight.Normal
-                            )
-                        }
-
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .fillMaxHeight()
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(if (isSignUp) colors.card else Color.Transparent)
-                                .clickable {
-                                    isSignUp = true
-                                    errorMessage = null
-                                },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = "Регистрация",
-                                color = if (isSignUp) colors.accent else colors.inkSoft,
-                                fontSize = 13.sp,
-                                fontWeight = if (isSignUp) FontWeight.Bold else FontWeight.Normal
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    OutlinedTextField(
-                        value = email,
-                        onValueChange = { email = it; errorMessage = null },
-                        label = { Text("Электронная почта", fontSize = 12.sp) },
-                        leadingIcon = {
-                            Icon(
-                                imageVector = Icons.Default.Email,
-                                contentDescription = null,
-                                tint = colors.inkMuted,
-                                modifier = Modifier.size(18.dp)
-                            )
-                        },
-                        singleLine = true,
-                        colors = TextFieldDefaults.outlinedTextFieldColors(
-                            textColor = colors.ink,
-                            focusedBorderColor = colors.accent,
-                            unfocusedBorderColor = colors.cardStroke,
-                            focusedLabelColor = colors.accent,
-                            unfocusedLabelColor = colors.inkMuted,
-                            cursorColor = colors.accent
-                        ),
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier.fillMaxWidth()
+                            .height(1.dp)
+                            .background(colors.cardStroke)
                     )
 
-                    Spacer(modifier = Modifier.height(10.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
 
-                    OutlinedTextField(
-                        value = password,
-                        onValueChange = { password = it; errorMessage = null },
-                        label = { Text("Пароль", fontSize = 12.sp) },
-                        leadingIcon = {
-                            Icon(
-                                imageVector = Icons.Default.Lock,
-                                contentDescription = null,
-                                tint = colors.inkMuted,
-                                modifier = Modifier.size(18.dp)
-                            )
-                        },
-                        trailingIcon = {
-                            IconButton(onClick = { showPassword = !showPassword }) {
-                                Icon(
-                                    imageVector = if (showPassword) Icons.Default.Visibility else Icons.Default.VisibilityOff,
-                                    contentDescription = null,
-                                    tint = colors.inkMuted,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                            }
-                        },
-                        visualTransformation = if (showPassword) VisualTransformation.None else PasswordVisualTransformation(),
-                        singleLine = true,
-                        colors = TextFieldDefaults.outlinedTextFieldColors(
-                            textColor = colors.ink,
-                            focusedBorderColor = colors.accent,
-                            unfocusedBorderColor = colors.cardStroke,
-                            focusedLabelColor = colors.accent,
-                            unfocusedLabelColor = colors.inkMuted,
-                            cursorColor = colors.accent
-                        ),
-                        shape = RoundedCornerShape(12.dp),
+                    // Info Features (Benefits)
+                    Text(
+                        text = "• Доступ к высокоскоростным платным серверам\n• Привязка подписки к единому аккаунту\n• Синхронизация между устройствами",
+                        color = colors.inkSoft,
+                        fontSize = 12.5.sp,
+                        lineHeight = 20.sp,
                         modifier = Modifier.fillMaxWidth()
                     )
 
                     if (errorMessage != null) {
-                        Spacer(modifier = Modifier.height(8.dp))
+                        Spacer(modifier = Modifier.height(12.dp))
                         Text(
                             text = errorMessage ?: "",
-                            color = Color(0xFFEF4444),
+                            color = Color(0xFFFF7A7A),
                             fontSize = 12.sp,
                             textAlign = TextAlign.Center,
                             modifier = Modifier.fillMaxWidth()
                         )
                     }
 
-                    Spacer(modifier = Modifier.height(18.dp))
+                    Spacer(modifier = Modifier.height(20.dp))
 
-                    Button(
-                        onClick = {
-                            if (email.isBlank() || password.isBlank()) {
-                                errorMessage = "Заполните все поля"
-                                return@Button
-                            }
-                            isLoading = true
-                            errorMessage = null
-                            scope.launch {
-                                val result = if (isSignUp) {
-                                    SupabaseManager.instance.signUpWithEmail(email, password)
-                                } else {
-                                    SupabaseManager.instance.signInWithEmail(email, password)
-                                }
-                                isLoading = false
-                                if (result.isSuccess) {
-                                    onSuccess()
-                                    onDismiss()
-                                } else {
-                                    errorMessage = result.exceptionOrNull()?.localizedMessage ?: "Ошибка авторизации"
-                                }
-                            }
-                        },
-                        enabled = !isLoading,
-                        colors = ButtonDefaults.buttonColors(
-                            backgroundColor = colors.accent,
-                            contentColor = Color.White
-                        ),
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(44.dp)
-                    ) {
-                        if (isLoading) {
-                            CircularProgressIndicator(
-                                color = Color.White,
-                                strokeWidth = 2.dp,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        } else {
-                            Text(
-                                text = if (isSignUp) "Зарегистрироваться" else "Войти",
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 14.sp
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(14.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Box(modifier = Modifier.weight(1f).height(1.dp).background(colors.cardStroke))
-                        Text(
-                            text = "или",
-                            color = colors.inkMuted,
-                            fontSize = 12.sp,
-                            modifier = Modifier.padding(horizontal = 10.dp)
-                        )
-                        Box(modifier = Modifier.weight(1f).height(1.dp).background(colors.cardStroke))
-                    }
-
-                    Spacer(modifier = Modifier.height(14.dp))
-
+                    // Google Sign In Button
                     OutlinedButton(
                         onClick = {
                             isLoading = true
@@ -288,26 +148,47 @@ fun AuthDialog(
                                     onSuccess()
                                     onDismiss()
                                 } else {
-                                    errorMessage = res.exceptionOrNull()?.localizedMessage ?: "Ошибка входа через Google"
+                                    errorMessage = res.exceptionOrNull()?.localizedMessage ?: "Ошибка авторизации через Google"
                                 }
                             }
                         },
                         enabled = !isLoading,
-                        shape = RoundedCornerShape(12.dp),
+                        shape = RoundedCornerShape(14.dp),
                         colors = ButtonDefaults.outlinedButtonColors(
                             backgroundColor = colors.card,
                             contentColor = colors.ink
                         ),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, colors.cardStroke),
+                        border = BorderStroke(1.5.dp, Color(0xFFE8A33D)),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(44.dp)
+                            .height(50.dp)
                     ) {
-                        Text(
-                            text = "🌐 Войти через Google",
-                            fontWeight = FontWeight.SemiBold,
-                            fontSize = 13.5.sp
-                        )
+                        if (isLoading) {
+                            CircularProgressIndicator(
+                                color = Color(0xFFE8A33D),
+                                strokeWidth = 2.dp,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        } else {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center
+                            ) {
+                                Text(
+                                    text = "G",
+                                    color = Color(0xFFE8A33D),
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.Black
+                                )
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Text(
+                                    text = "Продолжить с Google",
+                                    color = colors.ink,
+                                    fontSize = 14.5.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
                     }
                 }
             }

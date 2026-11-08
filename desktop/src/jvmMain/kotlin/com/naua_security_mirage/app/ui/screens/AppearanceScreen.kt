@@ -11,6 +11,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.Icon
 import androidx.compose.material.Text
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Animation
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.RestartAlt
 import androidx.compose.runtime.*
@@ -25,6 +26,7 @@ import com.naua_security_mirage.app.data.repository.SettingsRepository
 import com.naua_security_mirage.app.ui.components.MirageCard
 import com.naua_security_mirage.app.ui.components.MirageChip
 import com.naua_security_mirage.app.ui.components.MirageHeader
+import com.naua_security_mirage.app.ui.components.MirageSwitch
 import com.naua_security_mirage.app.ui.theme.LocalMirageColors
 import com.naua_security_mirage.app.ui.theme.MirageColors
 
@@ -40,6 +42,7 @@ fun AppearanceScreen(
     var themePreset by remember { mutableStateOf(settingsRepository.themePreset) }
     var connectStyle by remember { mutableStateOf(settingsRepository.connectBtnStyle) }
     var selectedColor by remember { mutableStateOf(settingsRepository.customConnectBtnColor) }
+    var animationsEnabled by remember { mutableStateOf(settingsRepository.areAnimationsEnabled) }
 
     Column(
         modifier = Modifier
@@ -211,6 +214,60 @@ fun AppearanceScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
+            Text(
+                text = "АНИМАЦИИ",
+                color = MirageColors.AuFg3,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(bottom = 8.dp, start = 4.dp)
+            )
+
+            MirageCard(modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            animationsEnabled = !animationsEnabled
+                            settingsRepository.areAnimationsEnabled = animationsEnabled
+                            onAppearanceChanged()
+                        }
+                        .padding(horizontal = 16.dp, vertical = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Animation,
+                        contentDescription = null,
+                        tint = MirageColors.AuAccent,
+                        modifier = Modifier.size(22.dp)
+                    )
+                    Spacer(modifier = Modifier.width(14.dp))
+                    Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+                        Text(
+                            text = "Плавные анимации интерфейса",
+                            color = MirageColors.AuFg,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = "Анимации пульсации, свечения и переходов экранов",
+                            color = MirageColors.AuFg3,
+                            fontSize = 12.sp
+                        )
+                    }
+                    MirageSwitch(
+                        checked = animationsEnabled,
+                        onCheckedChange = {
+                            animationsEnabled = it
+                            settingsRepository.areAnimationsEnabled = it
+                            onAppearanceChanged()
+                        }
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
             MirageCard(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -219,6 +276,7 @@ fun AppearanceScreen(
                         themePreset = SettingsRepository.THEME_DARK
                         connectStyle = SettingsRepository.STYLE_STANDARD
                         selectedColor = 0
+                        animationsEnabled = true
                         onAppearanceChanged()
                     },
                 borderColor = Color(0xFFEF4444).copy(alpha = 0.3f)

@@ -9,22 +9,14 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.AlertDialog
-import androidx.compose.material.Icon
-import androidx.compose.material.Text
-import androidx.compose.material.TextButton
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowDownward
-import androidx.compose.material.icons.filled.ArrowUpward
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.PowerSettingsNew
+import androidx.compose.material.icons.filled.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -38,24 +30,22 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.naua_security_mirage.app.data.config.AppConfigRepository
+import com.naua_security_mirage.app.data.config.PaidNode
 import com.naua_security_mirage.app.data.model.VlessServer
 import com.naua_security_mirage.app.data.model.VpnState
 import com.naua_security_mirage.app.data.repository.SettingsRepository
+import com.naua_security_mirage.app.data.supabase.SupabaseManager
 import com.naua_security_mirage.app.ui.components.MirageHeader
+import com.naua_security_mirage.app.ui.dialogs.AuthDialog
+import com.naua_security_mirage.app.ui.dialogs.SubscriptionDialog
+import com.naua_security_mirage.app.ui.dialogs.SupportWaysDialog
 import com.naua_security_mirage.app.ui.theme.LocalMirageColors
 import com.naua_security_mirage.app.ui.theme.MirageColors
 import com.naua_security_mirage.app.ui.view.Mirage3DCanvas
-import com.naua_security_mirage.app.data.supabase.SupabaseManager
-import com.naua_security_mirage.app.ui.dialogs.AuthDialog
-import com.naua_security_mirage.app.ui.dialogs.SubscriptionDialog
 import kotlinx.coroutines.launch
 import java.awt.Desktop
 import java.net.URI
-
-enum class ServerPlan {
-    FREE,
-    PREMIUM_FRANCE
-}
 
 @Composable
 fun MainScreen(
@@ -64,8 +54,8 @@ fun MainScreen(
     downloadSpeed: String,
     uploadSpeed: String,
     settingsRepository: SettingsRepository,
-    selectedPlan: ServerPlan = ServerPlan.FREE,
-    onSelectPlan: (ServerPlan) -> Unit = {},
+    selectedPlan: String,
+    onSelectPlan: (String) -> Unit,
     sessionSeconds: Long = 0L,
     isRefreshing: Boolean = false,
     hasUpdate: Boolean = false,
@@ -76,15 +66,18 @@ fun MainScreen(
     val colors = LocalMirageColors.current
     val scope = rememberCoroutineScope()
     val currentUser by SupabaseManager.instance.currentUser.collectAsState()
-    val subscription by SupabaseManager.instance.subscription.collectAsState()
+    val appConfig by AppConfigRepository.config.collectAsState()
 
     var showUpdateDialog by remember { mutableStateOf(false) }
     var showAuthDialog by remember { mutableStateOf(false) }
     var showSubscriptionDialog by remember { mutableStateOf(false) }
+    var showSupportWaysDialog by remember { mutableStateOf(false) }
+    var showTelegramWaysDialog by remember { mutableStateOf(false) }
+    var showPaidPickerPopup by remember { mutableStateOf(false) }
 
     val isConnected = vpnState == VpnState.CONNECTED
     val isConnecting = vpnState == VpnState.CONNECTING
-    val isDisconnecting = vpnState == VpnState.DISCONNECTING
+    val isEnglish = settingsRepository.appLanguage == SettingsRepository.LANG_EN
 
     val infiniteTransition = rememberInfiniteTransition()
     val glowScale by infiniteTransition.animateFloat(
@@ -104,18 +97,31 @@ fun MainScreen(
         )
     )
 
+    val currentPaidNode = appConfig.paidNodes.firstOrNull { it.id == selectedPlan }
+        ?: appConfig.paidNodes.firstOrNull { it.id == settingsRepository.lastPaidPlan }
+        ?: appConfig.paidNodes.firstOrNull()
+
+    val isPaidActive = selectedPlan != SettingsRepository.PLAN_FREE
+
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(MirageColors.AuBg)
     ) {
-
         MirageHeader(
             title = "Mirage",
             subtitle = "NAUA Security",
             isSubScreen = false,
             isRefreshing = isRefreshing,
             hasUpdate = hasUpdate,
+            languageText = settingsRepository.appLanguage.uppercase(),
+            onLanguageClick = {
+                settingsRepository.appLanguage = if (settingsRepository.appLanguage == SettingsRepository.LANG_RU) {
+                    SettingsRepository.LANG_EN
+                } else {
+                    SettingsRepository.LANG_RU
+                }
+            },
             onUpdateClick = { showUpdateDialog = true },
             onRefreshClick = onRefreshServers,
             onSettingsClick = onOpenSettings
@@ -124,16 +130,17 @@ fun MainScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 22.dp, vertical = 8.dp),
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 22.dp, vertical = 6.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Spacer(modifier = Modifier.height(36.dp))
+            Spacer(modifier = Modifier.height(28.dp))
 
+            // Connect Button with Glow
             Box(
                 modifier = Modifier.size(214.dp),
                 contentAlignment = Alignment.Center
             ) {
-
                 if (isConnected || isConnecting) {
                     Box(
                         modifier = Modifier
@@ -175,12 +182,11 @@ fun MainScreen(
                     if (isStandardStyle) {
                         Icon(
                             imageVector = Icons.Default.PowerSettingsNew,
-                            contentDescription = "Подключиться",
+                            contentDescription = if (isEnglish) "Connect" else "Подключиться",
                             tint = if (isConnected) MirageColors.PowerIconConnected else Color.White,
                             modifier = Modifier.size(44.dp)
                         )
                     } else {
-
                         Mirage3DCanvas(
                             style = settingsRepository.connectBtnStyle,
                             vpnState = vpnState,
@@ -191,11 +197,12 @@ fun MainScreen(
                 }
             }
 
+            // Status Text
             val statusText = when (vpnState) {
-                VpnState.DISCONNECTED -> "Отключено"
-                VpnState.CONNECTING -> "Подключение..."
-                VpnState.CONNECTED -> "Подключено"
-                VpnState.DISCONNECTING -> "Отключение..."
+                VpnState.DISCONNECTED -> if (isEnglish) "Disconnected" else "Отключено"
+                VpnState.CONNECTING -> if (isEnglish) "Connecting..." else "Подключение..."
+                VpnState.CONNECTED -> if (isEnglish) "Connected" else "Подключено"
+                VpnState.DISCONNECTING -> if (isEnglish) "Disconnecting..." else "Отключение..."
             }
             Text(
                 text = statusText,
@@ -203,20 +210,21 @@ fun MainScreen(
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.Center,
-                modifier = Modifier.padding(top = 24.dp)
+                modifier = Modifier.padding(top = 22.dp)
             )
 
+            // Status Subtext
             val statusSubText = when (vpnState) {
-                VpnState.DISCONNECTED -> "Нажми, чтобы включить защиту"
-                VpnState.CONNECTING -> "Поиск наилучшего сервера..."
+                VpnState.DISCONNECTED -> if (isEnglish) "Tap to enable protection" else "Нажми, чтобы включить защиту"
+                VpnState.CONNECTING -> if (isEnglish) "Finding best server..." else "Поиск наилучшего сервера..."
                 VpnState.CONNECTED -> {
                     val minutes = sessionSeconds / 60
                     val remSeconds = sessionSeconds % 60
                     val timeStr = String.format("%02d:%02d", minutes, remSeconds)
                     val pingDisplay = currentServer?.pingMs?.takeIf { it in 1..9998 } ?: 45L
-                    "Время сессии $timeStr • $pingDisplay ms"
+                    if (isEnglish) "Session time $timeStr • $pingDisplay ms" else "Время сессии $timeStr • $pingDisplay ms"
                 }
-                VpnState.DISCONNECTING -> "Отключение..."
+                VpnState.DISCONNECTING -> if (isEnglish) "Disconnecting..." else "Отключение..."
             }
             Text(
                 text = statusSubText,
@@ -226,51 +234,62 @@ fun MainScreen(
                 modifier = Modifier.padding(top = 5.dp)
             )
 
+            // Server Plan Selector (Free vs Paid with Chevron Picker)
             Row(
                 modifier = Modifier
                     .padding(top = 12.dp)
-                    .clip(RoundedCornerShape(14.dp))
+                    .clip(RoundedCornerShape(16.dp))
                     .background(MirageColors.AuSolid)
-                    .border(1.dp, MirageColors.AuSep, RoundedCornerShape(14.dp))
+                    .border(1.dp, MirageColors.AuSep, RoundedCornerShape(16.dp))
                     .padding(3.dp),
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-
-                val isFree = selectedPlan == ServerPlan.FREE
+                // Free Segment
+                val isFree = !isPaidActive
                 Box(
                     modifier = Modifier
-                        .clip(RoundedCornerShape(10.dp))
+                        .clip(RoundedCornerShape(12.dp))
                         .background(if (isFree) MirageColors.AuAccent.copy(alpha = 0.16f) else Color.Transparent)
                         .border(
                             width = if (isFree) 1.dp else 0.dp,
                             color = if (isFree) MirageColors.AuAccent else Color.Transparent,
-                            shape = RoundedCornerShape(10.dp)
+                            shape = RoundedCornerShape(12.dp)
                         )
-                        .clickable { onSelectPlan(ServerPlan.FREE) }
-                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                        .clickable { onSelectPlan(SettingsRepository.PLAN_FREE) }
+                        .padding(horizontal = 14.dp, vertical = 7.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(text = "🌐", fontSize = 12.sp)
-                        Spacer(modifier = Modifier.width(5.dp))
+                        Text(text = "🌐", fontSize = 13.sp)
+                        Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = "Бесплатный",
+                            text = if (isEnglish) "Free" else "Бесплатный",
                             color = if (isFree) MirageColors.AuAccent else colors.inkSoft,
-                            fontSize = 12.5.sp,
+                            fontSize = 13.sp,
                             fontWeight = if (isFree) FontWeight.Bold else FontWeight.Medium
                         )
                     }
                 }
 
-                val isFrance = selectedPlan == ServerPlan.PREMIUM_FRANCE
+                // Paid Segment with Chevron
+                val paidLabel = currentPaidNode?.label(isEnglish) ?: (if (isEnglish) "Paid (France)" else "Франция (Платная)")
+                val flagEmoji = when (currentPaidNode?.flag) {
+                    "belarus" -> "🇧🇾"
+                    "switzerland" -> "🇨🇭"
+                    "france" -> "🇫🇷"
+                    "finland" -> "🇫🇮"
+                    else -> "🇫🇷"
+                }
+
                 Box(
                     modifier = Modifier
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(if (isFrance) MirageColors.AuAccent.copy(alpha = 0.16f) else Color.Transparent)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(if (isPaidActive) MirageColors.AuAccent.copy(alpha = 0.16f) else Color.Transparent)
                         .border(
-                            width = if (isFrance) 1.dp else 0.dp,
-                            color = if (isFrance) MirageColors.AuAccent else Color.Transparent,
-                            shape = RoundedCornerShape(10.dp)
+                            width = if (isPaidActive) 1.dp else 0.dp,
+                            color = if (isPaidActive) MirageColors.AuAccent else Color.Transparent,
+                            shape = RoundedCornerShape(12.dp)
                         )
                         .clickable {
                             if (currentUser == null) {
@@ -278,25 +297,39 @@ fun MainScreen(
                             } else if (!SupabaseManager.instance.hasActiveSubscription()) {
                                 showSubscriptionDialog = true
                             } else {
-                                onSelectPlan(ServerPlan.PREMIUM_FRANCE)
+                                onSelectPlan(currentPaidNode?.id ?: SettingsRepository.PLAN_PREMIUM_FRANCE)
                             }
                         }
-                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                        .padding(horizontal = 12.dp, vertical = 7.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(text = "🇫🇷", fontSize = 12.sp)
-                        Spacer(modifier = Modifier.width(5.dp))
+                        Text(text = flagEmoji, fontSize = 13.sp)
+                        Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = "Платный Франция",
-                            color = if (isFrance) MirageColors.AuAccent else colors.inkSoft,
-                            fontSize = 12.5.sp,
-                            fontWeight = if (isFrance) FontWeight.Bold else FontWeight.Medium
+                            text = paidLabel,
+                            color = if (isPaidActive) MirageColors.AuAccent else colors.inkSoft,
+                            fontSize = 13.sp,
+                            fontWeight = if (isPaidActive) FontWeight.Bold else FontWeight.Medium
                         )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Box(
+                            modifier = Modifier
+                                .clickable { showPaidPickerPopup = true }
+                                .padding(2.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.ArrowDropDown,
+                                contentDescription = "Выбор узла",
+                                tint = if (isPaidActive) MirageColors.AuAccent else colors.inkSoft,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
                     }
                 }
             }
 
+            // Real-Time Speed Display (visible when connected)
             AnimatedVisibility(
                 visible = isConnected,
                 enter = fadeIn(),
@@ -307,8 +340,8 @@ fun MainScreen(
                         .padding(top = 10.dp)
                         .clip(RoundedCornerShape(14.dp))
                         .background(MirageColors.AuSolid)
-                        .border(1.5.dp, MirageColors.AuSep, RoundedCornerShape(14.dp))
-                        .padding(horizontal = 12.dp, vertical = 5.dp),
+                        .border(1.dp, MirageColors.AuSep, RoundedCornerShape(14.dp))
+                        .padding(horizontal = 14.dp, vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(
@@ -325,14 +358,14 @@ fun MainScreen(
                         fontWeight = FontWeight.Bold
                     )
 
-                    Spacer(modifier = Modifier.width(8.dp))
+                    Spacer(modifier = Modifier.width(10.dp))
                     Box(
                         modifier = Modifier
                             .width(1.dp)
                             .height(10.dp)
                             .background(MirageColors.AuSep)
                     )
-                    Spacer(modifier = Modifier.width(8.dp))
+                    Spacer(modifier = Modifier.width(10.dp))
 
                     Icon(
                         imageVector = Icons.Default.ArrowUpward,
@@ -350,38 +383,64 @@ fun MainScreen(
                 }
             }
 
+            Spacer(modifier = Modifier.height(20.dp))
+
+            // Support Project Button
             Row(
                 modifier = Modifier
-                    .padding(top = if (isConnected) 20.dp else 36.dp)
+                    .fillMaxWidth()
                     .height(46.dp)
                     .clip(RoundedCornerShape(30.dp))
                     .background(MirageColors.AuSolid)
                     .border(1.dp, MirageColors.AuSep, RoundedCornerShape(30.dp))
-                    .clickable {
-                        try {
-                            Desktop.getDesktop().browse(URI("https://pay.cloudtips.ru/p/3bbf2b6b"))
-                        } catch (_: Exception) {}
-                    }
-                    .padding(horizontal = 22.dp),
-                verticalAlignment = Alignment.CenterVertically
+                    .clickable { showSupportWaysDialog = true }
+                    .padding(horizontal = 20.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
             ) {
                 Icon(
                     imageVector = Icons.Default.Favorite,
-                    contentDescription = "Поддержать проект",
+                    contentDescription = null,
                     tint = Color(0xFFEF4444),
-                    modifier = Modifier.size(16.dp)
+                    modifier = Modifier.size(17.dp)
                 )
-                Spacer(modifier = Modifier.width(8.dp))
+                Spacer(modifier = Modifier.width(9.dp))
                 Text(
-                    text = "Поддержать проект",
+                    text = if (isEnglish) "Support the project" else "Поддержать проект",
                     color = MirageColors.AuFg,
                     fontSize = 13.5.sp,
                     fontWeight = FontWeight.Bold
                 )
             }
 
-            Spacer(modifier = Modifier.weight(1f))
+            Spacer(modifier = Modifier.height(10.dp))
 
+            // Telegram Button
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(46.dp)
+                    .clip(RoundedCornerShape(30.dp))
+                    .background(MirageColors.AuSolid)
+                    .border(1.dp, MirageColors.AuSep, RoundedCornerShape(30.dp))
+                    .clickable { showTelegramWaysDialog = true }
+                    .padding(horizontal = 20.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
+            ) {
+                Text(text = "✈️", fontSize = 15.sp)
+                Spacer(modifier = Modifier.width(9.dp))
+                Text(
+                    text = if (isEnglish) "Telegram: channel, bot, support" else "Telegram: канал, бот, поддержка",
+                    color = MirageColors.AuFg,
+                    fontSize = 13.5.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            Spacer(modifier = Modifier.height(22.dp))
+
+            // Hint Card
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -403,11 +462,19 @@ fun MainScreen(
                 Spacer(modifier = Modifier.width(12.dp))
                 Text(
                     text = buildAnnotatedString {
-                        append("Mirage сам выбирает сервер.\n\n")
-                        withStyle(style = SpanStyle(fontWeight = FontWeight.Bold, color = MirageColors.AuFg)) {
-                            append("Выбор локации не нужен.")
+                        if (isEnglish) {
+                            append("Mirage automatically selects the server.\n\n")
+                            withStyle(style = SpanStyle(fontWeight = FontWeight.Bold, color = MirageColors.AuFg)) {
+                                append("No location picking required.")
+                            }
+                            append("\nJust tap the connect button.")
+                        } else {
+                            append("Mirage сам выбирает сервер.\n\n")
+                            withStyle(style = SpanStyle(fontWeight = FontWeight.Bold, color = MirageColors.AuFg)) {
+                                append("Выбор локации не нужен.")
+                            }
+                            append("\nПросто нажми кнопку подключения.")
                         }
-                        append("\nПросто нажми кнопку подключения.")
                     },
                     color = MirageColors.AuFg2,
                     fontSize = 12.sp,
@@ -415,6 +482,91 @@ fun MainScreen(
                 )
             }
         }
+    }
+
+    // Popup for Paid Server Picker (Chevron menu)
+    if (showPaidPickerPopup) {
+        AlertDialog(
+            onDismissRequest = { showPaidPickerPopup = false },
+            buttons = {},
+            backgroundColor = Color.Transparent,
+            contentColor = colors.ink,
+            modifier = Modifier.width(320.dp),
+            text = {
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(20.dp))
+                        .background(colors.card)
+                        .border(1.dp, colors.cardStroke, RoundedCornerShape(20.dp))
+                        .padding(16.dp)
+                ) {
+                    Column {
+                        Text(
+                            text = if (isEnglish) "Select Paid Server" else "Выбор платного узла",
+                            color = colors.ink,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(bottom = 12.dp)
+                        )
+
+                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            appConfig.paidNodes.forEach { node ->
+                                val isSelected = node.id == selectedPlan || (selectedPlan == SettingsRepository.PLAN_FREE && node.id == settingsRepository.lastPaidPlan)
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(if (isSelected) MirageColors.AuAccent.copy(alpha = 0.15f) else colors.bg)
+                                        .border(
+                                            width = if (isSelected) 1.dp else 0.dp,
+                                            color = if (isSelected) MirageColors.AuAccent else Color.Transparent,
+                                            shape = RoundedCornerShape(12.dp)
+                                        )
+                                        .clickable {
+                                            showPaidPickerPopup = false
+                                            settingsRepository.lastPaidPlan = node.id
+                                            if (currentUser == null) {
+                                                showAuthDialog = true
+                                            } else if (!SupabaseManager.instance.hasActiveSubscription()) {
+                                                showSubscriptionDialog = true
+                                            } else {
+                                                onSelectPlan(node.id)
+                                            }
+                                        }
+                                        .padding(horizontal = 14.dp, vertical = 12.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    val emoji = when (node.flag) {
+                                        "belarus" -> "🇧🇾"
+                                        "switzerland" -> "🇨🇭"
+                                        "france" -> "🇫🇷"
+                                        "finland" -> "🇫🇮"
+                                        else -> "🇫🇷"
+                                    }
+                                    Text(text = emoji, fontSize = 16.sp)
+                                    Spacer(modifier = Modifier.width(10.dp))
+                                    Text(
+                                        text = node.label(isEnglish),
+                                        color = if (isSelected) MirageColors.AuAccent else colors.ink,
+                                        fontSize = 14.sp,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    if (isSelected) {
+                                        Text(
+                                            text = "✓",
+                                            color = MirageColors.AuAccent,
+                                            fontSize = 15.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        )
     }
 
     if (showUpdateDialog) {
@@ -432,7 +584,7 @@ fun MainScreen(
                     text = if (hasUpdate) {
                         "Доступно обновление для Windows! Нажмите «Скачать», чтобы перейти к загрузке новой версии."
                     } else {
-                        "У вас установлена актуальная версия v1.4.0.\nВсе сервера и модули защиты обновлены."
+                        "У вас установлена актуальная версия v1.4.0 (5).\nВсе сервера и модули защиты обновлены."
                     },
                     color = MirageColors.AuFg2,
                     fontSize = 13.sp
@@ -467,7 +619,7 @@ fun MainScreen(
                 scope.launch {
                     SupabaseManager.instance.refreshSubscription()
                     if (SupabaseManager.instance.hasActiveSubscription()) {
-                        onSelectPlan(ServerPlan.PREMIUM_FRANCE)
+                        onSelectPlan(currentPaidNode?.id ?: SettingsRepository.PLAN_PREMIUM_FRANCE)
                     } else {
                         showSubscriptionDialog = true
                     }
@@ -484,9 +636,23 @@ fun MainScreen(
                 showSubscriptionDialog = false
                 scope.launch {
                     SupabaseManager.instance.refreshSubscription()
-                    onSelectPlan(ServerPlan.PREMIUM_FRANCE)
+                    onSelectPlan(currentPaidNode?.id ?: SettingsRepository.PLAN_PREMIUM_FRANCE)
                 }
             }
+        )
+    }
+
+    if (showSupportWaysDialog) {
+        SupportWaysDialog(
+            showDonations = true,
+            onDismiss = { showSupportWaysDialog = false }
+        )
+    }
+
+    if (showTelegramWaysDialog) {
+        SupportWaysDialog(
+            showDonations = false,
+            onDismiss = { showTelegramWaysDialog = false }
         )
     }
 }
