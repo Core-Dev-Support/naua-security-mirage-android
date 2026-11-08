@@ -107,7 +107,7 @@ fun MainScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(colors.bg)
+            .background(MirageColors.AuBg)
     ) {
 
         MirageHeader(
@@ -140,8 +140,8 @@ fun MainScreen(
                             .size(214.dp)
                             .scale(glowScale)
                             .clip(CircleShape)
-                            .background(colors.accent.copy(alpha = 0.15f * glowAlpha))
-                            .border(2.dp, colors.accent.copy(alpha = 0.45f * glowAlpha), CircleShape)
+                            .background(MirageColors.AuAccent.copy(alpha = 0.15f * glowAlpha))
+                            .border(2.dp, MirageColors.AuAccent.copy(alpha = 0.45f * glowAlpha), CircleShape)
                     )
                 }
 
@@ -156,7 +156,7 @@ fun MainScreen(
                                     Brush.radialGradient(
                                         colors = listOf(
                                             MirageColors.AmberLight,
-                                            colors.accent,
+                                            MirageColors.AuAccent,
                                             MirageColors.AmberDeep
                                         ),
                                         radius = 200f
@@ -199,7 +199,7 @@ fun MainScreen(
             }
             Text(
                 text = statusText,
-                color = colors.ink,
+                color = MirageColors.AuFg,
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.Center,
@@ -220,7 +220,7 @@ fun MainScreen(
             }
             Text(
                 text = statusSubText,
-                color = colors.inkSoft,
+                color = MirageColors.AuFg2,
                 fontSize = 13.5.sp,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.padding(top = 5.dp)
@@ -230,8 +230,8 @@ fun MainScreen(
                 modifier = Modifier
                     .padding(top = 12.dp)
                     .clip(RoundedCornerShape(14.dp))
-                    .background(colors.card)
-                    .border(1.dp, colors.cardStroke, RoundedCornerShape(14.dp))
+                    .background(MirageColors.AuSolid)
+                    .border(1.dp, MirageColors.AuSep, RoundedCornerShape(14.dp))
                     .padding(3.dp),
                 horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
@@ -240,10 +240,10 @@ fun MainScreen(
                 Box(
                     modifier = Modifier
                         .clip(RoundedCornerShape(10.dp))
-                        .background(if (isFree) colors.accent.copy(alpha = 0.16f) else Color.Transparent)
+                        .background(if (isFree) MirageColors.AuAccent.copy(alpha = 0.16f) else Color.Transparent)
                         .border(
                             width = if (isFree) 1.dp else 0.dp,
-                            color = if (isFree) colors.accent else Color.Transparent,
+                            color = if (isFree) MirageColors.AuAccent else Color.Transparent,
                             shape = RoundedCornerShape(10.dp)
                         )
                         .clickable { onSelectPlan(ServerPlan.FREE) }
@@ -255,7 +255,7 @@ fun MainScreen(
                         Spacer(modifier = Modifier.width(5.dp))
                         Text(
                             text = "Бесплатный",
-                            color = if (isFree) colors.accent else colors.inkSoft,
+                            color = if (isFree) MirageColors.AuAccent else colors.inkSoft,
                             fontSize = 12.5.sp,
                             fontWeight = if (isFree) FontWeight.Bold else FontWeight.Medium
                         )
@@ -266,10 +266,10 @@ fun MainScreen(
                 Box(
                     modifier = Modifier
                         .clip(RoundedCornerShape(10.dp))
-                        .background(if (isFrance) colors.accent.copy(alpha = 0.16f) else Color.Transparent)
+                        .background(if (isFrance) MirageColors.AuAccent.copy(alpha = 0.16f) else Color.Transparent)
                         .border(
                             width = if (isFrance) 1.dp else 0.dp,
-                            color = if (isFrance) colors.accent else Color.Transparent,
+                            color = if (isFrance) MirageColors.AuAccent else Color.Transparent,
                             shape = RoundedCornerShape(10.dp)
                         )
                         .clickable {
@@ -289,7 +289,7 @@ fun MainScreen(
                         Spacer(modifier = Modifier.width(5.dp))
                         Text(
                             text = "Платный Франция",
-                            color = if (isFrance) colors.accent else colors.inkSoft,
+                            color = if (isFrance) MirageColors.AuAccent else colors.inkSoft,
                             fontSize = 12.5.sp,
                             fontWeight = if (isFrance) FontWeight.Bold else FontWeight.Medium
                         )
@@ -306,21 +306,21 @@ fun MainScreen(
                     modifier = Modifier
                         .padding(top = 10.dp)
                         .clip(RoundedCornerShape(14.dp))
-                        .background(colors.card)
-                        .border(1.5.dp, colors.cardStroke, RoundedCornerShape(14.dp))
+                        .background(MirageColors.AuSolid)
+                        .border(1.5.dp, MirageColors.AuSep, RoundedCornerShape(14.dp))
                         .padding(horizontal = 12.dp, vertical = 5.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(
                         imageVector = Icons.Default.ArrowDownward,
                         contentDescription = null,
-                        tint = colors.inkMuted,
+                        tint = MirageColors.AuFg3,
                         modifier = Modifier.size(14.dp)
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
                         text = downloadSpeed,
-                        color = colors.ink,
+                        color = MirageColors.AuFg,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold
                     )
@@ -330,20 +330,20 @@ fun MainScreen(
                         modifier = Modifier
                             .width(1.dp)
                             .height(10.dp)
-                            .background(colors.cardStroke)
+                            .background(MirageColors.AuSep)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
 
                     Icon(
                         imageVector = Icons.Default.ArrowUpward,
                         contentDescription = null,
-                        tint = colors.inkMuted,
+                        tint = MirageColors.AuFg3,
                         modifier = Modifier.size(14.dp)
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
                         text = uploadSpeed,
-                        color = colors.ink,
+                        color = MirageColors.AuFg,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold
                     )
@@ -355,8 +355,8 @@ fun MainScreen(
                     .padding(top = if (isConnected) 20.dp else 36.dp)
                     .height(46.dp)
                     .clip(RoundedCornerShape(30.dp))
-                    .background(colors.card)
-                    .border(1.dp, colors.cardStroke, RoundedCornerShape(30.dp))
+                    .background(MirageColors.AuSolid)
+                    .border(1.dp, MirageColors.AuSep, RoundedCornerShape(30.dp))
                     .clickable {
                         try {
                             Desktop.getDesktop().browse(URI("https://pay.cloudtips.ru/p/3bbf2b6b"))
@@ -374,7 +374,7 @@ fun MainScreen(
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     text = "Поддержать проект",
-                    color = colors.ink,
+                    color = MirageColors.AuFg,
                     fontSize = 13.5.sp,
                     fontWeight = FontWeight.Bold
                 )
@@ -387,8 +387,8 @@ fun MainScreen(
                     .fillMaxWidth()
                     .padding(bottom = 16.dp)
                     .clip(RoundedCornerShape(18.dp))
-                    .background(colors.card)
-                    .border(1.dp, colors.cardStroke, RoundedCornerShape(18.dp))
+                    .background(MirageColors.AuSolid)
+                    .border(1.dp, MirageColors.AuSep, RoundedCornerShape(18.dp))
                     .padding(16.dp),
                 verticalAlignment = Alignment.Top
             ) {
@@ -404,12 +404,12 @@ fun MainScreen(
                 Text(
                     text = buildAnnotatedString {
                         append("Mirage сам выбирает сервер.\n\n")
-                        withStyle(style = SpanStyle(fontWeight = FontWeight.Bold, color = colors.ink)) {
+                        withStyle(style = SpanStyle(fontWeight = FontWeight.Bold, color = MirageColors.AuFg)) {
                             append("Выбор локации не нужен.")
                         }
                         append("\nПросто нажми кнопку подключения.")
                     },
-                    color = colors.inkSoft,
+                    color = MirageColors.AuFg2,
                     fontSize = 12.sp,
                     lineHeight = 17.sp
                 )
@@ -423,7 +423,7 @@ fun MainScreen(
             title = {
                 Text(
                     text = "NAUA Security Mirage PC",
-                    color = colors.ink,
+                    color = MirageColors.AuFg,
                     fontWeight = FontWeight.Bold
                 )
             },
@@ -434,7 +434,7 @@ fun MainScreen(
                     } else {
                         "У вас установлена актуальная версия v1.4.0.\nВсе сервера и модули защиты обновлены."
                     },
-                    color = colors.inkSoft,
+                    color = MirageColors.AuFg2,
                     fontSize = 13.sp
                 )
             },
@@ -449,13 +449,13 @@ fun MainScreen(
                 ) {
                     Text(
                         text = if (hasUpdate) "Скачать" else "ОК",
-                        color = colors.accent,
+                        color = MirageColors.AuAccent,
                         fontWeight = FontWeight.Bold
                     )
                 }
             },
-            backgroundColor = colors.card,
-            contentColor = colors.ink
+            backgroundColor = MirageColors.AuSolid,
+            contentColor = MirageColors.AuFg
         )
     }
 

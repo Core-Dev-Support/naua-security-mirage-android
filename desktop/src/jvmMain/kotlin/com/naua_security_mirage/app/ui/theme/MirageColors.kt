@@ -1,4 +1,4 @@
-﻿package com.naua_security_mirage.app.ui.theme
+package com.naua_security_mirage.app.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
@@ -23,6 +23,22 @@ object MirageColors {
     val Amber = Color(0xFFE8A33D)
     val AmberDeep = Color(0xFFC9722A)
     val AmberLight = Color(0xFFF3B65C)
+
+    // Aurora shell palette (Android parity)
+    val AuBg = Color(0xFF06070B)
+    val AuFrame = Color(0x1AFFFFFF)
+    val AuFg = Color(0xFFF6F1EA)
+    val AuFg2 = Color(0xB3F6F1EA)
+    val AuFg3 = Color(0x75F6F1EA)
+    val AuSep = Color(0x14FFFFFF)
+    val AuAccent = Color(0xFFFFA928)
+    val AuAccentHi = Color(0xFFFFD089)
+    val AuAccentLo = Color(0xFF996518)
+    val AuAccentText = Color(0xFFFCBD5E)
+    val AuOnAccent = Color(0xFF2A1600)
+    val AuGood = Color(0xFF5EE0A0)
+    val AuBad = Color(0xFFFF7A7A)
+    val AuCool = Color(0xFF62C8FF)
 
     val PowerIconConnected = Color(0xFF2A1706)
     val PowerIconDisconnected = Color(0xFFE8A33D)
