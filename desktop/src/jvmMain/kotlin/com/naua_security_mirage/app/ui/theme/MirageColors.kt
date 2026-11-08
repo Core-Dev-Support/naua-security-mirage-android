@@ -4,6 +4,7 @@ import androidx.compose.ui.graphics.Color
 
 object MirageColors {
 
+    // Background & Card Colors (Aligned with Android colors.xml)
     val Bg = Color(0xFF0A0B10)
     val BgLight = Color(0xFFF8FAFC)
     val BgAmoled = Color(0xFF000000)
@@ -24,7 +25,11 @@ object MirageColors {
     val AmberDeep = Color(0xFFC9722A)
     val AmberLight = Color(0xFFF3B65C)
 
-    // Aurora shell palette (Android parity)
+    // Pill and Button active states
+    val PillActiveBg = Color(0xFF2A241C)
+    val PillActiveBorder = Color(0xFFE8A33D)
+
+    // Aurora shell palette
     val AuBg = Color(0xFF06070B)
     val AuFrame = Color(0x1AFFFFFF)
     val AuFg = Color(0xFFF6F1EA)
@@ -52,14 +57,45 @@ object MirageColors {
     val StatusConnecting = Color(0xFFF59E0B)
     val StatusDisconnected = Color(0xFFEF4444)
 
+    // Appearance Palette Swatches (Matching Android App_Slide_4.jpg)
     val Swatches = listOf(
-        0xFFE8A33D.toInt(),
-        0xFF3B82F6.toInt(),
-        0xFF10B981.toInt(),
-        0xFF8B5CF6.toInt(),
-        0xFFEC4899.toInt(),
-        0xFFEF4444.toInt(),
-        0xFF06B6D4.toInt(),
-        0xFFF97316.toInt()
+        0xFFE8A33D.toInt(), // Amber (Default)
+        0xFF00E5FF.toInt(), // Cyan
+        0xFF10B981.toInt(), // Emerald Green
+        0xFF8B5CF6.toInt(), // Violet
+        0xFFEF4444.toInt(), // Red
+        0xFFEC4899.toInt(), // Pink
+        0xFF3B82F6.toInt(), // Blue
+        0xFFF97316.toInt()  // Orange
+    )
+
+    val ActionBtnSwatches = listOf(
+        0xFFF3F1EA.toInt(), // White
+        0xFFE8A33D.toInt(), // Amber
+        0xFF00E5FF.toInt(), // Cyan
+        0xFF10B981.toInt(), // Emerald
+        0xFF8B5CF6.toInt(), // Violet
+        0xFFEF4444.toInt(), // Red
+        0xFF94A3B8.toInt()  // Slate
+    )
+
+    val TextSwatches = listOf(
+        0xFFF3F1EA.toInt(), // White
+        0xFFE2E8F0.toInt(), // Light slate
+        0xFFFEF08A.toInt(), // Pale Yellow
+        0xFFA7F3D0.toInt(), // Pale Mint
+        0xFFC7D2FE.toInt(), // Pale Lavender
+        0xFFFECDD3.toInt(), // Pale Rose
+        0xFF94A3B8.toInt()  // Slate
+    )
+
+    val SwitchSwatches = listOf(
+        0xFFE8A33D.toInt(), // Amber
+        0xFF00E5FF.toInt(), // Cyan
+        0xFF10B981.toInt(), // Emerald
+        0xFF8B5CF6.toInt(), // Violet
+        0xFFEF4444.toInt(), // Red
+        0xFFF59E0B.toInt(), // Yellow
+        0xFFEC4899.toInt()  // Pink
     )
 }

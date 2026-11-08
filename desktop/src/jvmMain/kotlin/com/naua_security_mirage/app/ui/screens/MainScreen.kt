@@ -21,6 +21,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.SpanStyle
@@ -37,6 +38,7 @@ import com.naua_security_mirage.app.data.model.VpnState
 import com.naua_security_mirage.app.data.repository.SettingsRepository
 import com.naua_security_mirage.app.data.supabase.SupabaseManager
 import com.naua_security_mirage.app.ui.components.MirageHeader
+import com.naua_security_mirage.app.ui.components.MirageIcons
 import com.naua_security_mirage.app.ui.dialogs.AuthDialog
 import com.naua_security_mirage.app.ui.dialogs.SubscriptionDialog
 import com.naua_security_mirage.app.ui.dialogs.SupportWaysDialog
@@ -134,9 +136,9 @@ fun MainScreen(
                 .padding(horizontal = 22.dp, vertical = 6.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Spacer(modifier = Modifier.height(28.dp))
+            Spacer(modifier = Modifier.height(26.dp))
 
-            // Connect Button with Glow
+            // Connect Button with Glow (Radial gradient matching Android bg_connect_btn.xml)
             Box(
                 modifier = Modifier.size(214.dp),
                 contentAlignment = Alignment.Center
@@ -147,8 +149,8 @@ fun MainScreen(
                             .size(214.dp)
                             .scale(glowScale)
                             .clip(CircleShape)
-                            .background(MirageColors.AuAccent.copy(alpha = 0.15f * glowAlpha))
-                            .border(2.dp, MirageColors.AuAccent.copy(alpha = 0.45f * glowAlpha), CircleShape)
+                            .background(MirageColors.GlowAmberRing.copy(alpha = glowAlpha))
+                            .border(2.dp, MirageColors.GlowAmber.copy(alpha = glowAlpha), CircleShape)
                     )
                 }
 
@@ -163,10 +165,11 @@ fun MainScreen(
                                     Brush.radialGradient(
                                         colors = listOf(
                                             MirageColors.AmberLight,
-                                            MirageColors.AuAccent,
+                                            MirageColors.Amber,
                                             MirageColors.AmberDeep
                                         ),
-                                        radius = 200f
+                                        center = Offset(180f * 0.38f * 1.5f, 180f * 0.32f * 1.5f),
+                                        radius = 180f * 1.5f * 0.55f
                                     )
                                 )
                             } else Modifier
@@ -180,11 +183,9 @@ fun MainScreen(
                     contentAlignment = Alignment.Center
                 ) {
                     if (isStandardStyle) {
-                        Icon(
-                            imageVector = Icons.Default.PowerSettingsNew,
-                            contentDescription = if (isEnglish) "Connect" else "Подключиться",
-                            tint = if (isConnected) MirageColors.PowerIconConnected else Color.White,
-                            modifier = Modifier.size(44.dp)
+                        MirageIcons.PowerIcon(
+                            modifier = Modifier.size(44.dp),
+                            tint = if (isConnected) MirageColors.PowerIconConnected else Color(0xFF2A1706)
                         )
                     } else {
                         Mirage3DCanvas(
@@ -234,62 +235,52 @@ fun MainScreen(
                 modifier = Modifier.padding(top = 5.dp)
             )
 
-            // Server Plan Selector (Free vs Paid with Chevron Picker)
+            // Server Plan Selector (Matching layout_server_plan.xml 1-to-1)
             Row(
                 modifier = Modifier
                     .padding(top = 12.dp)
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(MirageColors.AuSolid)
-                    .border(1.dp, MirageColors.AuSep, RoundedCornerShape(16.dp))
+                    .clip(RoundedCornerShape(30.dp))
+                    .background(MirageColors.Card)
+                    .border(1.dp, MirageColors.CardStroke, RoundedCornerShape(30.dp))
                     .padding(3.dp),
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Free Segment
+                // Free Segment (No emoji globe, text only matching Android R.string.plan_free)
                 val isFree = !isPaidActive
                 Box(
                     modifier = Modifier
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(if (isFree) MirageColors.AuAccent.copy(alpha = 0.16f) else Color.Transparent)
+                        .clip(RoundedCornerShape(30.dp))
+                        .background(if (isFree) MirageColors.PillActiveBg else Color.Transparent)
                         .border(
-                            width = if (isFree) 1.dp else 0.dp,
-                            color = if (isFree) MirageColors.AuAccent else Color.Transparent,
-                            shape = RoundedCornerShape(12.dp)
+                            width = if (isFree) 1.5.dp else 0.dp,
+                            color = if (isFree) MirageColors.PillActiveBorder else Color.Transparent,
+                            shape = RoundedCornerShape(30.dp)
                         )
                         .clickable { onSelectPlan(SettingsRepository.PLAN_FREE) }
-                        .padding(horizontal = 14.dp, vertical = 7.dp),
+                        .padding(horizontal = 14.dp, vertical = 6.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(text = "🌐", fontSize = 13.sp)
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = if (isEnglish) "Free" else "Бесплатный",
-                            color = if (isFree) MirageColors.AuAccent else colors.inkSoft,
-                            fontSize = 13.sp,
-                            fontWeight = if (isFree) FontWeight.Bold else FontWeight.Medium
-                        )
-                    }
+                    Text(
+                        text = if (isEnglish) "Free" else "Бесплатный",
+                        color = if (isFree) Color.White else colors.inkSoft,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
 
-                // Paid Segment with Chevron
-                val paidLabel = currentPaidNode?.label(isEnglish) ?: (if (isEnglish) "Paid (France)" else "Франция (Платная)")
-                val flagEmoji = when (currentPaidNode?.flag) {
-                    "belarus" -> "🇧🇾"
-                    "switzerland" -> "🇨🇭"
-                    "france" -> "🇫🇷"
-                    "finland" -> "🇫🇮"
-                    else -> "🇫🇷"
-                }
+                // Paid Segment with Vector Flag and Dropdown Arrow
+                val paidLabel = currentPaidNode?.label(isEnglish)
+                    ?: (if (isEnglish) "France (Paid)" else "Франция (Платная)")
 
                 Box(
                     modifier = Modifier
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(if (isPaidActive) MirageColors.AuAccent.copy(alpha = 0.16f) else Color.Transparent)
+                        .clip(RoundedCornerShape(30.dp))
+                        .background(if (isPaidActive) MirageColors.PillActiveBg else Color.Transparent)
                         .border(
-                            width = if (isPaidActive) 1.dp else 0.dp,
-                            color = if (isPaidActive) MirageColors.AuAccent else Color.Transparent,
-                            shape = RoundedCornerShape(12.dp)
+                            width = if (isPaidActive) 1.5.dp else 0.dp,
+                            color = if (isPaidActive) MirageColors.PillActiveBorder else Color.Transparent,
+                            shape = RoundedCornerShape(30.dp)
                         )
                         .clickable {
                             if (currentUser == null) {
@@ -300,28 +291,32 @@ fun MainScreen(
                                 onSelectPlan(currentPaidNode?.id ?: SettingsRepository.PLAN_PREMIUM_FRANCE)
                             }
                         }
-                        .padding(horizontal = 12.dp, vertical = 7.dp),
+                        .padding(horizontal = 10.dp, vertical = 5.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(text = flagEmoji, fontSize = 13.sp)
+                        MirageIcons.Flag(
+                            flag = currentPaidNode?.flag ?: "france",
+                            modifier = Modifier.size(18.dp)
+                        )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
                             text = paidLabel,
-                            color = if (isPaidActive) MirageColors.AuAccent else colors.inkSoft,
-                            fontSize = 13.sp,
-                            fontWeight = if (isPaidActive) FontWeight.Bold else FontWeight.Medium
+                            color = if (isPaidActive) Color.White else colors.inkSoft,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold
                         )
-                        Spacer(modifier = Modifier.width(6.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
                         Box(
                             modifier = Modifier
+                                .clip(CircleShape)
                                 .clickable { showPaidPickerPopup = true }
                                 .padding(2.dp)
                         ) {
                             Icon(
-                                imageVector = Icons.Default.ArrowDropDown,
+                                imageVector = Icons.Default.KeyboardArrowDown,
                                 contentDescription = "Выбор узла",
-                                tint = if (isPaidActive) MirageColors.AuAccent else colors.inkSoft,
+                                tint = if (isPaidActive) Color.White else colors.inkSoft,
                                 modifier = Modifier.size(18.dp)
                             )
                         }
@@ -338,9 +333,9 @@ fun MainScreen(
                 Row(
                     modifier = Modifier
                         .padding(top = 10.dp)
-                        .clip(RoundedCornerShape(14.dp))
-                        .background(MirageColors.AuSolid)
-                        .border(1.dp, MirageColors.AuSep, RoundedCornerShape(14.dp))
+                        .clip(RoundedCornerShape(30.dp))
+                        .background(MirageColors.Card)
+                        .border(1.dp, MirageColors.CardStroke, RoundedCornerShape(30.dp))
                         .padding(horizontal = 14.dp, vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -363,7 +358,7 @@ fun MainScreen(
                         modifier = Modifier
                             .width(1.dp)
                             .height(10.dp)
-                            .background(MirageColors.AuSep)
+                            .background(MirageColors.CardStroke)
                     )
                     Spacer(modifier = Modifier.width(10.dp))
 
@@ -383,28 +378,25 @@ fun MainScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(22.dp))
 
-            // Support Project Button
+            // Support Project Button (Centered pill wrap_content, matching Android btnSupport)
             Row(
                 modifier = Modifier
-                    .fillMaxWidth()
                     .height(46.dp)
                     .clip(RoundedCornerShape(30.dp))
-                    .background(MirageColors.AuSolid)
-                    .border(1.dp, MirageColors.AuSep, RoundedCornerShape(30.dp))
+                    .background(MirageColors.Card)
+                    .border(1.dp, MirageColors.CardStroke, RoundedCornerShape(30.dp))
                     .clickable { showSupportWaysDialog = true }
-                    .padding(horizontal = 20.dp),
+                    .padding(horizontal = 22.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.Center
             ) {
-                Icon(
-                    imageVector = Icons.Default.Favorite,
-                    contentDescription = null,
-                    tint = Color(0xFFEF4444),
-                    modifier = Modifier.size(17.dp)
+                MirageIcons.Heart(
+                    modifier = Modifier.size(16.dp),
+                    tint = Color(0xFFEF4444)
                 )
-                Spacer(modifier = Modifier.width(9.dp))
+                Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     text = if (isEnglish) "Support the project" else "Поддержать проект",
                     color = MirageColors.AuFg,
@@ -415,21 +407,23 @@ fun MainScreen(
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            // Telegram Button
+            // Telegram Button (Centered pill wrap_content, matching Android btnTelegram)
             Row(
                 modifier = Modifier
-                    .fillMaxWidth()
                     .height(46.dp)
                     .clip(RoundedCornerShape(30.dp))
-                    .background(MirageColors.AuSolid)
-                    .border(1.dp, MirageColors.AuSep, RoundedCornerShape(30.dp))
+                    .background(MirageColors.Card)
+                    .border(1.dp, MirageColors.CardStroke, RoundedCornerShape(30.dp))
                     .clickable { showTelegramWaysDialog = true }
-                    .padding(horizontal = 20.dp),
+                    .padding(horizontal = 22.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.Center
             ) {
-                Text(text = "✈️", fontSize = 15.sp)
-                Spacer(modifier = Modifier.width(9.dp))
+                MirageIcons.TelegramPlane(
+                    modifier = Modifier.size(16.dp),
+                    tint = Color(0xFF38BDF8)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     text = if (isEnglish) "Telegram: channel, bot, support" else "Telegram: канал, бот, поддержка",
                     color = MirageColors.AuFg,
@@ -438,16 +432,17 @@ fun MainScreen(
                 )
             }
 
-            Spacer(modifier = Modifier.height(22.dp))
+            Spacer(modifier = Modifier.height(24.dp))
 
-            // Hint Card
+            // Hint Card (18dp corner, matching Android containerHint)
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .widthIn(max = 540.dp)
                     .padding(bottom = 16.dp)
                     .clip(RoundedCornerShape(18.dp))
-                    .background(MirageColors.AuSolid)
-                    .border(1.dp, MirageColors.AuSep, RoundedCornerShape(18.dp))
+                    .background(MirageColors.Card)
+                    .border(1.dp, MirageColors.CardStroke, RoundedCornerShape(18.dp))
                     .padding(16.dp),
                 verticalAlignment = Alignment.Top
             ) {
@@ -516,10 +511,10 @@ fun MainScreen(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .clip(RoundedCornerShape(12.dp))
-                                        .background(if (isSelected) MirageColors.AuAccent.copy(alpha = 0.15f) else colors.bg)
+                                        .background(if (isSelected) MirageColors.PillActiveBg else colors.bg)
                                         .border(
                                             width = if (isSelected) 1.dp else 0.dp,
-                                            color = if (isSelected) MirageColors.AuAccent else Color.Transparent,
+                                            color = if (isSelected) MirageColors.PillActiveBorder else Color.Transparent,
                                             shape = RoundedCornerShape(12.dp)
                                         )
                                         .clickable {
@@ -536,14 +531,10 @@ fun MainScreen(
                                         .padding(horizontal = 14.dp, vertical = 12.dp),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    val emoji = when (node.flag) {
-                                        "belarus" -> "🇧🇾"
-                                        "switzerland" -> "🇨🇭"
-                                        "france" -> "🇫🇷"
-                                        "finland" -> "🇫🇮"
-                                        else -> "🇫🇷"
-                                    }
-                                    Text(text = emoji, fontSize = 16.sp)
+                                    MirageIcons.Flag(
+                                        flag = node.flag,
+                                        modifier = Modifier.size(18.dp)
+                                    )
                                     Spacer(modifier = Modifier.width(10.dp))
                                     Text(
                                         text = node.label(isEnglish),
@@ -606,7 +597,7 @@ fun MainScreen(
                     )
                 }
             },
-            backgroundColor = MirageColors.AuSolid,
+            backgroundColor = MirageColors.Card,
             contentColor = MirageColors.AuFg
         )
     }

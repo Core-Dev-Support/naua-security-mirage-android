@@ -17,7 +17,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.naua_security_mirage.app.ui.theme.LocalMirageColors
+import com.naua_security_mirage.app.ui.theme.MirageColors
 import java.io.File
 
 @Composable
@@ -26,16 +26,23 @@ fun DocumentReaderDialog(
     fileName: String,
     onDismiss: () -> Unit
 ) {
-    val colors = LocalMirageColors.current
     val scrollState = rememberScrollState()
 
     val content = try {
-        val fileInDocs = File("docs/legal/$fileName")
-        if (fileInDocs.exists()) {
-            fileInDocs.readText()
+        // 1. Try classpath resource
+        val stream = Thread.currentThread().contextClassLoader.getResourceAsStream("legal/$fileName")
+            ?: Thread.currentThread().contextClassLoader.getResourceAsStream(fileName)
+        if (stream != null) {
+            stream.bufferedReader().use { it.readText() }
         } else {
-            val rootDoc = File(fileName)
-            if (rootDoc.exists()) rootDoc.readText() else "Документ загружается..."
+            // 2. Try file system
+            val fileInDocs = File("docs/legal/$fileName")
+            if (fileInDocs.exists()) {
+                fileInDocs.readText()
+            } else {
+                val rootDoc = File(fileName)
+                if (rootDoc.exists()) rootDoc.readText() else "Документ загружается..."
+            }
         }
     } catch (_: Exception) {
         "Не удалось загрузить документ"
@@ -45,15 +52,15 @@ fun DocumentReaderDialog(
         onDismissRequest = onDismiss,
         buttons = {},
         backgroundColor = Color.Transparent,
-        contentColor = colors.ink,
-        modifier = Modifier.width(520.dp).height(560.dp),
+        contentColor = MirageColors.Ink,
+        modifier = Modifier.width(520.dp).height(580.dp),
         text = {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .clip(RoundedCornerShape(24.dp))
-                    .background(colors.card)
-                    .border(1.2.dp, colors.cardStroke, RoundedCornerShape(24.dp))
+                    .background(MirageColors.Card)
+                    .border(1.2.dp, MirageColors.CardStroke, RoundedCornerShape(24.dp))
                     .padding(22.dp)
             ) {
                 Column(modifier = Modifier.fillMaxSize()) {
@@ -63,7 +70,7 @@ fun DocumentReaderDialog(
                     ) {
                         Text(
                             text = title,
-                            color = colors.ink,
+                            color = MirageColors.Ink,
                             fontSize = 17.sp,
                             fontWeight = FontWeight.Bold,
                             modifier = Modifier.weight(1f)
@@ -76,7 +83,7 @@ fun DocumentReaderDialog(
                             Icon(
                                 imageVector = Icons.Default.Close,
                                 contentDescription = "Закрыть",
-                                tint = colors.inkMuted,
+                                tint = MirageColors.InkMuted,
                                 modifier = Modifier.size(18.dp)
                             )
                         }
@@ -86,35 +93,49 @@ fun DocumentReaderDialog(
 
                     Box(
                         modifier = Modifier
-                            .weight(1f)
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(14.dp))
-                            .background(colors.bg)
-                            .border(1.dp, colors.cardStroke, RoundedCornerShape(14.dp))
-                            .padding(14.dp)
-                    ) {
-                        Column(modifier = Modifier.verticalScroll(scrollState)) {
-                            Text(
-                                text = content,
-                                color = colors.inkSoft,
-                                fontSize = 12.sp,
-                                lineHeight = 18.sp
-                            )
-                        }
-                    }
+                            .height(1.dp)
+                            .background(MirageColors.CardStroke)
+                    )
 
                     Spacer(modifier = Modifier.height(14.dp))
+
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f)
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(MirageColors.Bg)
+                            .border(1.dp, MirageColors.CardStroke, RoundedCornerShape(14.dp))
+                            .padding(16.dp)
+                            .verticalScroll(scrollState)
+                    ) {
+                        Text(
+                            text = content,
+                            color = MirageColors.InkSoft,
+                            fontSize = 12.sp,
+                            lineHeight = 18.sp
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
 
                     Button(
                         onClick = onDismiss,
                         colors = ButtonDefaults.buttonColors(
-                            backgroundColor = Color(0xFFE8A33D),
+                            backgroundColor = MirageColors.Amber,
                             contentColor = Color.White
                         ),
                         shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier.fillMaxWidth().height(42.dp)
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(44.dp)
                     ) {
-                        Text("Понятно", fontWeight = FontWeight.Bold)
+                        Text(
+                            text = "Понятно",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold
+                        )
                     }
                 }
             }

@@ -24,7 +24,6 @@ import com.naua_security_mirage.app.data.config.SubscriptionPlan
 import com.naua_security_mirage.app.data.repository.DeviceIdRepository
 import com.naua_security_mirage.app.data.supabase.PaymentManager
 import com.naua_security_mirage.app.data.supabase.SupabaseManager
-import com.naua_security_mirage.app.ui.theme.LocalMirageColors
 import com.naua_security_mirage.app.ui.theme.MirageColors
 import kotlinx.coroutines.launch
 
@@ -34,7 +33,6 @@ fun SubscriptionDialog(
     onDismiss: () -> Unit,
     onSubscribed: () -> Unit
 ) {
-    val colors = LocalMirageColors.current
     val scope = rememberCoroutineScope()
     val appConfig by AppConfigRepository.config.collectAsState()
 
@@ -49,28 +47,55 @@ fun SubscriptionDialog(
             onDismissRequest = { showPaymentOptions = false },
             buttons = {},
             backgroundColor = Color.Transparent,
-            contentColor = colors.ink,
+            contentColor = MirageColors.Ink,
             modifier = Modifier.width(380.dp),
             text = {
                 Box(
                     modifier = Modifier
                         .clip(RoundedCornerShape(24.dp))
-                        .background(colors.card)
-                        .border(1.2.dp, colors.cardStroke, RoundedCornerShape(24.dp))
+                        .background(MirageColors.Card)
+                        .border(1.2.dp, MirageColors.CardStroke, RoundedCornerShape(24.dp))
                         .padding(22.dp)
                 ) {
                     Column {
-                        Text(
-                            text = "Выберите период подписки",
-                            color = colors.ink,
-                            fontSize = 17.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Spacer(modifier = Modifier.height(3.dp))
-                        Text(
-                            text = "Чем больше период, тем выгоднее стоимость",
-                            color = colors.inkSoft,
-                            fontSize = 12.sp
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "Период подписки",
+                                    color = MirageColors.Ink,
+                                    fontSize = 17.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Spacer(modifier = Modifier.height(3.dp))
+                                Text(
+                                    text = "Чем больше период, тем выгоднее стоимость",
+                                    color = MirageColors.InkSoft,
+                                    fontSize = 12.sp
+                                )
+                            }
+                            IconButton(
+                                onClick = { showPaymentOptions = false },
+                                modifier = Modifier.size(28.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = "Закрыть",
+                                    tint = MirageColors.InkMuted,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(1.dp)
+                                .background(MirageColors.CardStroke)
                         )
 
                         Spacer(modifier = Modifier.height(14.dp))
@@ -81,12 +106,12 @@ fun SubscriptionDialog(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .clip(RoundedCornerShape(14.dp))
-                                        .background(colors.bg)
-                                        .border(1.dp, colors.cardStroke, RoundedCornerShape(14.dp))
+                                        .background(MirageColors.Bg)
+                                        .border(1.dp, MirageColors.CardStroke, RoundedCornerShape(14.dp))
                                         .clickable {
                                             PaymentManager.openPaymentBrowser(userId, plan.priceRub, plan.days)
                                             showPaymentOptions = false
-                                            statusMessage = "Окно оплаты открыто в браузере. После оплаты нажмите «Проверить оплату»."
+                                            statusMessage = "Окно оплаты открыто в браузере. После завершения платежа нажмите «Проверить оплату»."
                                             isSuccessStatus = false
                                         }
                                         .padding(horizontal = 16.dp, vertical = 14.dp),
@@ -96,7 +121,7 @@ fun SubscriptionDialog(
                                         Row(verticalAlignment = Alignment.CenterVertically) {
                                             Text(
                                                 text = plan.labelRu,
-                                                color = colors.ink,
+                                                color = MirageColors.Ink,
                                                 fontSize = 14.sp,
                                                 fontWeight = FontWeight.Bold
                                             )
@@ -105,12 +130,12 @@ fun SubscriptionDialog(
                                                 Box(
                                                     modifier = Modifier
                                                         .clip(RoundedCornerShape(8.dp))
-                                                        .background(Color(0xFF2A241C))
+                                                        .background(MirageColors.PillActiveBg)
                                                         .padding(horizontal = 6.dp, vertical = 2.dp)
                                                 ) {
                                                     Text(
                                                         text = plan.badge,
-                                                        color = Color(0xFFE8A33D),
+                                                        color = MirageColors.Amber,
                                                         fontSize = 10.sp,
                                                         fontWeight = FontWeight.Bold
                                                     )
@@ -121,7 +146,7 @@ fun SubscriptionDialog(
 
                                     Text(
                                         text = "${plan.priceRub} ₽",
-                                        color = Color(0xFFE8A33D),
+                                        color = MirageColors.Amber,
                                         fontSize = 15.sp,
                                         fontWeight = FontWeight.Bold
                                     )
@@ -135,17 +160,17 @@ fun SubscriptionDialog(
                             onClick = { showPaymentOptions = false },
                             shape = RoundedCornerShape(14.dp),
                             colors = ButtonDefaults.outlinedButtonColors(
-                                backgroundColor = colors.card,
-                                contentColor = colors.ink
+                                backgroundColor = MirageColors.Card,
+                                contentColor = MirageColors.Ink
                             ),
-                            border = BorderStroke(1.dp, colors.cardStroke),
+                            border = BorderStroke(1.dp, MirageColors.CardStroke),
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(46.dp)
+                                .height(44.dp)
                         ) {
                             Text(
                                 text = "Отмена",
-                                fontSize = 14.sp,
+                                fontSize = 13.sp,
                                 fontWeight = FontWeight.SemiBold
                             )
                         }
@@ -160,19 +185,19 @@ fun SubscriptionDialog(
         onDismissRequest = onDismiss,
         buttons = {},
         backgroundColor = Color.Transparent,
-        contentColor = colors.ink,
+        contentColor = MirageColors.Ink,
         modifier = Modifier.width(380.dp),
         text = {
             Box(
                 modifier = Modifier
                     .clip(RoundedCornerShape(24.dp))
-                    .background(colors.card)
-                    .border(1.2.dp, colors.cardStroke, RoundedCornerShape(24.dp))
+                    .background(MirageColors.Card)
+                    .border(1.2.dp, MirageColors.CardStroke, RoundedCornerShape(24.dp))
                     .padding(22.dp)
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
 
-                    // Header Row
+                    // Header Row matching dialog_subscription.xml
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically
@@ -187,7 +212,7 @@ fun SubscriptionDialog(
                             Icon(
                                 imageVector = Icons.Default.AutoAwesome,
                                 contentDescription = null,
-                                tint = Color(0xFFE8A33D),
+                                tint = MirageColors.Amber,
                                 modifier = Modifier.size(20.dp)
                             )
                         }
@@ -197,14 +222,14 @@ fun SubscriptionDialog(
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 text = "Mirage Premium",
-                                color = colors.ink,
+                                color = MirageColors.Ink,
                                 fontSize = 17.sp,
                                 fontWeight = FontWeight.Bold
                             )
                             Spacer(modifier = Modifier.height(2.dp))
                             Text(
                                 text = "Выделенные серверы и максимальная скорость",
-                                color = colors.inkSoft,
+                                color = MirageColors.InkSoft,
                                 fontSize = 12.sp,
                                 lineHeight = 16.sp
                             )
@@ -217,7 +242,7 @@ fun SubscriptionDialog(
                             Icon(
                                 imageVector = Icons.Default.Close,
                                 contentDescription = "Закрыть",
-                                tint = colors.inkMuted,
+                                tint = MirageColors.InkMuted,
                                 modifier = Modifier.size(18.dp)
                             )
                         }
@@ -230,32 +255,32 @@ fun SubscriptionDialog(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(1.dp)
-                            .background(colors.cardStroke)
+                            .background(MirageColors.CardStroke)
                     )
 
                     Spacer(modifier = Modifier.height(14.dp))
 
-                    // Price Card
+                    // Price Card matching dialog_subscription.xml
                     val defaultPlan = appConfig.plans.firstOrNull() ?: SubscriptionPlan("1m", 30, 50, null, "30 дней", "30 days")
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(14.dp))
-                            .background(colors.bg)
-                            .border(1.dp, colors.cardStroke, RoundedCornerShape(14.dp))
+                            .background(MirageColors.Bg)
+                            .border(1.dp, MirageColors.CardStroke, RoundedCornerShape(14.dp))
                             .padding(14.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 text = "Период подписки: 30 дней",
-                                color = colors.inkSoft,
+                                color = MirageColors.InkSoft,
                                 fontSize = 12.sp
                             )
                             Spacer(modifier = Modifier.height(2.dp))
                             Text(
                                 text = "от ${defaultPlan.priceRub} ₽",
-                                color = Color(0xFFE8A33D),
+                                color = MirageColors.Amber,
                                 fontSize = 22.sp,
                                 fontWeight = FontWeight.Bold
                             )
@@ -264,12 +289,12 @@ fun SubscriptionDialog(
                         Box(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(8.dp))
-                                .background(Color(0xFF2A241C))
+                                .background(MirageColors.PillActiveBg)
                                 .padding(horizontal = 10.dp, vertical = 4.dp)
                         ) {
                             Text(
                                 text = "Хит",
-                                color = Color(0xFFE8A33D),
+                                color = MirageColors.Amber,
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold
                             )
@@ -278,10 +303,13 @@ fun SubscriptionDialog(
 
                     Spacer(modifier = Modifier.height(14.dp))
 
-                    // Features
+                    // Features matching dialog_subscription.xml
                     Text(
-                        text = "⚡ Высокоскоростной выделенный канал 1 Гбит/с\n🛡️ Протокол VLESS Reality (обход блокировок ТСПУ)\n🔒 Персональный защищенный ключ доступа\n🌐 Полный доступ к YouTube, зарубежным сервисам и ИИ",
-                        color = colors.inkSoft,
+                        text = "⚡ Высокоскоростной выделенный канал 1 Гбит/с\n" +
+                                "🛡️ Протокол VLESS Reality (обход блокировок ТСПУ)\n" +
+                                "🔒 Персональный защищенный ключ доступа\n" +
+                                "🌐 Полный доступ к YouTube, зарубежным сервисам и ИИ",
+                        color = MirageColors.InkSoft,
                         fontSize = 12.5.sp,
                         lineHeight = 20.sp,
                         modifier = Modifier.fillMaxWidth()
@@ -291,7 +319,7 @@ fun SubscriptionDialog(
                         Spacer(modifier = Modifier.height(12.dp))
                         Text(
                             text = statusMessage ?: "",
-                            color = if (isSuccessStatus) Color(0xFF10B981) else colors.inkSoft,
+                            color = if (isSuccessStatus) Color(0xFF10B981) else MirageColors.InkSoft,
                             fontSize = 12.sp,
                             textAlign = TextAlign.Center,
                             modifier = Modifier.fillMaxWidth()
@@ -304,7 +332,7 @@ fun SubscriptionDialog(
                     Button(
                         onClick = { showPaymentOptions = true },
                         colors = ButtonDefaults.buttonColors(
-                            backgroundColor = Color(0xFFE8A33D),
+                            backgroundColor = MirageColors.Amber,
                             contentColor = Color.White
                         ),
                         shape = RoundedCornerShape(14.dp),
@@ -321,7 +349,7 @@ fun SubscriptionDialog(
 
                     Spacer(modifier = Modifier.height(8.dp))
 
-                    // Check Status Button
+                    // Check Payment Status Button
                     OutlinedButton(
                         onClick = {
                             isChecking = true
@@ -342,17 +370,17 @@ fun SubscriptionDialog(
                         enabled = !isChecking,
                         shape = RoundedCornerShape(14.dp),
                         colors = ButtonDefaults.outlinedButtonColors(
-                            backgroundColor = colors.card,
-                            contentColor = colors.ink
+                            backgroundColor = MirageColors.Card,
+                            contentColor = MirageColors.Ink
                         ),
-                        border = BorderStroke(1.dp, colors.cardStroke),
+                        border = BorderStroke(1.dp, MirageColors.CardStroke),
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(44.dp)
                     ) {
                         if (isChecking) {
                             CircularProgressIndicator(
-                                color = colors.ink,
+                                color = MirageColors.Ink,
                                 strokeWidth = 2.dp,
                                 modifier = Modifier.size(18.dp)
                             )
@@ -367,7 +395,7 @@ fun SubscriptionDialog(
 
                     Spacer(modifier = Modifier.height(8.dp))
 
-                    // One free trial day button
+                    // One Free Trial Day Button
                     OutlinedButton(
                         onClick = {
                             trialLoading = true
@@ -389,29 +417,39 @@ fun SubscriptionDialog(
                         enabled = !trialLoading,
                         shape = RoundedCornerShape(14.dp),
                         colors = ButtonDefaults.outlinedButtonColors(
-                            backgroundColor = colors.card,
-                            contentColor = Color(0xFFE8A33D)
+                            backgroundColor = MirageColors.Card,
+                            contentColor = MirageColors.Amber
                         ),
-                        border = BorderStroke(1.dp, Color(0xFFE8A33D)),
+                        border = BorderStroke(1.dp, MirageColors.Amber),
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(44.dp)
                     ) {
                         if (trialLoading) {
                             CircularProgressIndicator(
-                                color = Color(0xFFE8A33D),
+                                color = MirageColors.Amber,
                                 strokeWidth = 2.dp,
                                 modifier = Modifier.size(18.dp)
                             )
                         } else {
                             Text(
                                 text = "Попробовать бесплатно (1 день)",
-                                color = Color(0xFFE8A33D),
+                                color = MirageColors.Amber,
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.SemiBold
                             )
                         }
                     }
+
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    Text(
+                        text = "Один бесплатный день выделенного узла",
+                        color = MirageColors.InkSoft,
+                        fontSize = 11.5.sp,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth()
+                    )
                 }
             }
         }

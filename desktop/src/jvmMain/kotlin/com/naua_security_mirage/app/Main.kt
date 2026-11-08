@@ -112,7 +112,19 @@ fun main() {
         val downloadSpeed by vpnCore.downloadSpeed.collectAsState()
         val uploadSpeed by vpnCore.uploadSpeed.collectAsState()
 
+        var previousVpnState by remember { mutableStateOf(vpnState) }
         LaunchedEffect(vpnState) {
+            if (previousVpnState == VpnState.CONNECTED && vpnState != VpnState.CONNECTED) {
+                if (sessionSeconds > 1) {
+                    val tag = if (settingsRepo.isPaidPlan(selectedPlan)) {
+                        AppConfigRepository.node(selectedPlan)?.labelRu ?: "Франция (Платная)"
+                    } else {
+                        bestServer?.tag ?: "Бесплатный"
+                    }
+                    com.naua_security_mirage.app.data.SessionJournal.add(tag, sessionSeconds)
+                }
+            }
+            previousVpnState = vpnState
             if (vpnState == VpnState.CONNECTED) {
                 sessionSeconds = 0L
                 while (isActive) {

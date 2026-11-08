@@ -29,6 +29,7 @@ class SettingsRepository {
     data class SettingsState(
         var isStatusNotificationEnabled: Boolean = true,
         var isQuickSettingsTileEnabled: Boolean = true,
+        var isPaymentNotificationEnabled: Boolean = true,
         var isAnonymousTelemetryEnabled: Boolean = true,
         var themePreset: String = THEME_DARK,
         var customBgColor: Int = 0,
@@ -58,7 +59,9 @@ class SettingsRepository {
         var lastPaidPlan: String = PLAN_PREMIUM_FRANCE,
         var appLanguage: String = LANG_RU,
         var isEmailMasked: Boolean = false,
-        var areAnimationsEnabled: Boolean = true
+        var areAnimationsEnabled: Boolean = true,
+        var hiddenSections: MutableSet<String> = mutableSetOf(),
+        var preferredFreeNodeKey: String? = null
     )
 
     fun setAutoStartOnBoot(enabled: Boolean) {
@@ -106,6 +109,10 @@ class SettingsRepository {
     var isQuickSettingsTileEnabled: Boolean
         get() = state.isQuickSettingsTileEnabled
         set(value) { state.isQuickSettingsTileEnabled = value; save() }
+
+    var isPaymentNotificationEnabled: Boolean
+        get() = state.isPaymentNotificationEnabled
+        set(value) { state.isPaymentNotificationEnabled = value; save() }
 
     var isAnonymousTelemetryEnabled: Boolean
         get() = state.isAnonymousTelemetryEnabled
@@ -223,6 +230,29 @@ class SettingsRepository {
     var areAnimationsEnabled: Boolean
         get() = state.areAnimationsEnabled
         set(value) { state.areAnimationsEnabled = value; save() }
+
+    var hiddenSections: Set<String>
+        get() = state.hiddenSections
+        set(value) { state.hiddenSections = value.toMutableSet(); save() }
+
+    var preferredFreeNodeKey: String?
+        get() = state.preferredFreeNodeKey
+        set(value) { state.preferredFreeNodeKey = value; save() }
+
+    fun exportSettingsJson(): String = gson.toJson(state)
+
+    fun importSettingsJson(json: String): Boolean {
+        return try {
+            val imported = gson.fromJson(json, SettingsState::class.java)
+            if (imported != null) {
+                state = imported
+                save()
+                true
+            } else false
+        } catch (_: Exception) {
+            false
+        }
+    }
 
     fun isPaidPlan(plan: String = selectedServerPlan): Boolean = plan != PLAN_FREE
 
