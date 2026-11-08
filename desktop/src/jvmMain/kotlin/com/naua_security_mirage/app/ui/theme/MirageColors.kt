@@ -39,6 +39,7 @@ object MirageColors {
     val AuGood = Color(0xFF5EE0A0)
     val AuBad = Color(0xFFFF7A7A)
     val AuCool = Color(0xFF62C8FF)
+    val AuSolid = Color(0xFF171A24)
 
     val PowerIconConnected = Color(0xFF2A1706)
     val PowerIconDisconnected = Color(0xFFE8A33D)
