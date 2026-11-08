@@ -24,6 +24,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.naua_security_mirage.app.ui.theme.LocalMirageColors
+import com.naua_security_mirage.app.ui.theme.MirageColors
 
 @Composable
 fun MirageHeader(
@@ -63,15 +64,15 @@ fun MirageHeader(
                     modifier = Modifier
                         .size(38.dp)
                         .clip(RoundedCornerShape(12.dp))
-                        .background(colors.card)
-                        .border(1.dp, colors.cardStroke, RoundedCornerShape(12.dp))
+                        .background(MirageColors.AuSolid)
+                        .border(1.dp, MirageColors.AuSep, RoundedCornerShape(12.dp))
                         .clickable { onBackClick() },
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = Icons.Default.ArrowBack,
                         contentDescription = "Назад",
-                        tint = colors.ink,
+                        tint = MirageColors.AuFg,
                         modifier = Modifier.size(18.dp)
                     )
                 }
@@ -80,7 +81,7 @@ fun MirageHeader(
 
             Text(
                 text = title,
-                color = colors.ink,
+                color = MirageColors.AuFg,
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold
             )
@@ -96,14 +97,14 @@ fun MirageHeader(
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = title,
-                    color = colors.ink,
+                    color = MirageColors.AuFg,
                     fontSize = 22.sp,
                     fontWeight = FontWeight.Bold,
                     letterSpacing = (-0.01).sp
                 )
                 Text(
                     text = subtitle,
-                    color = colors.inkSoft,
+                    color = MirageColors.AuFg2,
                     fontSize = 12.5.sp,
                     modifier = Modifier.padding(top = 1.dp)
                 )
@@ -118,15 +119,15 @@ fun MirageHeader(
                     modifier = Modifier
                         .size(40.dp)
                         .clip(RoundedCornerShape(12.dp))
-                        .background(colors.card)
-                        .border(1.dp, colors.cardStroke, RoundedCornerShape(12.dp))
+                        .background(MirageColors.AuSolid)
+                        .border(1.dp, MirageColors.AuSep, RoundedCornerShape(12.dp))
                         .clickable { onUpdateClick?.invoke() },
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = Icons.Default.FileDownload,
                         contentDescription = "Обновления",
-                        tint = colors.ink,
+                        tint = MirageColors.AuFg,
                         modifier = Modifier.size(19.dp)
                     )
 
@@ -162,15 +163,15 @@ fun MirageHeader(
                     modifier = Modifier
                         .size(40.dp)
                         .clip(RoundedCornerShape(12.dp))
-                        .background(colors.card)
-                        .border(1.dp, colors.cardStroke, RoundedCornerShape(12.dp))
+                        .background(MirageColors.AuSolid)
+                        .border(1.dp, MirageColors.AuSep, RoundedCornerShape(12.dp))
                         .clickable { onRefreshClick?.invoke() },
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = Icons.Default.Refresh,
                         contentDescription = "Обновить сервера",
-                        tint = colors.ink,
+                        tint = MirageColors.AuFg,
                         modifier = Modifier
                             .size(19.dp)
                             .rotate(if (isRefreshing) rotation else 0f)
@@ -181,15 +182,15 @@ fun MirageHeader(
                     modifier = Modifier
                         .size(40.dp)
                         .clip(RoundedCornerShape(12.dp))
-                        .background(colors.card)
-                        .border(1.dp, colors.cardStroke, RoundedCornerShape(12.dp))
+                        .background(MirageColors.AuSolid)
+                        .border(1.dp, MirageColors.AuSep, RoundedCornerShape(12.dp))
                         .clickable { onSettingsClick?.invoke() },
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = Icons.Default.Settings,
                         contentDescription = "Настройки",
-                        tint = colors.ink,
+                        tint = MirageColors.AuFg,
                         modifier = Modifier.size(20.dp)
                     )
                 }
