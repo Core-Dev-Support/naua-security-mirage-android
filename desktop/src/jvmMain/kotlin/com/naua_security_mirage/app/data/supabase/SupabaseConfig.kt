@@ -22,7 +22,7 @@ object SupabaseConfig {
         return ""
     }
 
-    val SUPABASE_URL: String get() = getVal("supabaseUrl", "SUPABASE_URL")
+    val SUPABASE_URL: String get() = getVal("supabaseUrl", "SUPABASE_URL").ifBlank { "https://orwwaptbxmwxvfwfqavc.supabase.co" }
     val SUPABASE_ANON_KEY: String get() = getVal("supabaseAnonKey", "SUPABASE_ANON_KEY")
 
     fun getAnonKey(): String {

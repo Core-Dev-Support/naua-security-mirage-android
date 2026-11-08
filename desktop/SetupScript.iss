@@ -25,8 +25,7 @@ Compression=lzma2/ultra64
 SolidCompression=yes
 WizardStyle=modern
 PrivilegesRequired=lowest
-CloseApplications=force
-CloseApplicationsFilter=NAUASecurityMirage.exe,xray.exe,tun2socks.exe
+CloseApplications=no
 RestartApplications=no
 
 [Languages]
@@ -49,12 +48,18 @@ Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; IconFilen
 [Run]
 Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent
 
+[Registry]
+Root: HKA; Subkey: "Software\Classes\mirage"; ValueType: string; ValueData: "URL:NAUA Security Mirage Protocol"; Flags: uninsdeletekey
+Root: HKA; Subkey: "Software\Classes\mirage"; ValueName: "URL Protocol"; ValueType: string; ValueData: ""; Flags: uninsdeletekey
+Root: HKA; Subkey: "Software\Classes\mirage\DefaultIcon"; ValueType: string; ValueData: "{app}\app.ico,0"; Flags: uninsdeletekey
+Root: HKA; Subkey: "Software\Classes\mirage\shell\open\command"; ValueType: string; ValueData: """{app}\{#MyAppExeName}"" ""%1"""; Flags: uninsdeletekey
+
 [Code]
 procedure KillProcessTree(const ExeName: String);
 var
   ResultCode: Integer;
 begin
-  Exec(ExpandConstant('{sys}\taskkill.exe'), '/F /T /IM "' + ExeName + '"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  Exec(ExpandConstant('{sys}\taskkill.exe'), '/F /T /IM ' + ExeName, '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
 end;
 
 function InitializeSetup(): Boolean;
@@ -64,6 +69,15 @@ begin
   KillProcessTree('tun2socks.exe');
   Sleep(500);
   Result := True;
+end;
+
+function PrepareToInstall(var NeedsRestart: Boolean): String;
+begin
+  KillProcessTree('{#MyAppExeName}');
+  KillProcessTree('xray.exe');
+  KillProcessTree('tun2socks.exe');
+  Sleep(500);
+  Result := '';
 end;
 
 function InitializeUninstall(): Boolean;

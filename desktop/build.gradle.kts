@@ -116,21 +116,7 @@ compose.desktop {
             packageVersion = "1.4.0"
             description = "NAUA Security Mirage PC VPN Client"
             copyright = "© 2026 Core Dev Support"
-            modules(
-                "java.base",
-                "java.desktop",
-                "java.logging",
-                "java.prefs",
-                "java.xml",
-                "java.datatransfer",
-                "jdk.unsupported",
-                "jdk.unsupported.desktop",
-                "java.management",
-                "java.instrument",
-                "java.net.http",
-                "java.security.jgss",
-                "jdk.crypto.ec"
-            )
+            includeAllModules = true
             windows {
                 menuGroup = "NAUA Security Mirage"
                 upgradeUuid = "D1A3F5B8-438B-4FA0-A3BB-C447BF246A10"

@@ -54,9 +54,13 @@ enum class Screen {
     PRIVATE_DNS,
 }
 
-fun main() {
+fun main(args: Array<String>) {
     try {
-        java.net.Socket("localhost", 45678).use { it.getOutputStream().write(1) }
+        java.net.Socket("localhost", 45678).use { s ->
+            val arg = args.firstOrNull() ?: "show"
+            val writer = java.io.PrintWriter(s.getOutputStream(), true)
+            writer.println(arg)
+        }
         kotlin.system.exitProcess(0)
     } catch (e: Exception) { }
 
@@ -96,7 +100,10 @@ fun main() {
                     while (isActive) {
                         try {
                             val client = ss.accept()
-                            client.getInputStream().read()
+                            val line = client.getInputStream().bufferedReader().readLine()?.trim()?.removeSurrounding("\"")
+                            if (!line.isNullOrBlank() && (line.startsWith("mirage://") || line.contains("access_token="))) {
+                                SupabaseManager.instance.handleAuthCallbackUrl(line)
+                            }
                             SwingUtilities.invokeLater { isVisible = true }
                             client.close()
                         } catch (e: Exception) { }
@@ -140,6 +147,11 @@ fun main() {
             AppLogger.init(settingsRepo)
             geoRepo.initFromBundledIfNeeded()
             AppConfigRepository.init(settingsRepo)
+
+            val initialArg = args.firstOrNull()?.trim()?.removeSurrounding("\"")
+            if (!initialArg.isNullOrBlank() && (initialArg.startsWith("mirage://") || initialArg.contains("access_token="))) {
+                SupabaseManager.instance.handleAuthCallbackUrl(initialArg)
+            }
 
             scope.launch {
                 try {
