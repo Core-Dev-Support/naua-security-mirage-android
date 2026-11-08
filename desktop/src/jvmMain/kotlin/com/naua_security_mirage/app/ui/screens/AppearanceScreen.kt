@@ -26,6 +26,7 @@ import com.naua_security_mirage.app.data.repository.SettingsRepository
 import com.naua_security_mirage.app.ui.components.MirageCard
 import com.naua_security_mirage.app.ui.components.MirageHeader
 import com.naua_security_mirage.app.ui.components.MirageSwitch
+import com.naua_security_mirage.app.ui.theme.LocalMirageColors
 import com.naua_security_mirage.app.ui.theme.MirageColors
 import java.awt.FileDialog
 import java.awt.Frame
@@ -37,6 +38,7 @@ fun AppearanceScreen(
     onBack: () -> Unit,
     onAppearanceChanged: () -> Unit
 ) {
+    val colors = LocalMirageColors.current
     val scrollState = rememberScrollState()
 
     var themePreset by remember { mutableStateOf(settingsRepository.themePreset) }

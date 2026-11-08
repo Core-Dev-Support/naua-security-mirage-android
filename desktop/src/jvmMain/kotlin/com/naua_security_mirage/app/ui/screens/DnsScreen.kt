@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.sp
 import com.naua_security_mirage.app.data.model.DnsServer
 import com.naua_security_mirage.app.data.repository.SettingsRepository
 import com.naua_security_mirage.app.ui.components.MirageHeader
+import com.naua_security_mirage.app.ui.theme.LocalMirageColors
 import com.naua_security_mirage.app.ui.theme.MirageColors
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch

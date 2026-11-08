@@ -14,6 +14,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.naua_security_mirage.app.ui.components.MirageHeader
+import com.naua_security_mirage.app.ui.theme.LocalMirageColors
 import com.naua_security_mirage.app.ui.theme.MirageColors
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
