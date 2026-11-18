@@ -87,7 +87,7 @@ One big button, and the tunnel is up. There is no location to pick: the client m
 ```mermaid
 flowchart TD
     A["📱 App<br/>VpnService · TUN · Material 3"] --> S{"Node selection"}
-    S -->|"paid subscription"| P["🇫🇷 France · 🇧🇾 Belarus<br/>dedicated nodes"]
+    S -->|"paid subscription"| P["🇨🇭 Switzerland · 🇹🇷 Turkey<br/>dedicated nodes"]
     S -->|"free plan"| F["🌐 Free node pool<br/>sorted by latency"]
     P --> C["⚙️ libXray<br/>libgojni.so<br/>VLESS + Reality + geosite"]
     F --> C
@@ -144,7 +144,7 @@ Details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 **Requirements:** Android 6.0+ (API 23), `arm64-v8a` or `armeabi-v7a`, any internet connection. The universal `NAUA-Security-Mirage-v1.4.0.apk` is larger and only needed for unusual cases.
 
 <details>
-<summary><b>Subscribing to the paid nodes (France and Belarus)</b></summary>
+<summary><b>Subscribing to the paid nodes (Switzerland and Turkey)</b></summary>
 
 Sign in with email or Google, then choose YooMoney — **50 ₽ for 30 days**. One-time payment, no auto-renewals. The nodes activate within 1–2 minutes. The subscription is bound to your account, not to a device.
 
@@ -232,7 +232,7 @@ Release notes: [docs/releases/](docs/releases/). Full history: [CHANGELOG.md](CH
 <details>
 <summary><b>Is it free?</b></summary>
 
-Yes, there is a free mode on a pool of free nodes. The paid nodes (France and Belarus) cost a one-time **50 ₽ for 30 days**, with no auto-renewals.
+Yes, there is a free mode on a pool of free nodes. The paid nodes (Switzerland and Turkey) cost a one-time **50 ₽ for 30 days**, with no auto-renewals.
 
 </details>
 

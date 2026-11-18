@@ -82,7 +82,7 @@ import { timingSafeEqual } from "../_shared/security.ts";
 // подтягивают одно и то же.
 //
 // Ссылка подписки собирает узлы с двух разных хостеров: Швейцария (панель H1) и
-// Беларусь (H1Cloud) — плюс бесплатные обходы.
+// Турция (H1Cloud) — плюс бесплатные обходы.
 
 const TELEGRAM_TOKEN = Deno.env.get("TELEGRAM_TOKEN") || "";
 const TELEGRAM_SECRET = Deno.env.get("TELEGRAM_SECRET_TOKEN") || "";

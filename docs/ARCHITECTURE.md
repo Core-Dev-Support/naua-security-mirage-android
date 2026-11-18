@@ -28,13 +28,13 @@ flowchart TD
     AUTHFN --> DB
     AUTHFN --> AUTH[👤 Supabase Auth]
     APP --> AUTH
-    APP -->|JWT| FR[🇫🇷 france-config]
-    APP -->|JWT| BY[🇧🇾 belarus-config]
+    APP -->|JWT| FR[🇨🇭 france-config]
+    APP -->|JWT| BY[🇹🇷 belarus-config]
     BOT --> SUBS[🔗 telegram-subscription]
     SUBS --> FR
     SUBS --> BY
-    FR --> XUI[3X-UI, Франция]
-    BY --> H1[H1Cloud, Беларусь]
+    FR --> XUI[H1, Швейцария]
+    BY --> H1[H1Cloud, Турция]
     YM[💳 YooMoney] --> WH[yoomoney-webhook] --> DB
     CFG[📊 node-status] -.-> VM
     PUSH[🔔 send-release-push] -.-> APP
@@ -238,7 +238,7 @@ where id = 'paid_nodes';
 разберёт без обновления.
 
 Пока реальной финской панели нет, `finland-config` работает в режиме
-`source=france-fallback`: берёт панель и адрес Франции, но остаётся отдельной
+`source=france-fallback`: берёт панель и адрес Швейцарии (через `france-config`), но остаётся отдельной
 функцией со своим кэшем ключа по `node.id`. Это позволяет проверить весь
 серверный путь (кнопка → `config_function` → VLESS-ключ → туннель) без
 пересборки APK. Когда появится финская панель, достаточно задать секреты
@@ -256,7 +256,7 @@ where id = 'paid_nodes';
 Функция `finland-config` остаётся задеплоенной заготовкой; чтобы вернуть узел,
 достаточно снова добавить запись в каталог.
 
-`node-status` собирает серверную историю только по Франции. Беларусь
+`node-status` собирает серверную историю по Швейцарии. Турция
 проверяется с устройства, потому что её доступность зависит от сети; переходы
 `up/down` пишутся локально (`NodeEventStore`) и показываются в карточке
 диагностики вместе с причиной (`ключ не получен`, `не отвечал`, `туннель не
