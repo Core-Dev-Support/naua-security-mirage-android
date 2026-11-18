@@ -66,8 +66,8 @@ const ru: Record<string, string> = {
   "menu.status.none": "💳 Статус: 🔴 Нет подписки",
   "menu.status.active": "💳 Статус: 🟢 Активна — 🗓 <b>{rem}</b>",
   "menu.status.expired": "💳 Статус: 🔴 Истекла",
-  "menu.connect": "🔗 Подключиться",
-  "menu.profile": "👤 Профиль",
+  "menu.connect": "🚀 Подключиться",
+  "menu.profile": "👤 Мой кабинет",
   "menu.support": "🆘 Поддержка",
   "menu.referral": "🎁 Пригласить друзей",
   "menu.admin": "⚙️ Админка",
@@ -149,7 +149,7 @@ const ru: Record<string, string> = {
     "<blockquote><b>Что это:</b> одна ссылка с твоими VPN-узлами. Открываешь её в Hiddify, Happ или в приложении — и трафик идёт через личный узел.\n\n" +
     "Сейчас в ссылке два узла с разных хостеров: 🇨🇭 Швейцария и 🇹🇷 Турция. " +
     "Подписка одна и та же для бота и приложения.</blockquote>",
-  "connect.open": "🚀 Открыть подписку",
+  "connect.open": "🚀 Открыть подписку (Happ / Hiddify)",
   "connect.copy": "📋 Скопировать ссылку",
   "connect.hint":
     "Нажми «Открыть подписку» — откроется страница с кнопками приложений: Happ, Hiddify или v2rayTun. Выбираешь приложение — подписка добавляется сама.",
@@ -271,8 +271,8 @@ const ru: Record<string, string> = {
     "А пригласившему добавим 2 дня после твоей первой оплаты.",
 
   // --- подписи нижнего (текстового) меню ---
-  "textmenu.profile": "👤 Профиль",
-  "textmenu.connect": "🚀 Подключить",
+  "textmenu.profile": "👤 Мой кабинет",
+  "textmenu.connect": "🚀 Подключиться",
   "textmenu.sub": "💳 Подписка",
   "textmenu.support": "🆘 Поддержка",
   "textmenu.referral": "🤝 Пригласить друзей",
@@ -382,8 +382,8 @@ const en: Record<string, string> = {
   "menu.status.none": "💳 Status: 🔴 No subscription",
   "menu.status.active": "💳 Status: 🟢 Active — until <b>{rem}</b>",
   "menu.status.expired": "💳 Status: 🔴 Expired",
-  "menu.connect": "🔗 Connect",
-  "menu.profile": "👤 Profile",
+  "menu.connect": "🚀 Connect",
+  "menu.profile": "👤 My Account",
   "menu.support": "🆘 Support",
   "menu.referral": "🎁 Invite friends",
   "menu.admin": "⚙️ Admin",
@@ -466,7 +466,7 @@ const en: Record<string, string> = {
     "<blockquote><b>What is this:</b> a single link with your VPN nodes. Open it in Hiddify, Happ or the app and your traffic goes through a private node.\n\n" +
     "The link holds two nodes from different hosts: 🇨🇭 Switzerland and 🇹🇷 Turkey. " +
     "The bot and the app share the same subscription.</blockquote>",
-  "connect.open": "🚀 Open subscription",
+  "connect.open": "🚀 Open subscription (Happ / Hiddify)",
   "connect.copy": "📋 Copy the link",
   "connect.hint":
     "Tap “Open subscription” — a page opens with app buttons: Happ, Hiddify or v2rayTun. Pick the app and the subscription is added automatically.",
@@ -589,7 +589,7 @@ const en: Record<string, string> = {
     "And your inviter gets 2 days after your first payment.",
 
   // --- reply-menu labels ---
-  "textmenu.profile": "👤 Profile",
+  "textmenu.profile": "👤 My Account",
   "textmenu.connect": "🚀 Connect",
   "textmenu.sub": "💳 Subscription",
   "textmenu.support": "🆘 Support",

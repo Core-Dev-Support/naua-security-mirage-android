@@ -403,18 +403,13 @@ async function mainMenuButtons(
   lang: Lang,
 ): Promise<InlineKeyboard> {
   const buttons: InlineKeyboard = [
-    [{ text: t(lang, "menu.connect"), callback_data: "connect:main" }],
+    [
+      { text: t(lang, "menu.connect"), callback_data: "connect:main" },
+      { text: t(lang, "sub.title_short"), callback_data: "sub:main" },
+    ],
     [
       { text: t(lang, "menu.profile"), callback_data: "profile" },
       { text: t(lang, "menu.support"), callback_data: "support" },
-    ],
-    [
-      { text: t(lang, "sub.title_short"), callback_data: "sub:main" },
-      { text: t(lang, "menu.referral"), callback_data: "referral:main" },
-    ],
-    [
-      { text: t(lang, "connect.server_status"), callback_data: "server_status:main" },
-      { text: t(lang, "connect.setup_guide"), callback_data: "setup_guide:main" },
     ],
   ];
   if (!linked) {
@@ -427,25 +422,6 @@ async function mainMenuButtons(
         : { text: t(lang, "profile.login"), callback_data: "google_login" },
     ]);
   }
-  // Документы — отдельным экраном: лицензия и политика только там.
-  buttons.push([
-    { text: t(lang, "menu.docs"), callback_data: "docs" },
-  ]);
-  // Поблагодарить разработчика — на виду, а не спрятано в поддержке.
-  buttons.push([
-    { text: t(lang, "thanks.button"), callback_data: "thanks" },
-  ]);
-  // Приложение — сразу под благодарностью: его ищут чаще, чем настройки.
-  buttons.push([
-    { text: t(lang, "sub.app"), url: APP_URL },
-  ]);
-  // Язык — в настройках; в меню он лишний.
-  buttons.push([
-    {
-      text: t(lang, "settings.title").replace(/<[^>]+>/gu, ""),
-      callback_data: "settings",
-    },
-  ]);
   if (isAdmin) {
     buttons.push([{ text: t(lang, "menu.admin"), callback_data: "admin" }]);
   }
@@ -722,34 +698,26 @@ async function showMainMenu(
   );
 }
 
-// profileKeyboard — кнопки профиля: подключение, вход/выход из Google,
-// язык, рефералка.
+// profileKeyboard — кнопки профиля: рефералка, язык, документы, чаевые, выход.
 async function profileKeyboard(
   ctx: BotContext,
   chatId: number,
   lang: Lang,
 ): Promise<InlineKeyboard> {
   const account = ctx.account;
-  const state = subscriptionState(ctx);
-
   const keyboard: InlineKeyboard = [
-    [{ text: t(lang, "menu.connect"), callback_data: "connect:profile" }],
+    [
+      { text: t(lang, "menu.referral"), callback_data: "referral:profile" },
+    ],
+    [
+      { text: t(lang, "profile.language.change"), callback_data: "lang_menu|profile" },
+      { text: t(lang, "menu.docs"), callback_data: "docs" },
+    ],
+    [
+      { text: t(lang, "thanks.button"), callback_data: "thanks" },
+      { text: t(lang, "profile.payments.button"), callback_data: "profile_payments" },
+    ],
   ];
-  if (state?.active) {
-    // Подписка жива — главное действие здесь её продлить.
-    keyboard.push([{ text: t(lang, "sub.renew"), callback_data: "sub:profile" }]);
-  } else {
-    keyboard.push([{ text: t(lang, "sub.title_short"), callback_data: "sub:profile" }]);
-  }
-  keyboard.push([
-    { text: t(lang, "menu.referral"), callback_data: "referral:profile" },
-  ]);
-  keyboard.push([
-    { text: t(lang, "profile.payments.button"), callback_data: "profile_payments" },
-  ]);
-  keyboard.push([
-    { text: t(lang, "sub.app"), url: APP_URL },
-  ]);
   if (!account) {
     const loginUrl = await googleLoginUrl(chatId);
     keyboard.push([
@@ -763,11 +731,7 @@ async function profileKeyboard(
     ]);
   }
   keyboard.push([
-    { text: t(lang, "connect.server_status"), callback_data: "server_status:profile" },
-    { text: t(lang, "profile.refresh"), callback_data: "profile_refresh" },
-  ]);
-  keyboard.push([
-    { text: t(lang, "common.back"), callback_data: "back" },
+    { text: t(lang, "common.back"), callback_data: "back:main" },
   ]);
   return keyboard;
 }
@@ -1085,6 +1049,7 @@ async function showConnect(
         { text: t(lang, "connect.server_status"), callback_data: `server_status:${origin}` },
       ],
       [{ text: t(lang, "connect.setup_guide"), callback_data: `setup_guide:${origin}` }],
+      [{ text: t(lang, "sub.app"), url: APP_URL }],
       [{ text: t(lang, "common.back"), callback_data: `back:${origin}` }],
     ],
   );
@@ -2102,8 +2067,6 @@ function defaultReplyKeyboard(lang: Lang): ReplyKeyboard {
   return [
     [{ text: t(lang, "textmenu.connect") }, { text: t(lang, "textmenu.sub") }],
     [{ text: t(lang, "textmenu.profile") }, { text: t(lang, "textmenu.support") }],
-    [{ text: t(lang, "textmenu.status") }, { text: t(lang, "textmenu.guide") }],
-    [{ text: t(lang, "textmenu.home") }, { text: t(lang, "textmenu.referral") }],
   ];
 }
 
@@ -2120,7 +2083,13 @@ async function ensureReplyKeyboard(chatId: number, lang: Lang): Promise<void> {
 function textMenuKeys(key: string): string[] {
   const ru = t("ru", key);
   const en = t("en", key);
-  return ru === en ? [ru] : [ru, en];
+  const list = ru === en ? [ru] : [ru, en];
+  if (key === "textmenu.profile") {
+    list.push("👤 Профиль", "👤 Profile");
+  } else if (key === "textmenu.connect") {
+    list.push("🚀 Подключить", "🔗 Подключиться");
+  }
+  return list;
 }
 
 async function handleMenuText(
