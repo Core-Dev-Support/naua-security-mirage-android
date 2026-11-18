@@ -1124,33 +1124,20 @@ async function showConnectQr(
   msgId: number,
   lang: Lang,
   origin: ScreenOrigin = "main",
-  mode: "happ" | "web" = "happ",
 ): Promise<void> {
   const link = await subscriptionLink(chatId);
-  let targetData = "";
-  let caption = "";
-  let keyboard: InlineKeyboard = [];
+  const connectPageUrl = await connectPage(link, lang, chatId);
 
-  if (mode === "happ") {
-    targetData = (await encryptForHapp(link)) || `happ://add/${encodeURI(link)}`;
-    caption = `${t(lang, "connect.qr_happ_title")}\n\n${t(lang, "connect.qr_happ_desc")}`;
-    keyboard = [
-      [{ text: t(lang, "connect.qr_switch_web"), callback_data: `connect_qr:web:${origin}` }],
-      [{ text: t(lang, "connect.copy"), copy_text: { text: link } }],
-      [{ text: t(lang, "common.back"), callback_data: `connect:${origin}` }],
-    ];
-  } else {
-    targetData = await connectPage(link, lang, chatId);
-    caption = `${t(lang, "connect.qr_web_title")}\n\n${t(lang, "connect.qr_web_desc")}`;
-    keyboard = [
-      [{ text: t(lang, "connect.qr_switch_happ"), callback_data: `connect_qr:happ:${origin}` }],
-      [{ text: t(lang, "connect.open"), url: targetData }],
-      [{ text: t(lang, "connect.copy"), copy_text: { text: link } }],
-      [{ text: t(lang, "common.back"), callback_data: `connect:${origin}` }],
-    ];
-  }
-
-  const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=500x500&format=png&data=${encodeURIComponent(targetData)}`;
+  // Единый QR-код на подписку для всех клиентов (Happ, Hiddify) и обычной камеры.
+  // margin=20 и ecc=M создают правильную белую рамку (quiet zone),
+  // благодаря которой сканеры и камеры мгновенно считывают код с любого экрана.
+  const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=600x600&margin=20&ecc=M&format=png&data=${encodeURIComponent(link)}`;
+  const caption = `${t(lang, "connect.qr_title")}\n\n${t(lang, "connect.qr_universal_hint")}`;
+  const keyboard: InlineKeyboard = [
+    [{ text: t(lang, "connect.open"), url: connectPageUrl }],
+    [{ text: t(lang, "connect.copy"), copy_text: { text: link } }],
+    [{ text: t(lang, "common.back"), callback_data: `connect:${origin}` }],
+  ];
   if (msgId > 0) {
     await telegram.deleteMessage(chatId, msgId);
   }
@@ -2713,19 +2700,9 @@ async function handleCallback(callback: CallbackQuery): Promise<void> {
     case data === "setup_guide" || data.startsWith("setup_guide:"):
       await showSetupGuide(chatId, messageId, lang, originOf(data));
       break;
-    case data === "connect_qr" || data.startsWith("connect_qr:"): {
-      const parts = data.split(":");
-      let mode: "happ" | "web" = "happ";
-      let origin: ScreenOrigin = "main";
-      if (parts[1] === "web" || parts[1] === "happ") {
-        mode = parts[1];
-        origin = parts[2] === "profile" ? "profile" : "main";
-      } else {
-        origin = originOf(data);
-      }
-      await showConnectQr(chatId, messageId, lang, origin, mode);
+    case data === "connect_qr" || data.startsWith("connect_qr:"):
+      await showConnectQr(chatId, messageId, lang, originOf(data));
       break;
-    }
     case data === "sub" || data.startsWith("sub:"):
       await showSubscription(ctx, chatId, messageId, lang, originOf(data));
       break;

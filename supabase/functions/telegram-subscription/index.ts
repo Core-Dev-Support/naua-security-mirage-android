@@ -240,7 +240,7 @@ async function fetchNode(
           apikey: SUPABASE_ANON_KEY,
           Authorization: `Bearer ${bearer}`,
         },
-        signal: AbortSignal.timeout(20_000),
+        signal: AbortSignal.timeout(3500),
       },
     );
     if (!response.ok) {
@@ -339,23 +339,18 @@ serve(async (req) => {
     // вместо скачивания файла подписки text/plain.
     const accept = req.headers.get("accept") || "";
     const userAgent = (req.headers.get("user-agent") || "").toLowerCase();
-    const isVpnClient = userAgent.includes("sing-box") ||
-      userAgent.includes("happ") ||
-      userAgent.includes("hiddify") ||
-      userAgent.includes("clash") ||
-      userAgent.includes("v2ray") ||
-      userAgent.includes("shadowrocket") ||
-      userAgent.includes("streisand") ||
-      userAgent.includes("sagernet") ||
-      userAgent.includes("nekobox") ||
-      userAgent.includes("curl") ||
-      userAgent.includes("wget");
+    const isBrowser = userAgent.includes("mozilla/") &&
+      accept.includes("text/html") &&
+      !userAgent.includes("sing-box") &&
+      !userAgent.includes("happ") &&
+      !userAgent.includes("hiddify") &&
+      !userAgent.includes("clash") &&
+      !userAgent.includes("v2ray");
 
     if (
       url.searchParams.has("user") &&
       !url.searchParams.has("format") &&
-      accept.includes("text/html") &&
-      !isVpnClient
+      isBrowser
     ) {
       const connectUrl = new URL(CONNECT_PAGE_URL);
       connectUrl.searchParams.set("u", req.url);
@@ -446,10 +441,17 @@ serve(async (req) => {
     // по умолчанию. Новая Финляндия появляется в подписке без пересборки.
     const paidNodeConfigs = await loadPaidNodes();
     const paidNodes = await Promise.all(
-      paidNodeConfigs.map(async (node) => ({
-        node,
-        result: userToken ? await fetchNode(node.configFunction, userToken) : null,
-      })),
+      paidNodeConfigs.map(async (node) => {
+        // Мгновенный ответ: если у пользователя уже есть готовый рабочий ключ
+        // в базе данных (subscriptions), отдаём его СРАЗУ. Это работает за 0 мс
+        // и полностью исключает ошибку «тайм-аут» при добавлении в Happ/Hiddify.
+        const stored = storedNodeLink(node.id, subscription);
+        if (stored) return { node, result: stored };
+
+        // Иначе запрашиваем через edge-функцию узла (короткий таймаут 3.5 с)
+        const result = userToken ? await fetchNode(node.configFunction, userToken) : null;
+        return { node, result };
+      }),
     );
 
     const links: string[] = [];

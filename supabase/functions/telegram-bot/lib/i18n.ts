@@ -321,6 +321,9 @@ const ru: Record<string, string> = {
   "connect.qr_web_desc": "Наведите <b>обычную камеру телефона</b> на этот QR-код.\n\nОткроется страница подключения в браузере, где в 1 клик можно запустить Happ или Hiddify (без скачивания файлов).",
   "connect.qr_switch_web": "🌐 QR для обычной камеры",
   "connect.qr_switch_happ": "📱 QR для сканера Happ",
+  "connect.qr_universal_hint":
+    "📱 <b>Для Happ и Hiddify:</b> отсканируйте этот код внутри приложения (кнопка ➕ ➔ <b>Сканировать QR</b>).\n\n" +
+    "🌐 <b>Для обычной камеры телефона:</b> наведите камеру на код — откроется страница быстрого подключения (без скачивания файлов).",
 
   // --- напоминания cron ---
   "cron.expiry_3d": "⏳ <b>Подписка истекает через 3 дня</b>\n\nНе забудь продлить, чтобы не потерять доступ к выделенным узлам!",
@@ -636,6 +639,9 @@ const en: Record<string, string> = {
   "connect.qr_web_desc": "Point your <b>regular phone camera</b> at this QR code.\n\nA connect page will open in your browser with one-tap import into Happ or Hiddify (no file download).",
   "connect.qr_switch_web": "🌐 QR for phone camera",
   "connect.qr_switch_happ": "📱 QR for Happ scanner",
+  "connect.qr_universal_hint":
+    "📱 <b>For Happ & Hiddify:</b> scan this code inside the app (➕ button ➔ <b>Scan QR code</b>).\n\n" +
+    "🌐 <b>For Phone Camera:</b> point your phone camera at the code — the quick connect page will open (no file downloads).",
 
   // --- cron reminders ---
   "cron.expiry_3d": "⏳ <b>Subscription expires in 3 days</b>\n\nDo not forget to renew to keep uninterrupted access to dedicated nodes!",
