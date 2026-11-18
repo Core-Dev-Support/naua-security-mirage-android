@@ -455,6 +455,7 @@ function adminMenuButtons(): InlineKeyboard {
     ],
     [
       { text: "🎁 Выдать подписку", callback_data: "admin_give_sub" },
+      { text: "🔍 Карточка юзера", callback_data: "admin_lookup_user" },
     ],
     [
       { text: "🗑 Забрать подписку", callback_data: "admin_take_sub" },
@@ -1056,6 +1057,8 @@ async function showConnect(
       `${t(lang, "connect.title")}\n\n${t(lang, "connect.need_login")}`,
       [
         [{ text: t(lang, "profile.login"), callback_data: "google_login" }],
+        [{ text: t(lang, "connect.server_status"), callback_data: `server_status:${origin}` }],
+        [{ text: t(lang, "connect.setup_guide"), callback_data: `setup_guide:${origin}` }],
         [{ text: t(lang, "common.back"), callback_data: `back:${origin}` }],
       ],
     );
@@ -1069,9 +1072,57 @@ async function showConnect(
     [
       [{ text: t(lang, "connect.open"), url: await connectPage(link, lang, chatId) }],
       [{ text: t(lang, "connect.copy"), copy_text: { text: link } }],
+      [
+        { text: t(lang, "connect.qr"), callback_data: `connect_qr:${origin}` },
+        { text: t(lang, "connect.server_status"), callback_data: `server_status:${origin}` },
+      ],
+      [{ text: t(lang, "connect.setup_guide"), callback_data: `setup_guide:${origin}` }],
       [{ text: t(lang, "common.back"), callback_data: `back:${origin}` }],
     ],
   );
+}
+
+async function showServerStatus(
+  chatId: number,
+  msgId: number,
+  lang: Lang,
+  origin: ScreenOrigin = "main",
+): Promise<void> {
+  const text = `${t(lang, "status.title")}\n\n${t(lang, "status.intro")}\n\n${t(lang, "status.body")}`;
+  await renderScreen(chatId, msgId, text, [
+    [{ text: t(lang, "status.refresh"), callback_data: `server_status:${origin}` }],
+    [{ text: t(lang, "common.back"), callback_data: `connect:${origin}` }],
+  ]);
+}
+
+async function showSetupGuide(
+  chatId: number,
+  msgId: number,
+  lang: Lang,
+  origin: ScreenOrigin = "main",
+): Promise<void> {
+  const text = `${t(lang, "guide.title")}\n\n${t(lang, "guide.intro")}\n\n${t(lang, "guide.body")}`;
+  await renderScreen(chatId, msgId, text, [
+    [{ text: t(lang, "guide.open_connect"), callback_data: `connect:${origin}` }],
+    [{ text: t(lang, "sub.app"), url: APP_URL }],
+    [{ text: t(lang, "common.back"), callback_data: `connect:${origin}` }],
+  ]);
+}
+
+async function showConnectQr(
+  chatId: number,
+  msgId: number,
+  lang: Lang,
+  origin: ScreenOrigin = "main",
+): Promise<void> {
+  const link = await subscriptionLink(chatId);
+  const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=450x450&data=${encodeURIComponent(link)}`;
+  const text = `<a href="${qrImageUrl}">&#8203;</a>${t(lang, "connect.qr_title")}\n\n${t(lang, "connect.qr_hint")}`;
+  await renderScreen(chatId, msgId, text, [
+    [{ text: t(lang, "connect.qr_open_browser"), url: qrImageUrl }],
+    [{ text: t(lang, "connect.copy"), copy_text: { text: link } }],
+    [{ text: t(lang, "common.back"), callback_data: `connect:${origin}` }],
+  ]);
 }
 
 // ===================== Подписка и оплата =====================
@@ -1512,7 +1563,96 @@ async function resolveUser(input: string): Promise<number | null> {
     .eq("username", clean)
     .limit(1);
   const row = (data && data[0]) as { id: number } | undefined;
-  return row?.id ?? null;
+  if (row?.id) return row.id;
+  if (clean.includes("@")) {
+    const { data: subData } = await supabase()
+      .from("subscriptions")
+      .select("tg_id")
+      .eq("email", clean.toLowerCase())
+      .not("tg_id", "is", null)
+      .limit(1);
+    const subRow = (subData && subData[0]) as { tg_id: number } | undefined;
+    if (subRow?.tg_id) return subRow.tg_id;
+  }
+  return null;
+}
+
+type AdminCard = {
+  message: string;
+  buttons: InlineKeyboard;
+};
+
+async function adminUserInfo(targetId: number): Promise<AdminCard> {
+  const user = await getUser(targetId);
+  const { data: accData } = await supabase()
+    .from("telegram_accounts")
+    .select("user_id")
+    .eq("tg_id", targetId)
+    .maybeSingle();
+  const userId = accData?.user_id;
+
+  let subInfo = "— (не привязан к Google)";
+  let email = "—";
+  if (userId) {
+    const { data: sub } = await supabase()
+      .from("subscriptions")
+      .select("email,is_active,paid_until,plan")
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (sub) {
+      email = sub.email ? escapeHtml(sub.email) : "—";
+      const expiry = sub.paid_until ? Date.parse(sub.paid_until) : 0;
+      const days = Number.isFinite(expiry) && expiry > Date.now()
+        ? Math.ceil((expiry - Date.now()) / 86_400_000)
+        : 0;
+      const statusIcon = sub.is_active && days > 0 ? "🟢 Активна" : "🔴 Неактивна";
+      subInfo = `${statusIcon} (план: ${sub.plan || "—"}, ${days} дн., до ${sub.paid_until ? sub.paid_until.slice(0, 10) : "—"})`;
+    }
+  }
+
+  const { count: ticketsCount } = await supabase()
+    .from("tickets")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", targetId);
+
+  const { count: refCount } = await supabase()
+    .from("bot_users")
+    .select("id", { count: "exact", head: true })
+    .eq("referred_by", targetId);
+
+  const uName = user?.username ? `@${escapeHtml(user.username)}` : "нет username";
+  const statusLine = user?.banned
+    ? `🚫 Забанен (${escapeHtml(user.ban_reason || "без указания причины")})`
+    : "🟢 Активен";
+
+  const lines = [
+    `👤 <b>Карточка пользователя</b>`,
+    ``,
+    `🆔 <b>ID:</b> <code>${targetId}</code>`,
+    `👤 <b>Имя:</b> ${escapeHtml(user?.name || "—")} (${uName})`,
+    `🌐 <b>Язык:</b> ${user?.lang || "ru"}`,
+    `📧 <b>Google Email:</b> ${email}`,
+    `💳 <b>Подписка:</b> ${subInfo}`,
+    `👥 <b>Приглашено рефералов:</b> ${refCount ?? 0}`,
+    `📩 <b>Тикетов поддержки:</b> ${ticketsCount ?? 0}`,
+    `⚠️ <b>Предупреждений:</b> ${user?.warnings ?? 0}/3`,
+    `🛡 <b>Статус:</b> ${statusLine}`,
+  ];
+
+  const keyboard: InlineKeyboard = [
+    [
+      { text: "🎁 Выдать 30 дней", callback_data: `admin_sub_quick:${targetId}:30` },
+      { text: "🎁 Выдать 7 дней", callback_data: `admin_sub_quick:${targetId}:7` },
+    ],
+    [
+      user?.banned
+        ? { text: "✅ Разблокировать", callback_data: `admin_unban:${targetId}` }
+        : { text: "🚫 Заблокировать", callback_data: `admin_ban:${targetId}` },
+      { text: "◀️ В админку", callback_data: "admin" },
+    ],
+  ];
+
+  return { message: lines.join("\n"), buttons: keyboard };
 }
 
 async function banUser(targetId: number, reason: string): Promise<void> {
@@ -1618,21 +1758,22 @@ async function runCron(): Promise<void> {
     const expiry = Date.parse(row.paid_until);
     if (!Number.isFinite(expiry)) continue;
     const days = Math.ceil((expiry - Date.now()) / 86_400_000);
-    let text = "";
-    if (days === 3) {
-      text = "⏳ <b>Подписка истекает через 3 дня</b>\n\nНе забудь продлить, чтобы не потерять доступ!";
-    } else if (days === 1) {
-      text = "⚠️ <b>Подписка истекает завтра</b>\n\nПродли подписку сейчас, чтобы оставаться на связи!";
-    } else if (days === 0) {
-      text = "❗ <b>Подписка истекает сегодня!</b>\n\nПродли подписку сейчас, чтобы оставаться на связи!";
-    }
-    if (!text) continue;
     const user = await getUser(row.tg_id);
     if (user && Date.now() - (Date.parse(user.last_notified ?? "") || 0) < 20 * 3600_000) {
       continue;
     }
+    const lang = (user?.lang as Lang) || "ru";
+    let text = "";
+    if (days === 3) {
+      text = t(lang, "cron.expiry_3d");
+    } else if (days === 1) {
+      text = t(lang, "cron.expiry_1d");
+    } else if (days === 0) {
+      text = t(lang, "cron.expiry_0d");
+    }
+    if (!text) continue;
     await telegram.sendMessage(row.tg_id, text, [
-      [{ text: "💳 Продлить подписку", callback_data: "sub:main" }],
+      [{ text: t(lang, "cron.renew_button"), callback_data: "sub:main" }],
     ]);
     await updateUser(row.tg_id, { last_notified: nowIso() });
   }
@@ -1829,6 +1970,20 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
         const target = Number(state.data?.target_id ?? 0);
         await clearState(chatId);
         if (target) await warnUser(target, text);
+        return;
+      }
+      if (state.state === "admin_lookup_user" && isAdmin) {
+        await clearState(chatId);
+        const resolved = await resolveUser(text.trim());
+        if (!resolved) {
+          await telegram.sendMessage(
+            chatId,
+            `❌ Пользователь <code>${escapeHtml(text.trim())}</code> не найден.`,
+          );
+          return;
+        }
+        const card = await adminUserInfo(resolved);
+        await telegram.sendMessage(chatId, card.message, card.buttons);
         return;
       }
       if (state.state === "admin_give_sub" && isAdmin) {
@@ -2193,6 +2348,27 @@ async function handleCommand(
       await telegram.sendMessage(chatId, `⚠️ Предупреждение выдано ${resolved}.`);
       break;
     }
+    case "/user": {
+      const target = argument.trim();
+      if (!target) {
+        await telegram.sendMessage(
+          chatId,
+          "❌ Использование: <code>/user &lt;ID, @username или email&gt;</code>",
+        );
+        break;
+      }
+      const resolved = await resolveUser(target);
+      if (!resolved) {
+        await telegram.sendMessage(
+          chatId,
+          `❌ Пользователь <code>${escapeHtml(target)}</code> не найден.`,
+        );
+        break;
+      }
+      const card = await adminUserInfo(resolved);
+      await telegram.sendMessage(chatId, card.message, card.buttons);
+      break;
+    }
     case "/sub": {
       const [target, days] = argument.split(/\s+/);
       const resolved = await resolveUser(target ?? "");
@@ -2471,6 +2647,15 @@ async function handleCallback(callback: CallbackQuery): Promise<void> {
     case data === "connect" || data.startsWith("connect:"):
       await showConnect(ctx, chatId, messageId, lang, originOf(data));
       break;
+    case data === "server_status" || data.startsWith("server_status:"):
+      await showServerStatus(chatId, messageId, lang, originOf(data));
+      break;
+    case data === "setup_guide" || data.startsWith("setup_guide:"):
+      await showSetupGuide(chatId, messageId, lang, originOf(data));
+      break;
+    case data === "connect_qr" || data.startsWith("connect_qr:"):
+      await showConnectQr(chatId, messageId, lang, originOf(data));
+      break;
     case data === "sub" || data.startsWith("sub:"):
       await showSubscription(ctx, chatId, messageId, lang, originOf(data));
       break;
@@ -2681,6 +2866,60 @@ async function handleCallback(callback: CallbackQuery): Promise<void> {
         backButton(lang),
       );
       break;
+    case data === "admin_lookup_user":
+      await setState(chatId, "admin_lookup_user");
+      await renderScreen(
+        chatId,
+        messageId,
+        "🔍 <b>Поиск пользователя</b>\n\nВведи <b>ID</b>, <b>@username</b> или <b>Google Email</b> пользователя:",
+        adminBackButtons(),
+      );
+      break;
+    case data.startsWith("admin_sub_quick:"): {
+      if (chatId !== ADMIN_ID) break;
+      const parts = data.split(":");
+      const targetId = Number(parts[1]);
+      const days = Number(parts[2]) || 30;
+      await grantSubscription(targetId, days);
+      const card = await adminUserInfo(targetId);
+      await renderScreen(
+        chatId,
+        messageId,
+        `✅ <b>Выдано +${days} дн.</b> пользователю <code>${targetId}</code>\n\n${card.message}`,
+        card.buttons,
+      );
+      break;
+    }
+    case data.startsWith("admin_ban:"): {
+      if (chatId !== ADMIN_ID) break;
+      const targetId = Number(data.split(":")[1]);
+      if (targetId) {
+        await banUser(targetId, "Заблокирован администратором");
+        const card = await adminUserInfo(targetId);
+        await renderScreen(
+          chatId,
+          messageId,
+          `🚫 Пользователь <code>${targetId}</code> заблокирован.\n\n${card.message}`,
+          card.buttons,
+        );
+      }
+      break;
+    }
+    case data.startsWith("admin_unban:"): {
+      if (chatId !== ADMIN_ID) break;
+      const targetId = Number(data.split(":")[1]);
+      if (targetId) {
+        await unbanUser(targetId, "Разблокирован администратором");
+        const card = await adminUserInfo(targetId);
+        await renderScreen(
+          chatId,
+          messageId,
+          `✅ Пользователь <code>${targetId}</code> разблокирован.\n\n${card.message}`,
+          card.buttons,
+        );
+      }
+      break;
+    }
     case data === "confirm_take_sub": {
       const state = await getState(chatId);
       await clearState(chatId);

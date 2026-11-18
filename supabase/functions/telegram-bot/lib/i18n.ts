@@ -282,6 +282,42 @@ const ru: Record<string, string> = {
   "common.back": "◀️ Назад",
   "common.cancel": "❌ Действие отменено.",
   "common.hint": "👇 Используй кнопки меню ниже.",
+
+  // --- статус серверов ---
+  "connect.server_status": "⚡ Статус серверов",
+  "status.title": "⚡ <b>Статус узлов</b>",
+  "status.intro": "<blockquote><b>Что это:</b> статус работы выделенных узлов и протоколов маскировки.</blockquote>",
+  "status.body":
+    "🇨🇭 <b>Швейцария (Платная)</b> — 🟢 Онлайн\n<i>Протокол: VLESS + Reality + XHTTP</i>\n\n" +
+    "🇹🇷 <b>Турция (Платная)</b> — 🟢 Онлайн\n<i>Протокол: VLESS + Reality</i>\n\n" +
+    "🌐 <b>Бесплатный пул</b> — 🟢 Доступен\n<i>Балансировка по пингу</i>\n\n" +
+    "✅ Все узлы работают в штатном режиме.",
+  "status.refresh": "🔄 Обновить статус",
+
+  // --- инструкции по подключению ---
+  "connect.setup_guide": "📖 Инструкция по настройке",
+  "guide.title": "📖 <b>Инструкция по подключению</b>",
+  "guide.intro": "<blockquote><b>Что это:</b> как быстро настроить подключение на твоем устройстве.</blockquote>",
+  "guide.body":
+    "<b>1. Happ (Android и iOS — рекомендуем)</b>:\n" +
+    "Нажми «🚀 Открыть подписку» в разделе «Подключиться», выбери Happ — подписка добавится в один клик.\n\n" +
+    "<b>2. Hiddify (Windows PC / Mac / Android / iOS)</b>:\n" +
+    "Скопируй ссылку по кнопке «📋 Скопировать ссылку», открой Hiddify, нажми ➕ (Новый профиль) ➔ «Импорт из буфера».\n\n" +
+    "<b>3. Приложение NAUA Security Mirage (Android и ПК)</b>:\n" +
+    "Войди через тот же Google-аккаунт в приложении — подписка и узлы подтянутся автоматически!",
+  "guide.open_connect": "🚀 Перейти к подключению",
+
+  // --- qr-код ---
+  "connect.qr": "📷 Показать QR-код",
+  "connect.qr_title": "📷 <b>QR-код для подключения</b>",
+  "connect.qr_hint": "Отсканируй этот код камерой телефона или в приложении Happ / Hiddify:",
+  "connect.qr_open_browser": "🌐 Открыть изображение",
+
+  // --- напоминания cron ---
+  "cron.expiry_3d": "⏳ <b>Подписка истекает через 3 дня</b>\n\nНе забудь продлить, чтобы не потерять доступ к выделенным узлам!",
+  "cron.expiry_1d": "⚠️ <b>Подписка истекает завтра</b>\n\nПродли подписку сейчас, чтобы оставаться на связи!",
+  "cron.expiry_0d": "❗ <b>Подписка истекает сегодня!</b>\n\nПродли подписку сейчас, чтобы не потерять доступ к сети.",
+  "cron.renew_button": "💳 Продлить подписку",
 };
 
 const en: Record<string, string> = {
@@ -552,6 +588,42 @@ const en: Record<string, string> = {
   "common.back": "◀️ Back",
   "common.cancel": "❌ Action cancelled.",
   "common.hint": "👇 Use the buttons below.",
+
+  // --- server status ---
+  "connect.server_status": "⚡ Server Status",
+  "status.title": "⚡ <b>Node Status</b>",
+  "status.intro": "<blockquote><b>What is this:</b> live health check of dedicated nodes and masquerading protocols.</blockquote>",
+  "status.body":
+    "🇨🇭 <b>Switzerland (Paid)</b> — 🟢 Online\n<i>Protocol: VLESS + Reality + XHTTP</i>\n\n" +
+    "🇹🇷 <b>Turkey (Paid)</b> — 🟢 Online\n<i>Protocol: VLESS + Reality</i>\n\n" +
+    "🌐 <b>Free Pool</b> — 🟢 Available\n<i>Ping-based balancing</i>\n\n" +
+    "✅ All nodes are operating normally.",
+  "status.refresh": "🔄 Refresh Status",
+
+  // --- connection guide ---
+  "connect.setup_guide": "📖 Setup Guide",
+  "guide.title": "📖 <b>Connection Guide</b>",
+  "guide.intro": "<blockquote><b>What is this:</b> how to quickly configure the VPN on your device.</blockquote>",
+  "guide.body":
+    "<b>1. Happ (Android & iOS — recommended)</b>:\n" +
+    "Tap “🚀 Open subscription” in Connect section, choose Happ — subscription imports in one tap.\n\n" +
+    "<b>2. Hiddify (Windows PC / Mac / Android / iOS)</b>:\n" +
+    "Copy link with “📋 Copy the link”, open Hiddify, tap ➕ (New profile) ➔ “Import from clipboard”.\n\n" +
+    "<b>3. NAUA Security Mirage App (Android & PC)</b>:\n" +
+    "Sign in with the same Google account in the app — your subscription and nodes load automatically!",
+  "guide.open_connect": "🚀 Go to Connect",
+
+  // --- qr code ---
+  "connect.qr": "📷 Show QR Code",
+  "connect.qr_title": "📷 <b>Connection QR Code</b>",
+  "connect.qr_hint": "Scan this code with your phone camera or inside Happ / Hiddify:",
+  "connect.qr_open_browser": "🌐 Open Image",
+
+  // --- cron reminders ---
+  "cron.expiry_3d": "⏳ <b>Subscription expires in 3 days</b>\n\nDo not forget to renew to keep uninterrupted access to dedicated nodes!",
+  "cron.expiry_1d": "⚠️ <b>Subscription expires tomorrow</b>\n\nRenew your subscription now to stay connected!",
+  "cron.expiry_0d": "❗ <b>Subscription expires today!</b>\n\nRenew your subscription now to avoid disconnection.",
+  "cron.renew_button": "💳 Renew Subscription",
 };
 
 const TABLES: Record<Lang, Record<string, string>> = { ru, en };
