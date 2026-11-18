@@ -411,6 +411,10 @@ async function mainMenuButtons(
       { text: t(lang, "sub.title_short"), callback_data: "sub:main" },
       { text: t(lang, "menu.referral"), callback_data: "referral:main" },
     ],
+    [
+      { text: t(lang, "connect.server_status"), callback_data: "server_status:main" },
+      { text: t(lang, "connect.setup_guide"), callback_data: "setup_guide:main" },
+    ],
   ];
   if (!linked) {
     // Вход через Google даёт доступ к платным узлам и к общей подписке с
@@ -758,7 +762,10 @@ async function profileKeyboard(
     ]);
   }
   keyboard.push([
+    { text: t(lang, "connect.server_status"), callback_data: "server_status:profile" },
     { text: t(lang, "profile.refresh"), callback_data: "profile_refresh" },
+  ]);
+  keyboard.push([
     { text: t(lang, "common.back"), callback_data: "back" },
   ]);
   return keyboard;
@@ -1091,7 +1098,8 @@ async function showServerStatus(
   const text = `${t(lang, "status.title")}\n\n${t(lang, "status.intro")}\n\n${t(lang, "status.body")}`;
   await renderScreen(chatId, msgId, text, [
     [{ text: t(lang, "status.refresh"), callback_data: `server_status:${origin}` }],
-    [{ text: t(lang, "common.back"), callback_data: `connect:${origin}` }],
+    [{ text: t(lang, "guide.open_connect"), callback_data: `connect:${origin}` }],
+    [{ text: t(lang, "common.back"), callback_data: `back:${origin}` }],
   ]);
 }
 
@@ -1104,8 +1112,9 @@ async function showSetupGuide(
   const text = `${t(lang, "guide.title")}\n\n${t(lang, "guide.intro")}\n\n${t(lang, "guide.body")}`;
   await renderScreen(chatId, msgId, text, [
     [{ text: t(lang, "guide.open_connect"), callback_data: `connect:${origin}` }],
+    [{ text: t(lang, "connect.server_status"), callback_data: `server_status:${origin}` }],
     [{ text: t(lang, "sub.app"), url: APP_URL }],
-    [{ text: t(lang, "common.back"), callback_data: `connect:${origin}` }],
+    [{ text: t(lang, "common.back"), callback_data: `back:${origin}` }],
   ]);
 }
 
@@ -1116,13 +1125,19 @@ async function showConnectQr(
   origin: ScreenOrigin = "main",
 ): Promise<void> {
   const link = await subscriptionLink(chatId);
-  const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=450x450&data=${encodeURIComponent(link)}`;
-  const text = `<a href="${qrImageUrl}">&#8203;</a>${t(lang, "connect.qr_title")}\n\n${t(lang, "connect.qr_hint")}`;
-  await renderScreen(chatId, msgId, text, [
-    [{ text: t(lang, "connect.qr_open_browser"), url: qrImageUrl }],
+  const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=500x500&format=png&data=${encodeURIComponent(link)}`;
+  const caption = `${t(lang, "connect.qr_title")}\n\n${t(lang, "connect.qr_hint")}`;
+  const keyboard: InlineKeyboard = [
     [{ text: t(lang, "connect.copy"), copy_text: { text: link } }],
     [{ text: t(lang, "common.back"), callback_data: `connect:${origin}` }],
-  ]);
+  ];
+  if (msgId > 0) {
+    await telegram.deleteMessage(chatId, msgId);
+  }
+  const photoMsgId = await telegram.sendPhoto(chatId, qrImageUrl, caption, keyboard);
+  if (photoMsgId) {
+    await setScreenId(chatId, photoMsgId);
+  }
 }
 
 // ===================== Подписка и оплата =====================

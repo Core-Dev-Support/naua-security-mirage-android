@@ -290,8 +290,7 @@ const ru: Record<string, string> = {
   "status.body":
     "🇨🇭 <b>Швейцария (Платная)</b> — 🟢 Онлайн\n<i>Протокол: VLESS + Reality + XHTTP</i>\n\n" +
     "🇹🇷 <b>Турция (Платная)</b> — 🟢 Онлайн\n<i>Протокол: VLESS + Reality</i>\n\n" +
-    "🌐 <b>Бесплатный пул</b> — 🟢 Доступен\n<i>Балансировка по пингу</i>\n\n" +
-    "✅ Все узлы работают в штатном режиме.",
+    "✅ Выделенные узлы работают в штатном режиме. Маскировка активна.",
   "status.refresh": "🔄 Обновить статус",
 
   // --- инструкции по подключению ---
@@ -596,8 +595,7 @@ const en: Record<string, string> = {
   "status.body":
     "🇨🇭 <b>Switzerland (Paid)</b> — 🟢 Online\n<i>Protocol: VLESS + Reality + XHTTP</i>\n\n" +
     "🇹🇷 <b>Turkey (Paid)</b> — 🟢 Online\n<i>Protocol: VLESS + Reality</i>\n\n" +
-    "🌐 <b>Free Pool</b> — 🟢 Available\n<i>Ping-based balancing</i>\n\n" +
-    "✅ All nodes are operating normally.",
+    "✅ Dedicated nodes are operating normally. Masquerade is active.",
   "status.refresh": "🔄 Refresh Status",
 
   // --- connection guide ---

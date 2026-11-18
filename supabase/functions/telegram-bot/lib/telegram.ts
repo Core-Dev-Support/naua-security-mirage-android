@@ -267,7 +267,7 @@ export class Telegram {
     photoUrl: string,
     caption: string,
     keyboard?: InlineKeyboard,
-  ): Promise<boolean> {
+  ): Promise<number | null> {
     const payload: Record<string, unknown> = {
       chat_id: chatId,
       photo: photoUrl,
@@ -279,7 +279,16 @@ export class Telegram {
       if (problem) throw new Error(`Некорректная клавиатура: ${problem}`);
       payload.reply_markup = { inline_keyboard: keyboard };
     }
-    return await this.#call("sendPhoto", payload);
+    if (!this.#token) return null;
+    try {
+      const response = await this.post("sendPhoto", payload);
+      if (!response.ok) return null;
+      const parsed = await response.json();
+      const id = parsed?.result?.message_id;
+      return typeof id === "number" ? id : null;
+    } catch {
+      return null;
+    }
   }
 
   // Исход правки:
