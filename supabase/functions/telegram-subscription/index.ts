@@ -29,6 +29,8 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") || "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
 const SUBSCRIPTION_SECRET = Deno.env.get("SUBSCRIPTION_SECRET") || "";
+const CONNECT_PAGE_URL = Deno.env.get("CONNECT_PAGE_URL") ||
+  "https://core-dev-support.github.io/naua-security-mirage-android/";
 
 // Названия узлов. Одно место, чтобы в клиенте не было служебных имён
 // панелей вроде «mrge_<почта>_<хэш>».
@@ -332,6 +334,34 @@ serve(async (req) => {
       return json({ encrypted_link: encrypted });
     }
 
+    // Если запрос пришёл из обычного браузера (например, после сканирования
+    // QR-кода внешней камерой телефона), перенаправляем на страницу подключения
+    // вместо скачивания файла подписки text/plain.
+    const accept = req.headers.get("accept") || "";
+    const userAgent = (req.headers.get("user-agent") || "").toLowerCase();
+    const isVpnClient = userAgent.includes("sing-box") ||
+      userAgent.includes("happ") ||
+      userAgent.includes("hiddify") ||
+      userAgent.includes("clash") ||
+      userAgent.includes("v2ray") ||
+      userAgent.includes("shadowrocket") ||
+      userAgent.includes("streisand") ||
+      userAgent.includes("sagernet") ||
+      userAgent.includes("nekobox") ||
+      userAgent.includes("curl") ||
+      userAgent.includes("wget");
+
+    if (
+      url.searchParams.has("user") &&
+      !url.searchParams.has("format") &&
+      accept.includes("text/html") &&
+      !isVpnClient
+    ) {
+      const connectUrl = new URL(CONNECT_PAGE_URL);
+      connectUrl.searchParams.set("u", req.url);
+      return Response.redirect(connectUrl.toString(), 302);
+    }
+
     const rawUser = url.searchParams.get("user") || "";
     const bearerHeader = req.headers.get("Authorization") || "";
     const bearer = bearerHeader.startsWith("Bearer ") ? bearerHeader.slice(7).trim() : "";
@@ -488,7 +518,7 @@ serve(async (req) => {
       headers: {
         ...CORS,
         "Content-Type": "text/plain; charset=utf-8",
-        "Content-Disposition": 'attachment; filename="NAUA Security Mirage"',
+        "Content-Disposition": 'inline; filename="NAUA Security Mirage"',
         "profile-title": "NAUA Security Mirage",
         "hide-settings": "1",
         "profile-update-interval": "24",

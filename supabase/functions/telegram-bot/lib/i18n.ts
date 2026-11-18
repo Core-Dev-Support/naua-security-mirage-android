@@ -273,9 +273,13 @@ const ru: Record<string, string> = {
   // --- подписи нижнего (текстового) меню ---
   "textmenu.profile": "👤 Профиль",
   "textmenu.connect": "🚀 Подключить",
+  "textmenu.sub": "💳 Подписка",
   "textmenu.support": "🆘 Поддержка",
   "textmenu.referral": "🤝 Пригласить друзей",
+  "textmenu.status": "⚡ Статус серверов",
+  "textmenu.guide": "📖 Инструкция",
   "textmenu.home": "🏠 Главное меню",
+  "menu.keyboard_hint": "⌨️ Меню быстрого доступа закреплено внизу чата.",
 
   // --- общее ---
   "common.days": "{days} дн.",
@@ -311,6 +315,12 @@ const ru: Record<string, string> = {
   "connect.qr_title": "📷 <b>QR-код для подключения</b>",
   "connect.qr_hint": "Отсканируй этот код камерой телефона или в приложении Happ / Hiddify:",
   "connect.qr_open_browser": "🌐 Открыть изображение",
+  "connect.qr_happ_title": "📱 <b>QR-код для приложения Happ</b>",
+  "connect.qr_happ_desc": "Отсканируйте этот QR-код <b>внутри приложения Happ</b> (кнопка ➕ ➔ <b>Сканировать QR-код</b>).\n\nПодписка добавится в приложение автоматически!",
+  "connect.qr_web_title": "🌐 <b>QR-код для камеры смартфона</b>",
+  "connect.qr_web_desc": "Наведите <b>обычную камеру телефона</b> на этот QR-код.\n\nОткроется страница подключения в браузере, где в 1 клик можно запустить Happ или Hiddify (без скачивания файлов).",
+  "connect.qr_switch_web": "🌐 QR для обычной камеры",
+  "connect.qr_switch_happ": "📱 QR для сканера Happ",
 
   // --- напоминания cron ---
   "cron.expiry_3d": "⏳ <b>Подписка истекает через 3 дня</b>\n\nНе забудь продлить, чтобы не потерять доступ к выделенным узлам!",
@@ -578,9 +588,13 @@ const en: Record<string, string> = {
   // --- reply-menu labels ---
   "textmenu.profile": "👤 Profile",
   "textmenu.connect": "🚀 Connect",
+  "textmenu.sub": "💳 Subscription",
   "textmenu.support": "🆘 Support",
   "textmenu.referral": "🎁 Invite friends",
+  "textmenu.status": "⚡ Server Status",
+  "textmenu.guide": "📖 Setup Guide",
   "textmenu.home": "🏠 Main menu",
+  "menu.keyboard_hint": "⌨️ Quick access keyboard pinned below.",
 
   // --- common ---
   "common.days": "{days} days",
@@ -616,6 +630,12 @@ const en: Record<string, string> = {
   "connect.qr_title": "📷 <b>Connection QR Code</b>",
   "connect.qr_hint": "Scan this code with your phone camera or inside Happ / Hiddify:",
   "connect.qr_open_browser": "🌐 Open Image",
+  "connect.qr_happ_title": "📱 <b>QR code for Happ App</b>",
+  "connect.qr_happ_desc": "Scan this QR code <b>inside the Happ app</b> (➕ button ➔ <b>Scan QR code</b>).\n\nYour subscription will be added automatically!",
+  "connect.qr_web_title": "🌐 <b>QR code for Phone Camera</b>",
+  "connect.qr_web_desc": "Point your <b>regular phone camera</b> at this QR code.\n\nA connect page will open in your browser with one-tap import into Happ or Hiddify (no file download).",
+  "connect.qr_switch_web": "🌐 QR for phone camera",
+  "connect.qr_switch_happ": "📱 QR for Happ scanner",
 
   // --- cron reminders ---
   "cron.expiry_3d": "⏳ <b>Subscription expires in 3 days</b>\n\nDo not forget to renew to keep uninterrupted access to dedicated nodes!",

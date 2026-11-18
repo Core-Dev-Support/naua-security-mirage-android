@@ -230,6 +230,36 @@ export class Telegram {
     }
   }
 
+  // sendReplyKeyboard отправляет нижнюю текстовую клавиатуру (ReplyKeyboardMarkup).
+  async sendReplyKeyboard(
+    chatId: number,
+    text: string,
+    keyboard: ReplyKeyboard,
+    persistent = true,
+  ): Promise<number | null> {
+    const payload: Record<string, unknown> = {
+      chat_id: chatId,
+      text,
+      parse_mode: "HTML",
+      disable_web_page_preview: true,
+      reply_markup: {
+        keyboard,
+        resize_keyboard: true,
+        is_persistent: persistent,
+      },
+    };
+    if (!this.#token) return null;
+    try {
+      const response = await this.post("sendMessage", payload);
+      if (!response.ok) return null;
+      const parsed = await response.json();
+      const id = parsed?.result?.message_id;
+      return typeof id === "number" ? id : null;
+    } catch {
+      return null;
+    }
+  }
+
   // copyFile — копирует файл из Telegram в наш чат (файл нельзя переслать
   // по file_id напрямую, его надо скопировать).
   async copyFile(fileId: string): Promise<string | null> {

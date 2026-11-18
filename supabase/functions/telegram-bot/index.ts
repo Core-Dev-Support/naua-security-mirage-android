@@ -8,6 +8,7 @@ import {
   type FileRef,
   type InlineButton,
   type InlineKeyboard,
+  type ReplyKeyboard,
   type TelegramMessage,
   type TelegramUpdate,
 } from "./lib/telegram.ts";
@@ -1123,14 +1124,33 @@ async function showConnectQr(
   msgId: number,
   lang: Lang,
   origin: ScreenOrigin = "main",
+  mode: "happ" | "web" = "happ",
 ): Promise<void> {
   const link = await subscriptionLink(chatId);
-  const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=500x500&format=png&data=${encodeURIComponent(link)}`;
-  const caption = `${t(lang, "connect.qr_title")}\n\n${t(lang, "connect.qr_hint")}`;
-  const keyboard: InlineKeyboard = [
-    [{ text: t(lang, "connect.copy"), copy_text: { text: link } }],
-    [{ text: t(lang, "common.back"), callback_data: `connect:${origin}` }],
-  ];
+  let targetData = "";
+  let caption = "";
+  let keyboard: InlineKeyboard = [];
+
+  if (mode === "happ") {
+    targetData = (await encryptForHapp(link)) || `happ://add/${encodeURI(link)}`;
+    caption = `${t(lang, "connect.qr_happ_title")}\n\n${t(lang, "connect.qr_happ_desc")}`;
+    keyboard = [
+      [{ text: t(lang, "connect.qr_switch_web"), callback_data: `connect_qr:web:${origin}` }],
+      [{ text: t(lang, "connect.copy"), copy_text: { text: link } }],
+      [{ text: t(lang, "common.back"), callback_data: `connect:${origin}` }],
+    ];
+  } else {
+    targetData = await connectPage(link, lang, chatId);
+    caption = `${t(lang, "connect.qr_web_title")}\n\n${t(lang, "connect.qr_web_desc")}`;
+    keyboard = [
+      [{ text: t(lang, "connect.qr_switch_happ"), callback_data: `connect_qr:happ:${origin}` }],
+      [{ text: t(lang, "connect.open"), url: targetData }],
+      [{ text: t(lang, "connect.copy"), copy_text: { text: link } }],
+      [{ text: t(lang, "common.back"), callback_data: `connect:${origin}` }],
+    ];
+  }
+
+  const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=500x500&format=png&data=${encodeURIComponent(targetData)}`;
   if (msgId > 0) {
     await telegram.deleteMessage(chatId, msgId);
   }
@@ -2090,6 +2110,25 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
   }
 }
 
+// defaultReplyKeyboard — постоянное нижнее меню быстрых действий (клавиатура).
+function defaultReplyKeyboard(lang: Lang): ReplyKeyboard {
+  return [
+    [{ text: t(lang, "textmenu.connect") }, { text: t(lang, "textmenu.sub") }],
+    [{ text: t(lang, "textmenu.profile") }, { text: t(lang, "textmenu.support") }],
+    [{ text: t(lang, "textmenu.status") }, { text: t(lang, "textmenu.guide") }],
+    [{ text: t(lang, "textmenu.home") }, { text: t(lang, "textmenu.referral") }],
+  ];
+}
+
+// ensureReplyKeyboard — активирует/обновляет постоянную нижнюю клавиатуру.
+async function ensureReplyKeyboard(chatId: number, lang: Lang): Promise<void> {
+  await telegram.sendReplyKeyboard(
+    chatId,
+    t(lang, "menu.keyboard_hint"),
+    defaultReplyKeyboard(lang),
+  );
+}
+
 // textMenuKeys — подписи кнопок нижнего меню на обоих языках.
 function textMenuKeys(key: string): string[] {
   const ru = t("ru", key);
@@ -2104,46 +2143,40 @@ async function handleMenuText(
   name: string,
   lang: Lang,
 ): Promise<boolean> {
+  if (textMenuKeys("textmenu.connect").includes(text)) {
+    await showConnect(ctx, chatId, 0, lang, "main");
+    return true;
+  }
+  if (textMenuKeys("textmenu.sub").includes(text)) {
+    await showSubscription(ctx, chatId, 0, lang, "main");
+    return true;
+  }
   if (textMenuKeys("textmenu.profile").includes(text)) {
     await showScreen(
       chatId,
-      await profileText(ctx, chatId, name, lang),
+      profileText(ctx, chatId, name, lang),
       await profileKeyboard(ctx, chatId, lang),
     );
     return true;
   }
-  if (textMenuKeys("textmenu.connect").includes(text)) {
-    const link = await subscriptionLink(chatId);
-    await showScreen(
-      chatId,
-      `${t(lang, "connect.title")}\n\n${t(lang, "connect.text")}\n\n${t(lang, "connect.hint")}`,
-      [
-        [{ text: t(lang, "connect.open"), url: await connectPage(link, lang, chatId) }],
-        [{ text: t(lang, "connect.copy"), copy_text: { text: link } }],
-      ],
-    );
+  if (textMenuKeys("textmenu.support").includes(text)) {
+    await showSupport(chatId, 0, lang);
     return true;
   }
-  if (textMenuKeys("textmenu.support").includes(text)) {
-    await showScreen(
-      chatId,
-      `${t(lang, "support.title")}\n\n${t(lang, "support.text")}`,
-      backButton(lang),
-    );
-    await setState(chatId, "ticket_draft");
+  if (textMenuKeys("textmenu.status").includes(text)) {
+    await showServerStatus(chatId, 0, lang, "main");
+    return true;
+  }
+  if (textMenuKeys("textmenu.guide").includes(text)) {
+    await showSetupGuide(chatId, 0, lang, "main");
     return true;
   }
   if (textMenuKeys("textmenu.referral").includes(text)) {
-    const { html: referral, link } = referralText(ctx, chatId, lang);
-    await showScreen(chatId, referral, [
-      [{ text: t(lang, "referral.invite"), url: `https://t.me/share/url?url=${
-        encodeURIComponent(link)
-      }` }],
-    ]);
+    await showReferral(ctx, chatId, 0, lang, "main");
     return true;
   }
   if (textMenuKeys("textmenu.home").includes(text)) {
-    await showMainMenu(ctx, chatId, name, chatId === ADMIN_ID, lang);
+    await showMainMenu(ctx, chatId, name, chatId === ADMIN_ID, lang, true);
     return true;
   }
   return false;
@@ -2270,6 +2303,7 @@ async function handleCommand(
   const argument = rest.join(" ");
 
   if (command === "/start") {
+    await ensureReplyKeyboard(chatId, lang);
     const refMatch = argument.match(/ref_(\d+)/);
     if (refMatch) {
       await handleReferral(ctx, chatId, Number(refMatch[1]), name, username, lang);
@@ -2287,7 +2321,7 @@ async function handleCommand(
       const text = [
         t(lang, "google.linked", { email }),
         "",
-        await mainMenuText(ctx, chatId, name, lang, t(lang, "google.linked.app")),
+        mainMenuText(ctx, chatId, name, lang, t(lang, "google.linked.app")),
       ].join("\n");
       // Тот же экран, что и при обычном /start: прежний удаляется, новый
       // присылается снизу. Иначе меню после входа оказывалось ВЫШЕ, чем
@@ -2309,7 +2343,14 @@ async function handleCommand(
     return;
   }
 
+  if (command === "/menu") {
+    await ensureReplyKeyboard(chatId, lang);
+    await showMainMenu(ctx, chatId, name, chatId === ADMIN_ID, lang, true);
+    return;
+  }
+
   if (chatId !== ADMIN_ID) {
+    await ensureReplyKeyboard(chatId, lang);
     await showMainMenu(ctx, chatId, name, false, lang, true);
     return;
   }
@@ -2534,6 +2575,7 @@ async function handleCallback(callback: CallbackQuery): Promise<void> {
         break;
       }
       if (target === "profile") {
+        await ensureReplyKeyboard(chatId, picked);
         await renderScreen(
           chatId,
           messageId,
@@ -2541,8 +2583,10 @@ async function handleCallback(callback: CallbackQuery): Promise<void> {
           await profileKeyboard(ctx, chatId, picked),
         );
       } else if (target === "settings") {
+        await ensureReplyKeyboard(chatId, picked);
         await showSettings(chatId, messageId, picked, ctx);
       } else {
+        await ensureReplyKeyboard(chatId, picked);
         await renderScreen(
           chatId,
           messageId,
@@ -2574,6 +2618,7 @@ async function handleCallback(callback: CallbackQuery): Promise<void> {
       const fresh = await loadContext(chatId, true);
       const freshLang = langOf(fresh.user) ?? lang;
       const freshName = fresh.user?.name ?? user?.name ?? "";
+      await ensureReplyKeyboard(chatId, freshLang);
       if (fresh.account) {
         await showMainMenu(fresh, chatId, freshName, isAdmin, freshLang);
       } else {
@@ -2668,9 +2713,19 @@ async function handleCallback(callback: CallbackQuery): Promise<void> {
     case data === "setup_guide" || data.startsWith("setup_guide:"):
       await showSetupGuide(chatId, messageId, lang, originOf(data));
       break;
-    case data === "connect_qr" || data.startsWith("connect_qr:"):
-      await showConnectQr(chatId, messageId, lang, originOf(data));
+    case data === "connect_qr" || data.startsWith("connect_qr:"): {
+      const parts = data.split(":");
+      let mode: "happ" | "web" = "happ";
+      let origin: ScreenOrigin = "main";
+      if (parts[1] === "web" || parts[1] === "happ") {
+        mode = parts[1];
+        origin = parts[2] === "profile" ? "profile" : "main";
+      } else {
+        origin = originOf(data);
+      }
+      await showConnectQr(chatId, messageId, lang, origin, mode);
       break;
+    }
     case data === "sub" || data.startsWith("sub:"):
       await showSubscription(ctx, chatId, messageId, lang, originOf(data));
       break;
