@@ -48,6 +48,7 @@ import {
   updateUser,
   upsertUser,
 } from "./lib/store.ts";
+import { h1EnsureNode } from "../_shared/h1panel.ts";
 import { subscriptionSignature } from "./lib/subscription.ts";
 import { friendsToMilestone } from "./lib/referral.ts";
 import {
@@ -1516,10 +1517,19 @@ async function resolveUser(input: string): Promise<number | null> {
   const row = (data && data[0]) as { id: number } | undefined;
   if (row?.id) return row.id;
   if (clean.includes("@")) {
+    const email = clean.toLowerCase();
+    const { data: accData } = await supabase()
+      .from("telegram_accounts")
+      .select("tg_id")
+      .eq("email", email)
+      .limit(1);
+    const accRow = (accData && accData[0]) as { tg_id: number } | undefined;
+    if (accRow?.tg_id) return accRow.tg_id;
+
     const { data: subData } = await supabase()
       .from("subscriptions")
       .select("tg_id")
-      .eq("email", clean.toLowerCase())
+      .eq("email", email)
       .not("tg_id", "is", null)
       .limit(1);
     const subRow = (subData && subData[0]) as { tg_id: number } | undefined;
@@ -1540,7 +1550,15 @@ async function adminUserInfo(targetId: number): Promise<AdminCard> {
     .select("user_id")
     .eq("tg_id", targetId)
     .maybeSingle();
-  const userId = accData?.user_id;
+  let userId = accData?.user_id;
+  if (!userId) {
+    const { data: subData } = await supabase()
+      .from("subscriptions")
+      .select("user_id")
+      .eq("tg_id", targetId)
+      .maybeSingle();
+    userId = subData?.user_id;
+  }
 
   let subInfo = "— (не привязан к Google)";
   let email = "—";
@@ -1939,41 +1957,46 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
       }
       if (state.state === "admin_give_sub" && isAdmin) {
         await clearState(chatId);
-        const [rawId, rawDays] = text.split(/\s+/);
-        const target = await resolveUser(rawId ?? "");
+        const [rawTarget, rawDays] = text.split(/\s+/);
         const days = Number(rawDays);
-        if (!target || !Number.isFinite(days) || days <= 0 || days > 365) {
+        if (!rawTarget || !Number.isFinite(days) || days <= 0 || days > 3650) {
           await telegram.sendMessage(
             chatId,
-            "❌ Формат: <code>ID или @username 30</code>",
+            "❌ Формат: <code>Google Email, ID или @username 30</code>\nПример: <code>user@gmail.com 30</code> или <code>123456789 30</code>",
           );
           return;
         }
-        await grantSubscription(target, days);
+        await grantSubscription(rawTarget, days);
         return;
       }
       if (state.state === "admin_take_sub" && isAdmin) {
         await clearState(chatId);
-        const [rawId, rawDays] = text.split(/\s+/);
-        const target = await resolveUser(rawId ?? "");
+        const [rawTarget, rawDays] = text.split(/\s+/);
         const days = rawDays ? Number(rawDays) : 0;
-        if (!target || !Number.isFinite(days) || days < 0 || days > 3650) {
+        if (!rawTarget || !Number.isFinite(days) || days < 0 || days > 3650) {
           await telegram.sendMessage(
             chatId,
-            "❌ Формат: <code>ID или @username [дней]</code>\nБез числа дней подписка отзывается полностью.",
+            "❌ Формат: <code>Google Email, ID или @username [дней]</code>\nБез числа дней подписка отзывается полностью.",
           );
           return;
         }
-        const account = await getAccount(target);
-        const current = account ? await getSubscription(account.user_id) : null;
+        const target = await resolveTargetAccount(rawTarget);
+        if (!target) {
+          await telegram.sendMessage(
+            chatId,
+            `❌ Пользователь <code>${escapeHtml(rawTarget)}</code> не найден.`,
+          );
+          return;
+        }
+        const current = await getSubscription(target.userId);
         const expiry = current?.paid_until ? Date.parse(current.paid_until) : 0;
         const remaining = current?.is_active && expiry > Date.now()
           ? expiry - Date.now()
           : 0;
-        if (!account || !current || remaining <= 0) {
+        if (!current || remaining <= 0) {
           await telegram.sendMessage(
             chatId,
-            `❌ У пользователя <code>${target}</code> нет активной подписки.`,
+            `❌ У Google-аккаунта <b>${escapeHtml(target.email)}</b> нет активной подписки.`,
           );
           return;
         }
@@ -1989,12 +2012,12 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
           : `Списываем <b>${days}</b> дн. — останется <b>${
             Math.ceil((remaining - daysMs) / 86_400_000)
           }</b> дн.`;
-        await setState(chatId, "admin_take_sub_confirm", { target_id: target, days });
+        await setState(chatId, "admin_take_sub_confirm", { target_input: rawTarget, days });
         await telegram.sendMessage(
           chatId,
           `🗑 <b>Забрать подписку?</b>\n\n` +
-            `Пользователь: <code>${target}</code>\n` +
-            (account.email ? `Аккаунт: ${escapeHtml(account.email)}\n` : "") +
+            `Google-аккаунт: <b>${escapeHtml(target.email)}</b>\n` +
+            (target.tgId ? `Telegram ID: <code>${target.tgId}</code>\n` : "") +
             `Осталось: <b>${left}</b> дн. (до ${
               new Date(expiry).toISOString().slice(0, 10)
             })\n` +
@@ -2102,113 +2125,230 @@ async function handleMenuText(
   return false;
 }
 
-async function grantSubscription(targetId: number, days: number): Promise<void> {
-  // Подписку выдаёт админ: продлевается запись в общей таблице subscriptions.
-  const account = await getAccount(targetId);
-  if (!account) {
+type TargetAccount = {
+  userId: string;
+  email: string;
+  tgId: number | null;
+};
+
+async function resolveTargetAccount(input: string | number): Promise<TargetAccount | null> {
+  const clean = String(input).trim();
+  if (!clean) return null;
+
+  // 1. Поиск по Email (например, kostasemkin9@gmail.com)
+  if (clean.includes("@") && !clean.startsWith("@")) {
+    const email = clean.toLowerCase();
+    const { data: subData } = await supabase()
+      .from("subscriptions")
+      .select("user_id,email,tg_id")
+      .eq("email", email)
+      .limit(1);
+    if (subData && subData[0]) {
+      let tgId = subData[0].tg_id ?? null;
+      if (!tgId) {
+        const { data: accData } = await supabase()
+          .from("telegram_accounts")
+          .select("tg_id")
+          .eq("user_id", subData[0].user_id)
+          .limit(1);
+        if (accData && accData[0]) tgId = accData[0].tg_id;
+      }
+      return { userId: subData[0].user_id, email, tgId };
+    }
+
+    const { data: accData } = await supabase()
+      .from("telegram_accounts")
+      .select("user_id,email,tg_id")
+      .eq("email", email)
+      .limit(1);
+    if (accData && accData[0]) {
+      return { userId: accData[0].user_id, email, tgId: accData[0].tg_id };
+    }
+
+    try {
+      const { data: authData } = await supabase().auth.admin.listUsers();
+      const match = (authData?.users || []).find(
+        (u: { email?: string }) => u.email?.toLowerCase() === email,
+      );
+      if (match) {
+        return { userId: match.id, email, tgId: null };
+      }
+    } catch (_) {}
+
+    return null;
+  }
+
+  // 2. Поиск по Telegram ID или @username
+  const noAt = clean.replace(/^@/, "");
+  let tgId: number | null = null;
+  if (/^\d+$/.test(noAt)) {
+    tgId = Number(noAt);
+  } else {
+    const { data: botUserData } = await supabase()
+      .from("bot_users")
+      .select("id")
+      .eq("username", noAt)
+      .limit(1);
+    if (botUserData && botUserData[0]) {
+      tgId = botUserData[0].id;
+    }
+  }
+
+  if (tgId) {
+    const account = await getAccount(tgId);
+    if (account && account.email && account.user_id) {
+      return { userId: account.user_id, email: account.email, tgId };
+    }
+
+    const { data: subData } = await supabase()
+      .from("subscriptions")
+      .select("user_id,email,tg_id")
+      .eq("tg_id", tgId)
+      .limit(1);
+    if (subData && subData[0] && subData[0].email) {
+      return { userId: subData[0].user_id, email: subData[0].email, tgId };
+    }
+  }
+
+  return null;
+}
+
+async function grantSubscription(targetInput: string | number, days: number): Promise<void> {
+  const target = await resolveTargetAccount(targetInput);
+  if (!target) {
     await telegram.sendMessage(
       ADMIN_ID,
-      `❌ У пользователя <code>${targetId}</code> нет привязанного Google-аккаунта. Пусть сначала войдёт через Google.`,
+      `❌ Пользователь <code>${escapeHtml(String(targetInput))}</code> не найден или ещё не вошёл через Google в боте.\n\n💡 <b>Подсказка:</b> если пользователь зарегистрирован в приложении, введите его Google-почту напрямую:\n<code>/give_sub user@gmail.com ${days}</code>`,
     );
     return;
   }
-  const current = await getSubscription(account.user_id);
+
+  const current = await getSubscription(target.userId);
   const base = current?.paid_until ? Date.parse(current.paid_until) : 0;
   const start = Number.isFinite(base) && base > Date.now() ? base : Date.now();
   const expiry = new Date(start + days * 86_400_000).toISOString();
-  await supabase().from("subscriptions").upsert({
-    user_id: account.user_id,
-    email: account.email,
-    tg_id: targetId,
+
+  // 1. Сохраняем в subscriptions (единая база для Android-приложения, Happ и бота)
+  const upsertPayload: Record<string, unknown> = {
+    user_id: target.userId,
+    email: target.email,
     is_active: true,
     plan: "premium",
     paid_until: expiry,
     updated_at: nowIso(),
-  }, { onConflict: "user_id" });
-  await telegram.sendMessage(
-    ADMIN_ID,
-    `✅ Подписка выдана <code>${targetId}</code> на ${days} дней (до ${expiry.slice(0, 10)}).`,
-  );
-  const userLang = langOf(await getUser(targetId)) ?? "ru";
-  await telegram.sendMessage(
-    targetId,
-    `🎉 ${t(userLang, "sub.granted", { days: t(userLang, "common.days", { days }) })}\n\n🗓 ${expiry.slice(0, 10)}`,
-  );
-  await logAdmin(ADMIN_ID, "give_sub", targetId, `${days} дней`);
-}
+  };
+  if (target.tgId) {
+    upsertPayload.tg_id = target.tgId;
+  }
 
-// revokeSubscription — забирает подписку целиком или списывает дни.
-//
-// days = 0 — отзыв полностью. Если списание больше остатка, тоже отзываем
-// полностью: отрицательного остатка быть не должно.
-//
-// Ключи на панелях не стираем — при повторной выдаче тот же клиент
-// переиспользуется, а не создаётся второй.
-async function revokeSubscription(targetId: number, days = 0): Promise<void> {
-  const account = await getAccount(targetId);
-  if (!account) {
+  const { error: upsertErr } = await supabase()
+    .from("subscriptions")
+    .upsert(upsertPayload, { onConflict: "user_id" });
+
+  if (upsertErr) {
     await telegram.sendMessage(
       ADMIN_ID,
-      `❌ У пользователя <code>${targetId}</code> нет привязанного Google-аккаунта.`,
+      `❌ Ошибка сохранения в базе: ${escapeHtml(upsertErr.message)}`,
     );
     return;
   }
-  const current = await getSubscription(account.user_id);
+
+  // 2. Сразу продлеваем на панелях серверов (H1 Switzerland + Turkey)
+  let nodeSync = "синхронизировано";
+  try {
+    if (target.email) {
+      await h1EnsureNode(target.email, expiry);
+    }
+  } catch (err) {
+    nodeSync = `панель: ${err instanceof Error ? err.message : String(err)}`;
+  }
+
+  // 3. Отчёт админу
+  const expiryDate = expiry.slice(0, 10);
+  const tgNote = target.tgId ? ` (Telegram ID: <code>${target.tgId}</code>)` : "";
+  await telegram.sendMessage(
+    ADMIN_ID,
+    `✅ Подписка выдана для Google-аккаунта <b>${escapeHtml(target.email)}</b>${tgNote} на <b>${days} дн.</b> (до ${expiryDate}).\n\n📱 <b>Приложение Mirage, Happ и Бот</b> синхронизированы.\n🌐 <b>Серверы хостера:</b> ${nodeSync}.`,
+  );
+
+  // 4. Уведомление пользователю в Telegram (если привязан)
+  if (target.tgId) {
+    const userLang = langOf(await getUser(target.tgId)) ?? "ru";
+    await telegram.sendMessage(
+      target.tgId,
+      `🎉 ${t(userLang, "sub.granted", { days: t(userLang, "common.days", { days }) })}\n\n🗓 ${expiryDate}`,
+    );
+  }
+
+  await logAdmin(ADMIN_ID, "give_sub", target.tgId ?? 0, `${target.email} +${days} дней`);
+}
+
+async function revokeSubscription(targetInput: string | number, days = 0): Promise<void> {
+  const target = await resolveTargetAccount(targetInput);
+  if (!target) {
+    await telegram.sendMessage(
+      ADMIN_ID,
+      `❌ Пользователь <code>${escapeHtml(String(targetInput))}</code> не найден.`,
+    );
+    return;
+  }
+
+  const current = await getSubscription(target.userId);
   const expiry = current?.paid_until ? Date.parse(current.paid_until) : 0;
-  const remaining = current?.is_active && expiry > Date.now()
-    ? expiry - Date.now()
-    : 0;
+  const remaining = current?.is_active && expiry > Date.now() ? expiry - Date.now() : 0;
   const daysMs = days * 86_400_000;
   const partial = days > 0 && remaining > daysMs;
-  const userLang = langOf(await getUser(targetId)) ?? "ru";
 
   if (partial) {
     const next = new Date(expiry - daysMs).toISOString();
-    const { error } = await supabase().from("subscriptions")
+    const { error } = await supabase()
+      .from("subscriptions")
       .update({ paid_until: next, updated_at: nowIso() })
-      .eq("user_id", account.user_id);
+      .eq("user_id", target.userId);
     if (error) {
-      await telegram.sendMessage(
-        ADMIN_ID,
-        `❌ Не удалось изменить подписку: ${escapeHtml(error.message)}`,
-      );
+      await telegram.sendMessage(ADMIN_ID, `❌ Ошибка базы данных: ${escapeHtml(error.message)}`);
       return;
     }
+    try {
+      if (target.email) await h1EnsureNode(target.email, next);
+    } catch (_) {}
+
     await telegram.sendMessage(
       ADMIN_ID,
-      `✅ Списано ${days} дн. у <code>${targetId}</code>. Подписка теперь до ${
-        next.slice(0, 10)
-      }.`,
+      `✅ Списано ${days} дн. у <b>${escapeHtml(target.email)}</b>. Подписка теперь до ${next.slice(0, 10)}.`,
     );
-    await telegram.sendMessage(
-      targetId,
-      t(userLang, "sub.shortened", { date: next.slice(0, 10) }),
-    );
-    await logAdmin(ADMIN_ID, "take_sub", targetId, `-${days} дней`);
+    if (target.tgId) {
+      const userLang = langOf(await getUser(target.tgId)) ?? "ru";
+      await telegram.sendMessage(target.tgId, t(userLang, "sub.shortened", { date: next.slice(0, 10) }));
+    }
+    await logAdmin(ADMIN_ID, "take_sub", target.tgId ?? 0, `${target.email} -${days} дней`);
     return;
   }
 
-  const { error } = await supabase().from("subscriptions").update({
-    is_active: false,
-    plan: "free",
-    paid_until: null,
-    updated_at: nowIso(),
-  }).eq("user_id", account.user_id);
+  const { error } = await supabase()
+    .from("subscriptions")
+    .update({
+      is_active: false,
+      plan: "free",
+      paid_until: null,
+      updated_at: nowIso(),
+    })
+    .eq("user_id", target.userId);
+
   if (error) {
-    await telegram.sendMessage(
-      ADMIN_ID,
-      `❌ Не удалось забрать подписку: ${escapeHtml(error.message)}`,
-    );
+    await telegram.sendMessage(ADMIN_ID, `❌ Ошибка базы данных: ${escapeHtml(error.message)}`);
     return;
   }
+
   await telegram.sendMessage(
     ADMIN_ID,
-    `✅ Подписка забрана у <code>${targetId}</code>${
-      account.email ? ` (${escapeHtml(account.email)})` : ""
-    }.`,
+    `✅ Подписка полностью отозвана у Google-аккаунта <b>${escapeHtml(target.email)}</b>.`,
   );
-  await telegram.sendMessage(targetId, t(userLang, "sub.revoked"));
-  await logAdmin(ADMIN_ID, "take_sub", targetId, account.email ?? "");
+  if (target.tgId) {
+    const userLang = langOf(await getUser(target.tgId)) ?? "ru";
+    await telegram.sendMessage(target.tgId, t(userLang, "sub.revoked"));
+  }
+  await logAdmin(ADMIN_ID, "take_sub", target.tgId ?? 0, `${target.email} отозвана полностью`);
 }
 
 async function handleCommand(
@@ -2345,32 +2485,34 @@ async function handleCommand(
       await telegram.sendMessage(chatId, card.message, card.buttons);
       break;
     }
+    case "/give_sub":
+    case "/givesub":
     case "/sub": {
       const [target, days] = argument.split(/\s+/);
-      const resolved = await resolveUser(target ?? "");
       const count = Number(days);
-      if (!resolved || !Number.isFinite(count) || count <= 0 || count > 365) {
+      if (!target || !Number.isFinite(count) || count <= 0 || count > 3650) {
         await telegram.sendMessage(
           chatId,
-          "❌ Использование: <code>/sub &lt;ID или @username&gt; &lt;дней&gt;</code>",
+          "❌ Использование: <code>/give_sub &lt;email | ID | @username&gt; &lt;дней&gt;</code>\nПример: <code>/give_sub user@gmail.com 30</code> или <code>/give_sub 123456789 30</code>",
         );
         break;
       }
-      await grantSubscription(resolved, count);
+      await grantSubscription(target, count);
       break;
     }
+    case "/take_sub":
+    case "/takesub":
     case "/unsub": {
-      const [rawId, rawDays] = argument.split(/\s+/);
-      const resolved = await resolveUser(rawId ?? "");
+      const [rawTarget, rawDays] = argument.split(/\s+/);
       const days = rawDays ? Number(rawDays) : 0;
-      if (!resolved || !Number.isFinite(days) || days < 0) {
+      if (!rawTarget || !Number.isFinite(days) || days < 0 || days > 3650) {
         await telegram.sendMessage(
           chatId,
-          "❌ Использование: <code>/unsub &lt;ID|@username&gt; [дней]</code>\nБез числа дней подписка отзывается полностью.",
+          "❌ Использование: <code>/take_sub &lt;email | ID | @username&gt; [дней]</code>\nБез числа дней подписка отзывается полностью.",
         );
         break;
       }
-      await revokeSubscription(resolved, days);
+      await revokeSubscription(rawTarget, days);
       break;
     }
     case "/tickets":
@@ -2830,7 +2972,7 @@ async function handleCallback(callback: CallbackQuery): Promise<void> {
       await renderScreen(
         chatId,
         messageId,
-        "🎁 <b>Выдать подписку</b>\n\nВведи <b>ID</b> (или <b>@username</b>) и <b>количество дней</b>.\nПример: <code>123456789 30</code>",
+        "🎁 <b>Выдать подписку</b>\n\nВведи <b>Google Email</b>, <b>Telegram ID</b> или <b>@username</b> и <b>количество дней</b>.\nПример: <code>user@gmail.com 30</code> или <code>123456789 30</code>",
         backButton(lang),
       );
       break;
@@ -2840,9 +2982,9 @@ async function handleCallback(callback: CallbackQuery): Promise<void> {
         chatId,
         messageId,
         "🗑 <b>Забрать подписку</b>\n\n" +
-          "Введи <b>ID</b> (или <b>@username</b>) и, если нужно, <b>сколько дней списать</b>.\n\n" +
-          "<code>123456789 10</code> — списать 10 дней (если осталось меньше, подписка отзовётся полностью)\n" +
-          "<code>123456789</code> — забрать подписку целиком",
+          "Введи <b>Google Email</b>, <b>Telegram ID</b> или <b>@username</b> и, если нужно, <b>сколько дней списать</b>.\n\n" +
+          "<code>user@gmail.com 10</code> — списать 10 дней (если осталось меньше, подписка отзовётся полностью)\n" +
+          "<code>user@gmail.com</code> — забрать подписку целиком",
         backButton(lang),
       );
       break;
@@ -2904,7 +3046,7 @@ async function handleCallback(callback: CallbackQuery): Promise<void> {
       const state = await getState(chatId);
       await clearState(chatId);
       if (state?.state === "admin_take_sub_confirm") {
-        const target = Number(state.data?.target_id ?? 0);
+        const target = (state.data?.target_input ?? state.data?.target_id) as string | number | undefined;
         const days = Number(state.data?.days ?? 0);
         if (target) {
           await revokeSubscription(target, Number.isFinite(days) ? days : 0);
