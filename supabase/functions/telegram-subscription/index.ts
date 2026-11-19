@@ -360,30 +360,6 @@ serve(async (req) => {
         publicSubUrl.searchParams.set(key, val);
       }
       connectUrl.searchParams.set("u", publicSubUrl.toString());
-
-      // Сразу готовим зашифрованную ссылку для Happ (happ://crypt5/...), чтобы кнопка сработала мгновенно
-      try {
-        const rawUser = url.searchParams.get("user") || "";
-        const userTgId = parseSignedUser(rawUser);
-        if (userTgId) {
-          const verified = await verifySignedUser(
-            rawUser,
-            secret(),
-            await linkVersion(userTgId),
-          );
-          if (verified) {
-            const freeLink = new URL(publicSubUrl.toString());
-            freeLink.searchParams.set("free", await freeToken(verified, secret()));
-            const encrypted = await encryptForHapp(freeLink.toString());
-            if (encrypted) {
-              connectUrl.searchParams.set("h", encrypted);
-            }
-          }
-        }
-      } catch {
-        // Если шифрование не ответило, клиент использует fallback
-      }
-
       return Response.redirect(connectUrl.toString(), 302);
     }
 

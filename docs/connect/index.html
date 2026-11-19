@@ -185,53 +185,10 @@
   // адрес параметром запроса — там кодирование обязательно.
   var encoded = encodeURIComponent(url);
   var raw = encodeURI(url);
-  var happBtn = document.getElementById("happ");
 
-  // Бесплатный узел уходит только в Happ: сервер сам подставляет подписанную
-  // ссылку с ним и шифрует её. Hiddify и v2rayTun получают обычную ссылку.
-
-  // Бот передаёт зашифрованную ссылку (happ://crypt5/…): у неё Happ не
-  // показывает ни адрес подписки, ни конфиги серверов.
-  var encrypted = (params.get("h") || "").trim();
-  if (/^happ:\/\/crypt[0-9]+\//.test(encrypted)) {
-    happBtn.href = encrypted;
-  } else {
-    // Ссылки ещё нет: кнопка временно не ведёт никуда, иначе человек успеет
-    // добавить обычную подписку, где конфиги видны.
-    happBtn.href = "#";
-    happBtn.dataset.pending = "1";
-    var tag = happBtn.querySelector(".tag");
-    if (tag) tag.textContent = lang === "en" ? "loading…" : "готовим…";
-
-    // Напрямую crypto.happ.su из браузера не отвечает (Cloudflare режет
-    // запросы с Origin), поэтому шифрует наша функция подписки.
-    var finish = function (link) {
-      happBtn.href = link || ("happ://add/" + raw);
-      delete happBtn.dataset.pending;
-      if (tag) tag.textContent = t.tag;
-    };
-    try {
-      var sub = new URL(url);
-      fetch(
-        sub.origin + "/functions/v1/telegram-subscription?op=encrypt&u=" +
-          encodeURIComponent(url),
-      ).then(function (r) {
-        return r.ok ? r.json() : null;
-      }).then(function (data) {
-        var link = data && String(data.encrypted_link || "");
-        finish(/^happ:\/\//.test(link) ? link : null);
-      }).catch(function () {
-        finish(null);
-      });
-    } catch (e) {
-      finish(null);
-    }
-  }
-
-  happBtn.addEventListener("click", function (e) {
-    if (happBtn.dataset.pending === "1") e.preventDefault();
-  });
-
+  // Прямое добавление подписки в один тап:
+  // настройки открыты — Happ отображает узлы (Швейцария, Турция) и их пинг.
+  document.getElementById("happ").href = "happ://add/" + raw;
   document.getElementById("hiddify").href = "hiddify://import/" + raw;
   document.getElementById("v2rayng").href = "v2rayng://install-sub?url=" + encoded;
 

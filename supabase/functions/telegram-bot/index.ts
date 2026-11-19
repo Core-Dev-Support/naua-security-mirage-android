@@ -48,7 +48,7 @@ import {
   updateUser,
   upsertUser,
 } from "./lib/store.ts";
-import { subscriptionSignature, withFreeNodes } from "./lib/subscription.ts";
+import { subscriptionSignature } from "./lib/subscription.ts";
 import { friendsToMilestone } from "./lib/referral.ts";
 import {
   APP_URL,
@@ -147,48 +147,12 @@ async function subscriptionLink(tgId: number): Promise<string> {
 // и браузер Telegram скачивает её файлом. Страница — обычный HTML, на ней
 // кнопки приложений (happ://, hiddify://, v2rayng://): Telegram такие схемы
 // в кнопках не принимает, а со страницы они открываются нормально.
-async function connectPage(link: string, lang: Lang, tgId: number): Promise<string> {
+async function connectPage(link: string, lang: Lang, tgId?: number): Promise<string> {
   const url = new URL(CONNECT_PAGE_URL);
   url.searchParams.set("u", link);
-  // Бесплатный узел — только в зашифрованной ссылке Happ, причём ссылка
-  // подписана отдельным токеном: дописать ?free=… руками не получится.
-  // В обычной подписке (Hiddify, v2rayTun) узла нет.
-  const encrypted = await encryptForHapp(
-    await withFreeNodes(link, tgId, SUBSCRIPTION_SECRET),
-  );
-  if (encrypted) url.searchParams.set("h", encrypted);
   url.searchParams.set("lang", lang);
+  void tgId;
   return url.toString();
-}
-
-// encryptForHapp — зашифрованная ссылка happ://crypt5/… .
-//
-// В Happ у такой ссылки нельзя посмотреть ни адрес подписки, ни конфиги
-// серверов. Для бесплатного узла чужого провайдера это обязательно: его
-// настройки не должны быть видны пользователю.
-const HAPP_CRYPTO_API = Deno.env.get("HAPP_CRYPTO_API") ||
-  "https://crypto.happ.su/api-v2.php";
-
-// Не кешируем: зашифрованная ссылка может нести снимок подписки, и после
-// смены узлов старый снимок показывает прежний список.
-async function encryptForHapp(link: string): Promise<string | null> {
-  try {
-    // Сервис внешний: если он молчит, экран не должен ждать его вечно.
-    const response = await fetch(HAPP_CRYPTO_API, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ url: link }),
-      signal: AbortSignal.timeout(2500),
-    });
-    if (!response.ok) return null;
-    const parsed = await response.json();
-    const encrypted = String(parsed?.encrypted_link || "");
-    if (!encrypted.startsWith("happ://")) return null;
-    return encrypted;
-  } catch {
-    // Не вышло — страница возьмёт обычную ссылку happ://add/… .
-    return null;
-  }
 }
 
 // ===================== Тексты и клавиатуры =====================
