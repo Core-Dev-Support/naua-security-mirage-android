@@ -353,7 +353,37 @@ serve(async (req) => {
       isBrowser
     ) {
       const connectUrl = new URL(CONNECT_PAGE_URL);
-      connectUrl.searchParams.set("u", req.url);
+      // Внутри Edge Runtime req.url урезается шлюзом (http://.../telegram-subscription).
+      // Формируем полный публичный HTTPS-адрес: https://<SUPABASE_URL>/functions/v1/telegram-subscription
+      const publicSubUrl = new URL(`${SUPABASE_URL}/functions/v1/telegram-subscription`);
+      for (const [key, val] of url.searchParams.entries()) {
+        publicSubUrl.searchParams.set(key, val);
+      }
+      connectUrl.searchParams.set("u", publicSubUrl.toString());
+
+      // Сразу готовим зашифрованную ссылку для Happ (happ://crypt5/...), чтобы кнопка сработала мгновенно
+      try {
+        const rawUser = url.searchParams.get("user") || "";
+        const userTgId = parseSignedUser(rawUser);
+        if (userTgId) {
+          const verified = await verifySignedUser(
+            rawUser,
+            secret(),
+            await linkVersion(userTgId),
+          );
+          if (verified) {
+            const freeLink = new URL(publicSubUrl.toString());
+            freeLink.searchParams.set("free", await freeToken(verified, secret()));
+            const encrypted = await encryptForHapp(freeLink.toString());
+            if (encrypted) {
+              connectUrl.searchParams.set("h", encrypted);
+            }
+          }
+        }
+      } catch {
+        // Если шифрование не ответило, клиент использует fallback
+      }
+
       return Response.redirect(connectUrl.toString(), 302);
     }
 
