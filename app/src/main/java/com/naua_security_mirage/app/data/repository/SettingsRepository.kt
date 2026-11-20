@@ -291,7 +291,19 @@ class SettingsRepository(context: Context) {
             .commit()
     }
 
+    fun getProtocolForNode(nodeId: String, defaultProtocol: String = PROTOCOL_HYSTERIA2): String {
+        return prefs.getString(KEY_NODE_PROTOCOL_PREFIX + nodeId, defaultProtocol) ?: defaultProtocol
+    }
+
+    fun setProtocolForNode(nodeId: String, protocol: String) {
+        prefs.edit().putString(KEY_NODE_PROTOCOL_PREFIX + nodeId, protocol).apply()
+    }
+
     companion object {
+        const val PROTOCOL_HYSTERIA2 = "hysteria2"
+        const val PROTOCOL_XHTTP = "xhttp"
+        const val PROTOCOL_VLESS = "vless"
+        private const val KEY_NODE_PROTOCOL_PREFIX = "node_protocol_"
         const val KEY_CUSTOM_BG_IMAGE = "key_custom_bg_image_path"
         const val THEME_DARK = "dark"
         const val THEME_LIGHT = "light"

@@ -263,12 +263,14 @@ class MirageVpnService : VpnService() {
                     }
 
                     val best = pickFreeServer(measuredServers)
-                    val bestPingText = if (best.pingMs in 1..9998) "${best.pingMs} ms" else "доступен"
-                    AppLogger.i(TAG, "Выбран оптимальный узел: ${best.tag} (задержка: $bestPingText)")
+                    val freeProto = settingsRepository.getProtocolForNode(SettingsRepository.PLAN_FREE)
+                    val protoServer = applyProtocolPreference(best, freeProto)
+                    val bestPingText = if (protoServer.pingMs in 1..9998) "${protoServer.pingMs} ms" else "доступен"
+                    AppLogger.i(TAG, "Выбран оптимальный узел: ${protoServer.tag} (протокол: ${protoServer.protocol}/${protoServer.network}, задержка: $bestPingText)")
                     freeAnyReachable = measuredServers.any { it.pingMs in 1..9998 }
 
                     premeasuredFree = measuredServers
-                    best
+                    protoServer
                 }
 
 
@@ -482,7 +484,7 @@ class MirageVpnService : VpnService() {
     private suspend fun resolvePaidNode(node: PaidNode, force: Boolean = false): VlessServer? {
         val manager = com.naua_security_mirage.app.data.supabase.SupabaseManager.instance
         if (!manager.hasActiveSubscription()) return null
-        return when (node.kind) {
+        val resolved = when (node.kind) {
             PaidNode.Kind.FRANCE -> resolveFranceServer(node.label())
             PaidNode.Kind.BELARUS -> {
                 val refresh = serviceScope.async(Dispatchers.IO) {
@@ -491,6 +493,35 @@ class MirageVpnService : VpnService() {
                 resolveBelarusServer(refresh, node.label())
             }
             PaidNode.Kind.VLESS -> resolveGenericServer(node, force)
+        } ?: return null
+
+        val preferredProto = settingsRepository.getProtocolForNode(node.id)
+        return applyProtocolPreference(resolved, preferredProto)
+    }
+
+    private fun applyProtocolPreference(server: VlessServer, preferredProto: String): VlessServer {
+        return when (preferredProto) {
+            SettingsRepository.PROTOCOL_HYSTERIA2 -> {
+                if (server.isHysteria2) server else server.copy(
+                    protocol = "hysteria2",
+                    network = "hysteria",
+                    security = "tls"
+                )
+            }
+            SettingsRepository.PROTOCOL_XHTTP -> {
+                if (server.isXhttp) server else server.copy(
+                    protocol = "vless",
+                    network = "xhttp",
+                    mode = "packet-up"
+                )
+            }
+            SettingsRepository.PROTOCOL_VLESS -> {
+                if (!server.isHysteria2 && !server.isXhttp) server else server.copy(
+                    protocol = "vless",
+                    network = "tcp"
+                )
+            }
+            else -> server
         }
     }
 

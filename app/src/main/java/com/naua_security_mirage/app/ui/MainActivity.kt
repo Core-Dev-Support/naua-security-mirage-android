@@ -123,6 +123,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var geoRoutingRepository: GeoRoutingRepository
     private var isRefreshing = false
     private var refreshAnimationJob: Job? = null
+    private var refreshJob: Job? = null
+    private var refreshCheckmarkJob: Job? = null
     private var lastMeasuredServerInfo: String? = null
     private var connectBreathingHandle: AnimationHelper.AnimationHandle? = null
     private var connectGlowHandle: AnimationHelper.AnimationHandle? = null
@@ -565,7 +567,11 @@ class MainActivity : AppCompatActivity() {
 
         binding.btnRefresh.setOnClickListener {
             AnimationHelper.bounceClick(binding.btnRefresh, minScale = 0.88f, durationMs = 180)
-            performRefresh()
+            if (isRefreshing) {
+                cancelRefresh()
+            } else {
+                performRefresh()
+            }
         }
 
         binding.btnConnect.setOnClickListener {
@@ -616,6 +622,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         setupServerPlanSelector()
+        setupProtocolSelectorUI()
         setupGlassShell()
     }
 
@@ -1220,7 +1227,92 @@ class MainActivity : AppCompatActivity() {
                 ContextCompat.getDrawable(this, R.drawable.bg_pill_active)
             binding.containerServerPlan.btnPlanFree.setTextColor(Color.WHITE)
         }
+        updateProtocolSelectorUI()
     }
+
+    private fun currentActiveNodeId(): String {
+        val plan = settingsRepository.selectedServerPlan
+        return if (settingsRepository.isPaidPlan(plan) && AppConfigRepository.node(plan) != null) {
+            plan
+        } else {
+            SettingsRepository.PLAN_FREE
+        }
+    }
+
+    private fun setupProtocolSelectorUI() {
+        binding.containerProtocolSelector.btnProtoHysteria.setOnClickListener {
+            AnimationHelper.bounceClick(it, minScale = 0.92f, durationMs = 150)
+            selectProtocol(SettingsRepository.PROTOCOL_HYSTERIA2)
+        }
+        binding.containerProtocolSelector.btnProtoXhttp.setOnClickListener {
+            AnimationHelper.bounceClick(it, minScale = 0.92f, durationMs = 150)
+            selectProtocol(SettingsRepository.PROTOCOL_XHTTP)
+        }
+        binding.containerProtocolSelector.btnProtoVless.setOnClickListener {
+            AnimationHelper.bounceClick(it, minScale = 0.92f, durationMs = 150)
+            selectProtocol(SettingsRepository.PROTOCOL_VLESS)
+        }
+        updateProtocolSelectorUI()
+    }
+
+    private fun selectProtocol(protocol: String) {
+        val nodeId = currentActiveNodeId()
+        val old = settingsRepository.getProtocolForNode(nodeId)
+        if (old == protocol) return
+        settingsRepository.setProtocolForNode(nodeId, protocol)
+        updateProtocolSelectorUI()
+        AppLogger.i("ProtocolSelector", "Для узла '$nodeId' выбран протокол: $protocol")
+        val isVpnConnected = MirageVpnService.vpnState.value == VpnState.CONNECTED ||
+            MirageVpnService.vpnState.value == VpnState.CONNECTING
+        if (isVpnConnected) {
+            MirageVpnService.reconnect(this)
+        }
+    }
+
+    private fun updateProtocolSelectorUI() {
+        val nodeId = currentActiveNodeId()
+        val selectedProto = settingsRepository.getProtocolForNode(nodeId)
+
+        val customText = settingsRepository.customTextColor
+        val hasWallpaper = !settingsRepository.customBgImagePath.isNullOrEmpty() &&
+            java.io.File(settingsRepository.customBgImagePath ?: "").exists()
+        val isLightNow = !hasWallpaper && (settingsRepository.themePreset == SettingsRepository.THEME_LIGHT ||
+            (settingsRepository.customBgColor != 0 &&
+                ColorUtils.calculateLuminance(settingsRepository.customBgColor) > 0.5))
+        val inactiveText = if (customText != 0) {
+            customText
+        } else if (isLightNow) {
+            Color.parseColor("#0F172A")
+        } else {
+            ContextCompat.getColor(this, R.color.ink_soft)
+        }
+
+        binding.containerProtocolSelector.root.background = getCardDrawable(isLightNow, 30f)
+
+        fun applyButton(view: TextView, active: Boolean) {
+            if (active) {
+                view.background = ContextCompat.getDrawable(this, R.drawable.bg_pill_active)
+                view.setTextColor(Color.WHITE)
+            } else {
+                view.background = ColorDrawable(Color.TRANSPARENT)
+                view.setTextColor(inactiveText)
+            }
+        }
+
+        applyButton(
+            binding.containerProtocolSelector.btnProtoHysteria,
+            selectedProto == SettingsRepository.PROTOCOL_HYSTERIA2
+        )
+        applyButton(
+            binding.containerProtocolSelector.btnProtoXhttp,
+            selectedProto == SettingsRepository.PROTOCOL_XHTTP
+        )
+        applyButton(
+            binding.containerProtocolSelector.btnProtoVless,
+            selectedProto == SettingsRepository.PROTOCOL_VLESS
+        )
+    }
+
     private fun setupAccountCard() {
         updateAccountCardUI()
 
@@ -2185,18 +2277,55 @@ class MainActivity : AppCompatActivity() {
         updateVpnActiveNoticeBanner(animated = true)
     }
 
+    private fun cancelRefresh() {
+        if (!isRefreshing) return
+        AppLogger.i("DataRefresh", "Отмена обновления данных пользователем")
+        refreshJob?.cancel()
+        refreshJob = null
+        refreshAnimationJob?.cancel()
+        refreshCheckmarkJob?.cancel()
+        isRefreshing = false
+        binding.pbRefreshSpinner.visibility = View.GONE
+        binding.ivRefreshIcon.setImageResource(R.drawable.ic_refresh)
+        binding.ivRefreshIcon.rotation = 0f
+        if (MirageVpnService.vpnState.value == VpnState.DISCONNECTED) {
+            binding.tvStatusSub.text = lastMeasuredServerInfo ?: getString(R.string.status_sub_disconnected)
+        }
+    }
+
+    private fun showRefreshSuccess() {
+        isRefreshing = false
+        refreshJob = null
+        refreshAnimationJob?.cancel()
+        binding.pbRefreshSpinner.visibility = View.GONE
+        binding.ivRefreshIcon.setImageResource(R.drawable.ic_check)
+        binding.ivRefreshIcon.rotation = 0f
+        refreshCheckmarkJob?.cancel()
+        refreshCheckmarkJob = lifecycleScope.launch(Dispatchers.Main) {
+            delay(2000)
+            if (!isRefreshing) {
+                binding.ivRefreshIcon.setImageResource(R.drawable.ic_refresh)
+            }
+        }
+    }
+
+    private fun showRefreshFailure() {
+        isRefreshing = false
+        refreshJob = null
+        refreshAnimationJob?.cancel()
+        binding.pbRefreshSpinner.visibility = View.GONE
+        binding.ivRefreshIcon.setImageResource(R.drawable.ic_refresh)
+        binding.ivRefreshIcon.rotation = 0f
+    }
+
     private fun performRefresh() {
         if (isRefreshing) return
         isRefreshing = true
+        refreshCheckmarkJob?.cancel()
 
-        refreshAnimationJob?.cancel()
-        refreshAnimationJob = lifecycleScope.launch(Dispatchers.Main) {
-            while (isActive && isRefreshing && AnimationHelper.animationsEnabled) {
-                binding.ivRefreshIcon.rotation = (binding.ivRefreshIcon.rotation + 12f) % 360f
-                delay(16)
-            }
-            binding.ivRefreshIcon.rotation = 0f
-        }
+        binding.pbRefreshSpinner.visibility = View.VISIBLE
+        binding.ivRefreshIcon.setImageResource(R.drawable.ic_close)
+        binding.ivRefreshIcon.rotation = 0f
 
         val currentState = MirageVpnService.vpnState.value
         AppLogger.i("DataRefresh", "Нажата кнопка обновления данных (состояние: ${currentState.name})")
@@ -2204,7 +2333,7 @@ class MainActivity : AppCompatActivity() {
         if (currentState == VpnState.DISCONNECTED) {
             AppLogger.i("DataRefresh", "Режим без активного VPN соединения. Загрузка серверов и измерение задержки...")
             binding.tvStatusSub.text = getString(R.string.refreshing_servers)
-            lifecycleScope.launch(Dispatchers.IO) {
+            refreshJob = lifecycleScope.launch(Dispatchers.IO) {
                 try {
                     val hasPaid = com.naua_security_mirage.app.data.supabase.SupabaseManager.instance
                         .hasActiveSubscription()
@@ -2325,20 +2454,24 @@ class MainActivity : AppCompatActivity() {
                         }
                     )
                     withContext(Dispatchers.Main) {
-                        isRefreshing = false
-                        refreshAnimationJob?.cancel()
-                        binding.ivRefreshIcon.rotation = 0f
+                        showRefreshSuccess()
                         if (MirageVpnService.vpnState.value == VpnState.DISCONNECTED) {
                             lastMeasuredServerInfo = statusText
                             binding.tvStatusSub.text = statusText
                         }
                     }
+                } catch (e: java.util.concurrent.CancellationException) {
+                    AppLogger.i("DataRefresh", "Обновление отменено (CancellationException)")
+                    withContext(Dispatchers.Main) {
+                        showRefreshFailure()
+                        if (MirageVpnService.vpnState.value == VpnState.DISCONNECTED) {
+                            binding.tvStatusSub.text = lastMeasuredServerInfo ?: getString(R.string.status_sub_disconnected)
+                        }
+                    }
                 } catch (e: Throwable) {
                     AppLogger.w("DataRefresh", "Ошибка при обновлении серверов без VPN: ${e.message}", e)
                     withContext(Dispatchers.Main) {
-                        isRefreshing = false
-                        refreshAnimationJob?.cancel()
-                        binding.ivRefreshIcon.rotation = 0f
+                        showRefreshFailure()
                         if (MirageVpnService.vpnState.value == VpnState.DISCONNECTED) {
                             binding.tvStatusSub.text = lastMeasuredServerInfo ?: getString(R.string.status_sub_disconnected)
                         }
@@ -2347,7 +2480,7 @@ class MainActivity : AppCompatActivity() {
             }
         } else if (currentState == VpnState.CONNECTED) {
             AppLogger.i("DataRefresh", "Режим с активным подключением. Измерение задержки активного туннеля...")
-            lifecycleScope.launch(Dispatchers.IO) {
+            refreshJob = lifecycleScope.launch(Dispatchers.IO) {
                 try {
                     val active = MirageVpnService.activeServer.value
                     val servers = vlessKeyRepository.getVlessServers()
@@ -2358,23 +2491,22 @@ class MainActivity : AppCompatActivity() {
                         AppLogger.i("DataRefresh", "Замер активного узла ${target.tag} завершен: $pingStr")
                     }
                     withContext(Dispatchers.Main) {
-                        isRefreshing = false
-                        refreshAnimationJob?.cancel()
-                        binding.ivRefreshIcon.rotation = 0f
+                        showRefreshSuccess()
+                    }
+                } catch (e: java.util.concurrent.CancellationException) {
+                    AppLogger.i("DataRefresh", "Обновление отменено (CancellationException)")
+                    withContext(Dispatchers.Main) {
+                        showRefreshFailure()
                     }
                 } catch (e: Throwable) {
                     AppLogger.w("DataRefresh", "Ошибка при замере пинга активного VPN: ${e.message}", e)
                     withContext(Dispatchers.Main) {
-                        isRefreshing = false
-                        refreshAnimationJob?.cancel()
-                        binding.ivRefreshIcon.rotation = 0f
+                        showRefreshFailure()
                     }
                 }
             }
         } else {
-            isRefreshing = false
-            refreshAnimationJob?.cancel()
-            binding.ivRefreshIcon.rotation = 0f
+            showRefreshFailure()
         }
     }
 
@@ -2465,6 +2597,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun refreshNodeStatus(force: Boolean = false) {
         val card = nodeStatusCard ?: return
+        val titleView = card.findViewById<TextView>(R.id.tvNodeStatusTitle)
         val stateView = card.findViewById<TextView>(R.id.tvNodeStatusState) ?: return
         val historyView = card.findViewById<TextView>(R.id.tvNodeHistory)
         if (!force && nodeStatusJob?.isActive == true) return
@@ -2476,8 +2609,11 @@ class MainActivity : AppCompatActivity() {
             settingsRepository.lastPaidPlan
         }
 
-        val isBelarusPlan = trackedPlan == SettingsRepository.PLAN_PREMIUM_BELARUS
         val trackedNode = AppConfigRepository.node(trackedPlan)
+        val nodeTitle = trackedNode?.label() ?: paidNodeLabel(trackedPlan)
+        titleView?.text = getString(R.string.node_status_title_format, nodeTitle)
+
+        val isBelarusPlan = trackedPlan == SettingsRepository.PLAN_PREMIUM_BELARUS
         val isGenericPlan = trackedNode?.kind == PaidNode.Kind.VLESS
 
         nodeStatusJob = lifecycleScope.launch {
@@ -2493,8 +2629,7 @@ class MainActivity : AppCompatActivity() {
             } else if (isBelarusPlan) {
                 refreshBelarusState(stateView, gen, forceRefresh = force)
             } else if (isGenericPlan) {
-                stateView.text = getString(R.string.node_status_untracked)
-                stateView.setTextColor(themedSubtitle())
+                refreshGenericNodeState(trackedNode, stateView, gen, force)
             } else {
                 refreshFranceState(stateView, gen)
             }
@@ -2581,6 +2716,44 @@ class MainActivity : AppCompatActivity() {
                 "NodeStatus",
                 "Беларусь: узел не отвечает с устройства (${server.address}:${server.port})"
             )
+        }
+    }
+
+    private suspend fun refreshGenericNodeState(
+        node: com.naua_security_mirage.app.data.config.PaidNode?,
+        stateView: TextView,
+        gen: Int,
+        forceRefresh: Boolean
+    ) {
+        if (node == null) return
+        val manager = com.naua_security_mirage.app.data.supabase.SupabaseManager.instance
+        val key = if (forceRefresh) {
+            withContext(Dispatchers.IO) { manager.ensureNodeVlessKey(node) }
+        } else {
+            manager.getNodeVlessKey(node.id) ?: withContext(Dispatchers.IO) { manager.ensureNodeVlessKey(node) }
+        }
+        if (gen != nodeStatusGen) return
+
+        val server = key?.let {
+            com.naua_security_mirage.app.data.model.VlessServer.fromUri(it, node.label())
+        }
+        if (server == null) {
+            stateView.text = getString(R.string.node_status_fetch_failed)
+            stateView.setTextColor(nodeColor(true))
+            return
+        }
+
+        val ping = withContext(Dispatchers.IO) {
+            pingRepository.measurePing(server, timeoutMs = 2000)
+        }
+        if (gen != nodeStatusGen) return
+
+        if (ping in 1..9998) {
+            stateView.text = getString(R.string.node_status_generic_up, node.label(), ping)
+            stateView.setTextColor(themedSubtitle())
+        } else {
+            stateView.text = getString(R.string.node_status_generic_down, node.label())
+            stateView.setTextColor(nodeColor(true))
         }
     }
 
@@ -9276,6 +9449,8 @@ class MainActivity : AppCompatActivity() {
         connectBreathingHandle?.cancel()
         connectGlowHandle?.cancel()
         refreshAnimationJob?.cancel()
+        refreshJob?.cancel()
+        refreshCheckmarkJob?.cancel()
     }
 
     private fun openExternalLink(url: String) {

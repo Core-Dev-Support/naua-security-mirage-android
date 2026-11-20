@@ -161,6 +161,16 @@
             app:layout_constraintEnd_toStartOf="@+id/btnSettings"
             app:layout_constraintTop_toTopOf="@+id/headerBrand">
 
+            <ProgressBar
+                android:id="@+id/pbRefreshSpinner"
+                style="?android:attr/progressBarStyleSmall"
+                android:layout_width="28dp"
+                android:layout_height="28dp"
+                android:layout_gravity="center"
+                android:indeterminate="true"
+                android:indeterminateTint="@color/accent"
+                android:visibility="gone" />
+
             <ImageView
                 android:id="@+id/ivRefreshIcon"
                 android:layout_width="19dp"
@@ -272,6 +282,17 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@+id/tvStatusSub" />
 
+        <!-- Protocol Selector (Hysteria 2 vs XHTTP vs VLESS) -->
+        <include
+            android:id="@+id/containerProtocolSelector"
+            layout="@layout/layout_protocol_selector"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/containerServerPlan" />
+
         <!-- Real-Time Speed Live Display (when connected) -->
         <LinearLayout
             android:id="@+id/containerSpeedLive"
@@ -288,7 +309,7 @@
             android:visibility="gone"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/containerServerPlan">
+            app:layout_constraintTop_toBottomOf="@+id/containerProtocolSelector">
 
             <ImageView
                 android:id="@+id/ivSpeedDown"
@@ -337,8 +358,8 @@
             android:id="@+id/btnSupport"
             android:layout_width="wrap_content"
             android:layout_height="46dp"
-            android:layout_marginTop="24dp"
-            app:layout_goneMarginTop="46dp"
+            android:layout_marginTop="16dp"
+            app:layout_goneMarginTop="16dp"
             android:background="?attr/miragePillBg"
             android:clickable="true"
             android:focusable="true"

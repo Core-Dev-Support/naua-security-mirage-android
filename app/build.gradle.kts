@@ -46,8 +46,8 @@ android {
         targetSdk = 35
         compileSdk = 35
 
-        versionCode = 6
-        versionName = "1.5.0-beta"
+        versionCode = 5
+        versionName = "1.4.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 

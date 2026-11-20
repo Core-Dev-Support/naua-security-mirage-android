@@ -66,12 +66,10 @@ class PingRepository {
         server: VlessServer,
         timeoutMs: Int,
         protectSocket: ((Socket) -> Unit)?
-    ): Long? = kotlinx.coroutines.withTimeoutOrNull(timeoutMs.toLong() + 500L) {
-        val target = try {
-            resolveAddress(server.address)
-        } catch (_: Exception) {
-            null
-        } ?: return@withTimeoutOrNull null
+    ): Long? = kotlinx.coroutines.withTimeoutOrNull(timeoutMs.toLong() + 1500L) {
+        val target = resolveAddress(server.address) ?: return@withTimeoutOrNull null
+
+        // 1. Попытка TCP connect (для VLESS Reality, XHTTP, TCP)
         var socket: Socket? = null
         try {
             socket = Socket()
@@ -79,30 +77,69 @@ class PingRepository {
             val start = System.currentTimeMillis()
             socket.connect(InetSocketAddress(target, server.port), timeoutMs)
             val duration = System.currentTimeMillis() - start
-            if (duration > 0) duration else 1L
-        } catch (e: Exception) {
-            null
+            return@withTimeoutOrNull if (duration > 0) duration else 1L
+        } catch (_: Exception) {
+            // TCP connect не удался, пробуем fallback
         } finally {
             try {
                 socket?.close()
-            } catch (_: Exception) {}
+            } catch (_: Throwable) {}
         }
+
+        // 2. Если узел работает на Hysteria 2 (UDP-only) или порт TCP закрыт
+        if (server.isHysteria2) {
+            var datagramSocket: java.net.DatagramSocket? = null
+            try {
+                datagramSocket = java.net.DatagramSocket()
+                datagramSocket.soTimeout = timeoutMs
+                val start = System.currentTimeMillis()
+                datagramSocket.connect(InetSocketAddress(target, server.port))
+                val dummy = byteArrayOf(0x00)
+                val packet = java.net.DatagramPacket(dummy, dummy.size, target, server.port)
+                datagramSocket.send(packet)
+                val duration = System.currentTimeMillis() - start
+                return@withTimeoutOrNull if (duration > 0) duration else 1L
+            } catch (_: Exception) {
+            } finally {
+                try {
+                    datagramSocket?.close()
+                } catch (_: Throwable) {}
+            }
+        }
+
+        null
     }
 
-    private fun resolveAddress(host: String): InetAddress? {
+    private fun isIpAddress(address: String): Boolean {
+        val normalized = address.trim().removePrefix("[").removeSuffix("]")
+        if (normalized.isEmpty()) return false
+        val octets = normalized.split('.')
+        if (octets.size == 4 && octets.all { (it.toIntOrNull() ?: -1) in 0..255 }) return true
+        return normalized.contains(":") && normalized.count { it == ':' } >= 2
+    }
+
+    private suspend fun resolveAddress(host: String): InetAddress? {
         val key = host.trim()
         if (key.isEmpty()) return null
+        if (isIpAddress(key)) {
+            return try { InetAddress.getByName(key) } catch (_: Exception) { null }
+        }
         val now = System.currentTimeMillis()
         val cached = addressCache[key]
         if (cached != null && now - cached.at < RESOLVE_TTL_MS) {
-            return InetAddress.getByName(cached.ip)
+            return try { InetAddress.getByName(cached.ip) } catch (_: Exception) { null }
         }
         val resolved = try {
-            com.naua_security_mirage.app.data.supabase.SupabaseConfig
-                .resolveHostDoh(key).firstOrNull() ?: InetAddress.getByName(key)
+            kotlinx.coroutines.withTimeoutOrNull(1000L) {
+                com.naua_security_mirage.app.data.supabase.SupabaseConfig
+                    .resolveHostDoh(key).firstOrNull()
+            } ?: kotlinx.coroutines.withTimeoutOrNull(1000L) {
+                InetAddress.getByName(key)
+            }
         } catch (_: Exception) {
-            null
+            try { InetAddress.getByName(key) } catch (_: Exception) { null }
         } ?: return null
+
         val literal = resolved.hostAddress
         if (literal != null) {
             if (addressCache.size > 64) addressCache.clear()

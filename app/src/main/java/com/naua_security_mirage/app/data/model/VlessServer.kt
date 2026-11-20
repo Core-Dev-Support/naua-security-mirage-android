@@ -12,19 +12,52 @@ data class VlessServer(
     val uuid: String,
     val network: String = "tcp",
     val security: String = "reality",
-    val publicKey: String,
+    val publicKey: String = "",
     val fingerprint: String = "chrome",
-    val serverName: String,
+    val serverName: String = "",
     val host: String = serverName,
     val mode: String = "none",
     val path: String = "/",
     val shortId: String = "",
     val flow: String = "",
+    val protocol: String = "vless",
+    val insecure: Boolean = false,
+    val obfs: String = "",
+    val obfsPassword: String = "",
     var pingMs: Long = -1L,
     var lossPercent: Int = -1,
     var jitterMs: Long = -1L
 ) {
-    fun toVlessUri(): String {
+    val isHysteria2: Boolean
+        get() = protocol.equals("hysteria2", ignoreCase = true) ||
+            protocol.equals("hy2", ignoreCase = true)
+
+    val isXhttp: Boolean
+        get() = network.equals("xhttp", ignoreCase = true) ||
+            network.equals("splithttp", ignoreCase = true)
+
+    fun toVlessUri(): String = toShareUri()
+
+    fun toShareUri(): String {
+        val encodedTag = URLEncoder.encode(tag, "UTF-8")
+        if (isHysteria2) {
+            val queryParams = mutableListOf<String>()
+            if (serverName.isNotEmpty()) {
+                queryParams.add("sni=" + URLEncoder.encode(serverName, "UTF-8"))
+            }
+            if (insecure) {
+                queryParams.add("insecure=1")
+            }
+            if (obfs.isNotEmpty()) {
+                queryParams.add("obfs=" + URLEncoder.encode(obfs, "UTF-8"))
+                if (obfsPassword.isNotEmpty()) {
+                    queryParams.add("obfs-password=" + URLEncoder.encode(obfsPassword, "UTF-8"))
+                }
+            }
+            val query = if (queryParams.isNotEmpty()) "?" + queryParams.joinToString("&") else ""
+            return "hysteria2://$uuid@$address:$port$query#$encodedTag"
+        }
+
         val queryParams = mutableListOf(
             "type=$network",
             "security=$security",
@@ -50,22 +83,33 @@ data class VlessServer(
             queryParams.add("flow=$flow")
         }
         val query = queryParams.joinToString("&")
-        val encodedTag = URLEncoder.encode(tag, "UTF-8")
         return "vless://$uuid@$address:$port?$query#$encodedTag"
     }
 
     companion object {
         fun fromUri(uriString: String, customTag: String? = null): VlessServer? {
             return try {
-                if (!uriString.startsWith("vless://")) return null
                 val raw = uriString.trim()
-                val uri = URI(raw)
+                val isHy2 = raw.startsWith("hysteria2://", ignoreCase = true) ||
+                    raw.startsWith("hy2://", ignoreCase = true)
+                val isVless = raw.startsWith("vless://", ignoreCase = true)
+                val isTrojan = raw.startsWith("trojan://", ignoreCase = true)
+                if (!isHy2 && !isVless && !isTrojan) return null
 
-                val uuid = uri.userInfo ?: raw.substringAfter("vless://").substringBefore("@")
-                val host = uri.host ?: raw.substringAfter("@").substringBefore(":").substringBefore("?")
-                val port = if (uri.port > 0) uri.port else 443
+                val scheme = if (isHy2) "hysteria2" else if (isTrojan) "trojan" else "vless"
+                val prefix = if (isHy2) {
+                    if (raw.startsWith("hy2://", ignoreCase = true)) "hy2://" else "hysteria2://"
+                } else if (isTrojan) "trojan://" else "vless://"
 
-                val rawQuery = uri.rawQuery ?: raw.substringAfter("?", "").substringBefore("#")
+                val afterScheme = raw.substring(prefix.length)
+                val userInfo = if (afterScheme.contains("@")) afterScheme.substringBefore("@") else ""
+                val afterUser = if (afterScheme.contains("@")) afterScheme.substringAfter("@") else afterScheme
+                val hostPort = afterUser.substringBefore("?").substringBefore("#")
+                val host = if (hostPort.contains(":")) hostPort.substringBefore(":") else hostPort
+                val portStr = if (hostPort.contains(":")) hostPort.substringAfter(":") else "443"
+                val port = portStr.toIntOrNull() ?: 443
+
+                val rawQuery = if (raw.contains("?")) raw.substringAfter("?").substringBefore("#") else ""
                 val params = mutableMapOf<String, String>()
                 if (rawQuery.isNotEmpty()) {
                     rawQuery.split("&").forEach { param ->
@@ -80,10 +124,40 @@ data class VlessServer(
                     }
                 }
 
-                val fragment = uri.fragment ?: if (raw.contains("#")) raw.substringAfter("#") else null
+                val fragment = if (raw.contains("#")) raw.substringAfter("#") else null
                 val tag = customTag ?: (if (!fragment.isNullOrBlank()) {
                     try { URLDecoder.decode(fragment, "UTF-8") } catch (_: Exception) { fragment }
                 } else "Mirage Server")
+
+                if (isHy2) {
+                    val auth = if (userInfo.isNotEmpty()) userInfo else (params["auth"] ?: "")
+                    val sni = params["sni"] ?: params["host"] ?: host
+                    val insecure = params["insecure"] == "1" || params["allowinsecure"] == "1"
+                    val obfs = params["obfs"] ?: ""
+                    val obfsPassword = params["obfs-password"] ?: params["obfspassword"] ?: ""
+
+                    return VlessServer(
+                        id = "hy2-${auth.take(8).ifEmpty { host.take(8) }}",
+                        tag = tag,
+                        address = host,
+                        port = port,
+                        uuid = auth,
+                        network = "hysteria",
+                        security = "tls",
+                        publicKey = "",
+                        fingerprint = params["fp"] ?: "chrome",
+                        serverName = sni,
+                        host = sni,
+                        mode = "none",
+                        path = "/",
+                        shortId = "",
+                        flow = "",
+                        protocol = "hysteria2",
+                        insecure = insecure,
+                        obfs = obfs,
+                        obfsPassword = obfsPassword
+                    )
+                }
 
                 val rawNetwork = params["type"] ?: params["net"] ?: "tcp"
                 val network = if (rawNetwork.equals("splithttp", ignoreCase = true)) "xhttp" else rawNetwork
@@ -97,11 +171,11 @@ data class VlessServer(
                 val mode = params["mode"] ?: "none"
 
                 VlessServer(
-                    id = "vless-${uuid.take(8)}",
+                    id = "$scheme-${userInfo.take(8).ifEmpty { host.take(8) }}",
                     tag = tag,
                     address = host,
                     port = port,
-                    uuid = uuid,
+                    uuid = userInfo,
                     network = network,
                     security = security,
                     publicKey = pbk,
@@ -111,7 +185,8 @@ data class VlessServer(
                     mode = mode,
                     path = if (network.equals("tcp", ignoreCase = true)) spx else (params["path"] ?: spx),
                     shortId = sid,
-                    flow = flow
+                    flow = flow,
+                    protocol = scheme
                 )
             } catch (e: Exception) {
                 null

@@ -279,8 +279,12 @@ function storedNodeLink(
     : nodeId === "premium_belarus"
     ? subscription.belarus_vless_key
     : null;
-  if (!link || !link.startsWith("vless://")) return null;
-  const uuid = link.match(/^vless:\/\/([0-9a-fA-F-]{36})@/)?.[1] || "";
+  if (!link || (!link.startsWith("vless://") && !link.startsWith("hysteria2://") && !link.startsWith("hy2://"))) return null;
+  // Устаревшие/недоступные хосты Швейцарии не отдаём из кэша базы
+  if (nodeId === "premium_france" && (link.includes("ch1.") || link.includes("ch4."))) {
+    return null;
+  }
+  const uuid = link.match(/^(?:vless|hysteria2|hy2):\/\/([^@]+)@/)?.[1] || "";
   return { link, uuid };
 }
 

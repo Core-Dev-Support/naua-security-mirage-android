@@ -199,6 +199,13 @@
     <string name="private_dns_state_strict">Провайдер %1$s — может мешать VPN</string>
     <string name="private_dns_state_unknown">Не удалось определить</string>
     <string name="node_status_title">Состояние платного узла</string>
+    <string name="node_status_title_format">Узел: %1$s</string>
+    <string name="node_status_generic_up">%1$s отвечает · %2$d ms</string>
+    <string name="node_status_generic_down">%1$s не отвечает</string>
+    <string name="protocol_selector_title">Протокол</string>
+    <string name="protocol_vless">VLESS</string>
+    <string name="protocol_hysteria2">Hysteria 2</string>
+    <string name="protocol_xhttp">XHTTP</string>
     <string name="node_status_checking">Проверяем…</string>
     <string name="node_status_refresh">Обновить</string>
     <string name="node_status_up">Швейцария отвечает · ядро %1$s</string>

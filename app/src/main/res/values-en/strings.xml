@@ -199,6 +199,13 @@
     <string name="private_dns_state_strict">Provider %1$s — may interfere with the VPN</string>
     <string name="private_dns_state_unknown">Could not detect</string>
     <string name="node_status_title">Paid node status</string>
+    <string name="node_status_title_format">Node: %1$s</string>
+    <string name="node_status_generic_up">%1$s responds · %2$d ms</string>
+    <string name="node_status_generic_down">%1$s is unreachable</string>
+    <string name="protocol_selector_title">Protocol</string>
+    <string name="protocol_vless">VLESS</string>
+    <string name="protocol_hysteria2">Hysteria 2</string>
+    <string name="protocol_xhttp">XHTTP</string>
     <string name="node_status_checking">Checking…</string>
     <string name="node_status_refresh">Refresh</string>
     <string name="node_status_up">Switzerland responds · core %1$s</string>

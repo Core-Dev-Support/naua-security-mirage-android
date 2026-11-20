@@ -414,6 +414,10 @@ class XrayVpnController(private val vpnService: VpnService) {
     }
 
     private fun buildShareLink(server: VlessServer): String {
+        if (server.isHysteria2) {
+            return server.toShareUri()
+        }
+
         fun enc(value: String): String = try {
             java.net.URLEncoder.encode(value, "UTF-8")
         } catch (_: Exception) {
@@ -570,8 +574,9 @@ class XrayVpnController(private val vpnService: VpnService) {
     private fun buildManualConfig(server: VlessServer, mtu: Int): String {
         val xrayServer = resolveProxyEndpoint(server)
 
-        // Always block UDP 443 so browsers and YouTube fall back immediately to fast TCP HTTP/2 without QUIC stalls
-        val shouldBlockQuic = true
+        // Block UDP 443 for regular TCP-based proxies so browsers fall back to fast HTTP/2 without QUIC stalls,
+        // but never block QUIC/UDP when running on Hysteria 2.
+        val shouldBlockQuic = !server.isHysteria2
         val root = JsonObject()
         val settingsRepo = SettingsRepository(vpnService)
 
@@ -950,6 +955,7 @@ class XrayVpnController(private val vpnService: VpnService) {
                         !host.isNullOrEmpty() &&
                         !xhttp.get("mode")?.asString.isNullOrEmpty()
                 }
+                network.equals("hysteria", ignoreCase = true) -> true
                 network.equals("tcp", ignoreCase = true) -> {
                     if (server.security.ifEmpty { "reality" } != "reality") true
                     else {
@@ -966,7 +972,58 @@ class XrayVpnController(private val vpnService: VpnService) {
             AppLogger.w(TAG, "LibXray outbound lost transport params for ${server.tag} — using the manual outbound")
             Log.w(TAG, "LibXray outbound lost transport params for ${server.tag} — using the manual outbound")
         }
-        val finalOutbound = usableOfficial ?: vlessOutbound
+
+        val hysteriaOutbound = JsonObject().apply {
+            addProperty("tag", "proxy")
+            addProperty("protocol", "hysteria")
+
+            val settings = JsonObject().apply {
+                addProperty("version", 2)
+                addProperty("address", xrayServer.address)
+                addProperty("port", server.port)
+                val users = JsonArray().apply {
+                    add(JsonObject().apply {
+                        addProperty("auth", server.uuid)
+                    })
+                }
+                add("users", users)
+            }
+            add("settings", settings)
+
+            val streamSettings = JsonObject().apply {
+                addProperty("network", "hysteria")
+                val security = if (server.security.isNotEmpty()) server.security else "tls"
+                addProperty("security", security)
+
+                val tlsSettings = JsonObject().apply {
+                    addProperty("serverName", server.serverName.ifEmpty { server.address })
+                    addProperty("allowInsecure", server.insecure)
+                }
+                add("tlsSettings", tlsSettings)
+
+                val hysteriaSettings = JsonObject().apply {
+                    addProperty("version", 2)
+                    addProperty("auth", server.uuid)
+                    addProperty("udpIdleTimeout", 60)
+                    if (server.obfs.isNotEmpty()) {
+                        addProperty("obfs", server.obfs)
+                        if (server.obfsPassword.isNotEmpty()) {
+                            addProperty("obfsPassword", server.obfsPassword)
+                        }
+                    }
+                }
+                add("hysteriaSettings", hysteriaSettings)
+
+                val sockopt = JsonObject().apply {
+                    addProperty("domainStrategy", "AsIs")
+                }
+                add("sockopt", sockopt)
+            }
+            add("streamSettings", streamSettings)
+        }
+
+        val fallbackOutbound = if (server.isHysteria2) hysteriaOutbound else vlessOutbound
+        val finalOutbound = usableOfficial ?: fallbackOutbound
         outbounds.add(finalOutbound)
 
         val directOutbound = JsonObject().apply {

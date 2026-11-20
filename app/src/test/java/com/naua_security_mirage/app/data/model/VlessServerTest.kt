@@ -39,4 +39,49 @@ class VlessServerTest {
         assertEquals("xtls-rprx-vision", server.flow)
         assertEquals("1234", server.shortId)
     }
+
+    @Test
+    fun parsesHysteria2UriAndSerializesCorrectly() {
+        val link = "hysteria2://password123@example.com:8443?sni=hy2.example.com&insecure=1&obfs=salamander&obfs-password=mysecret#SwissNode"
+
+        val server = VlessServer.fromUri(link)
+
+        assertNotNull(server)
+        assertEquals("hysteria2", server!!.protocol)
+        assertEquals("password123", server.uuid)
+        assertEquals("example.com", server.address)
+        assertEquals(8443, server.port)
+        assertEquals("hy2.example.com", server.serverName)
+        assertEquals("hy2.example.com", server.host)
+        assertTrue(server.isHysteria2)
+        assertTrue(server.insecure)
+        assertEquals("salamander", server.obfs)
+        assertEquals("mysecret", server.obfsPassword)
+        assertEquals("SwissNode", server.tag)
+
+        val serialized = server.toVlessUri()
+        assertTrue(serialized.startsWith("hysteria2://password123@example.com:8443"))
+        assertTrue(serialized.contains("sni=hy2.example.com"))
+        assertTrue(serialized.contains("insecure=1"))
+        assertTrue(serialized.contains("obfs=salamander"))
+        assertTrue(serialized.contains("obfs-password=mysecret"))
+        assertTrue(serialized.endsWith("#SwissNode"))
+    }
+
+    @Test
+    fun parsesHy2ShortAliasUri() {
+        val link = "hy2://mypass@192.0.2.1:443?sni=cdn.example.org#ShortHy2"
+
+        val server = VlessServer.fromUri(link)
+
+        assertNotNull(server)
+        assertEquals("hysteria2", server!!.protocol)
+        assertTrue(server.isHysteria2)
+        assertEquals("mypass", server.uuid)
+        assertEquals("192.0.2.1", server.address)
+        assertEquals(443, server.port)
+        assertEquals("cdn.example.org", server.serverName)
+        assertEquals("cdn.example.org", server.host)
+        assertEquals("ShortHy2", server.tag)
+    }
 }
