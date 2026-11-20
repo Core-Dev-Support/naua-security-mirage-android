@@ -64,8 +64,8 @@ const DEFAULT_NODES: PaidNode[] = [
   {
     id: "premium_france",
     kind: "france",
-    label_ru: "🇨🇭 Швейцария (Платная)",
-    label_en: "🇨🇭 Switzerland (Paid)",
+    label_ru: "🇨🇭 Швейцария (протокол)",
+    label_en: "🇨🇭 Switzerland (Protocol)",
     flag: "switzerland",
     config_function: "france-config",
     sort: 10,

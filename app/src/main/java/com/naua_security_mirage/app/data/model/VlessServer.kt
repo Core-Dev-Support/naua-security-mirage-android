@@ -87,27 +87,47 @@ data class VlessServer(
     }
 
     companion object {
+        private fun parseHostAndPort(rawHostPort: String): Pair<String, Int> {
+            val trimmed = rawHostPort.trim()
+            if (trimmed.startsWith("[")) {
+                val endBracket = trimmed.indexOf(']')
+                if (endBracket != -1) {
+                    val ipv6Host = trimmed.substring(1, endBracket)
+                    val rest = trimmed.substring(endBracket + 1)
+                    val port = if (rest.startsWith(":")) {
+                        rest.substring(1).toIntOrNull()?.takeIf { it in 1..65535 } ?: 443
+                    } else 443
+                    return Pair(ipv6Host, port)
+                }
+            }
+            val lastColon = trimmed.lastIndexOf(':')
+            return if (lastColon != -1 && trimmed.indexOf(':') == lastColon) {
+                val host = trimmed.substring(0, lastColon)
+                val port = trimmed.substring(lastColon + 1).toIntOrNull()?.takeIf { it in 1..65535 } ?: 443
+                Pair(host, port)
+            } else {
+                Pair(trimmed, 443)
+            }
+        }
+
         fun fromUri(uriString: String, customTag: String? = null): VlessServer? {
             return try {
                 val raw = uriString.trim()
                 val isHy2 = raw.startsWith("hysteria2://", ignoreCase = true) ||
                     raw.startsWith("hy2://", ignoreCase = true)
                 val isVless = raw.startsWith("vless://", ignoreCase = true)
-                val isTrojan = raw.startsWith("trojan://", ignoreCase = true)
-                if (!isHy2 && !isVless && !isTrojan) return null
+                if (!isHy2 && !isVless) return null
 
-                val scheme = if (isHy2) "hysteria2" else if (isTrojan) "trojan" else "vless"
+                val scheme = if (isHy2) "hysteria2" else "vless"
                 val prefix = if (isHy2) {
                     if (raw.startsWith("hy2://", ignoreCase = true)) "hy2://" else "hysteria2://"
-                } else if (isTrojan) "trojan://" else "vless://"
+                } else "vless://"
 
                 val afterScheme = raw.substring(prefix.length)
                 val userInfo = if (afterScheme.contains("@")) afterScheme.substringBefore("@") else ""
                 val afterUser = if (afterScheme.contains("@")) afterScheme.substringAfter("@") else afterScheme
                 val hostPort = afterUser.substringBefore("?").substringBefore("#")
-                val host = if (hostPort.contains(":")) hostPort.substringBefore(":") else hostPort
-                val portStr = if (hostPort.contains(":")) hostPort.substringAfter(":") else "443"
-                val port = portStr.toIntOrNull() ?: 443
+                val (host, port) = parseHostAndPort(hostPort)
 
                 val rawQuery = if (raw.contains("?")) raw.substringAfter("?").substringBefore("#") else ""
                 val params = mutableMapOf<String, String>()

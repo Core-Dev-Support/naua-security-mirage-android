@@ -45,7 +45,7 @@ type PaidNodeConfig = {
 };
 
 const DEFAULT_PAID_NODES: PaidNodeConfig[] = [
-  { id: "premium_france", kind: "france", label: "Швейцария (Платная)", configFunction: "france-config", sort: 10 },
+  { id: "premium_france", kind: "france", label: "Швейцария (протокол)", configFunction: "france-config", sort: 10 },
   { id: "premium_belarus", kind: "turkey", label: "Турция (Платная)", configFunction: "belarus-config", sort: 20 },
 ];
 
@@ -488,9 +488,14 @@ serve(async (req) => {
       // Флаг остаётся у названия для Happ/других клиентов: в приложении его
       // даёт то же поле, вшитых иконок больше нет. Двойной флаг не склеиваем.
       const flag = node.kind === "belarus" ? "🇧🇾" : node.kind === "turkey" ? "🇹🇷" : "🇨🇭";
-      const label = node.label.startsWith(flag)
-        ? `NAUA Security Mirage ${node.label}`
-        : `NAUA Security Mirage ${flag} ${node.label}`;
+      let label: string;
+      if (node.kind === "france" || node.id === "premium_france") {
+        label = "Швейцария (протокол)";
+      } else {
+        label = node.label.startsWith(flag)
+          ? `NAUA Security Mirage ${node.label}`
+          : `NAUA Security Mirage ${flag} ${node.label}`;
+      }
       links.push(withNodeName(resolved.link, label));
       nodes.push({ host: node.id, label, uuid: resolved.uuid });
     }

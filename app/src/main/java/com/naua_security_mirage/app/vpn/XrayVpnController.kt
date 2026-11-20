@@ -1014,6 +1014,23 @@ class XrayVpnController(private val vpnService: VpnService) {
                 }
                 add("hysteriaSettings", hysteriaSettings)
 
+                if (server.obfs.isNotEmpty() && server.obfs.equals("salamander", ignoreCase = true)) {
+                    val finalmask = JsonObject().apply {
+                        val udpArray = JsonArray().apply {
+                            val salamanderObj = JsonObject().apply {
+                                addProperty("type", "salamander")
+                                val settingsObj = JsonObject().apply {
+                                    addProperty("password", server.obfsPassword)
+                                }
+                                add("settings", settingsObj)
+                            }
+                            add(salamanderObj)
+                        }
+                        add("udp", udpArray)
+                    }
+                    add("finalmask", finalmask)
+                }
+
                 val sockopt = JsonObject().apply {
                     addProperty("domainStrategy", "AsIs")
                 }

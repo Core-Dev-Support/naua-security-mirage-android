@@ -32,12 +32,14 @@ data class PaidNode(
     enum class Kind {
         FRANCE,
         BELARUS,
+        TURKEY,
         VLESS;
 
         companion object {
             fun from(raw: String?): Kind = when (raw?.trim()?.lowercase(Locale.ROOT)) {
                 "france" -> FRANCE
                 "belarus" -> BELARUS
+                "turkey" -> TURKEY
                 else -> VLESS
             }
         }
@@ -82,10 +84,10 @@ data class AppConfig(
             ),
             PaidNode(
                 id = "premium_belarus",
-                kind = PaidNode.Kind.BELARUS,
-                labelRu = "Беларусь (Платная)",
-                labelEn = "Belarus (Paid)",
-                flag = "belarus",
+                kind = PaidNode.Kind.TURKEY,
+                labelRu = "Турция (Платная)",
+                labelEn = "Turkey (Paid)",
+                flag = "turkey",
                 configFunction = "belarus-config",
                 sort = 20
             )

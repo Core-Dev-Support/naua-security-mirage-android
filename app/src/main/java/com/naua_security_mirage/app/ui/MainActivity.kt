@@ -2375,9 +2375,9 @@ class MainActivity : AppCompatActivity() {
 
                     if (hasPaid && paidNode != null) {
                         when (paidNode.kind) {
-                            PaidNode.Kind.BELARUS -> AppLogger.i(
+                            PaidNode.Kind.BELARUS, PaidNode.Kind.TURKEY -> AppLogger.i(
                                 "DataRefresh",
-                                "Ключ Беларуси обновляется параллельно с замером задержки"
+                                "Ключ Турции обновляется параллельно с замером задержки"
                             )
                             PaidNode.Kind.FRANCE -> {
                                 val freshKey = runCatching {
@@ -2410,7 +2410,7 @@ class MainActivity : AppCompatActivity() {
                         async {
                             runCatching {
                                 when (paidNode.kind) {
-                                    PaidNode.Kind.BELARUS -> {
+                                    PaidNode.Kind.BELARUS, PaidNode.Kind.TURKEY -> {
                                         val probe = BelarusNodeMonitor.probe(
                                             this@MainActivity,
                                             forceRefresh = true
@@ -2441,6 +2441,7 @@ class MainActivity : AppCompatActivity() {
                                                 MirageVpnService.protectSocket(socket)
                                             }
                                         } catch (t: Throwable) {
+                                            if (t is kotlinx.coroutines.CancellationException) throw t
                                             -1L
                                         }
                                         if (p in 1..9998) "$p ms" else getString(R.string.ping_timeout)
@@ -2726,7 +2727,12 @@ class MainActivity : AppCompatActivity() {
         gen: Int,
         forceRefresh: Boolean
     ) {
-        val probe = BelarusNodeMonitor.probe(this@MainActivity, forceRefresh = forceRefresh)
+        val probe = try {
+            BelarusNodeMonitor.probe(this@MainActivity, forceRefresh = forceRefresh)
+        } catch (t: Throwable) {
+            if (t is kotlinx.coroutines.CancellationException) throw t
+            BelarusNodeMonitor.Probe(null, -1L, "error")
+        }
         if (gen != nodeStatusGen) return
 
         if (probe.reason == "no_session") {
@@ -2796,7 +2802,12 @@ class MainActivity : AppCompatActivity() {
         }
 
         val ping = withContext(Dispatchers.IO) {
-            pingRepository.measurePing(server, timeoutMs = 2000)
+            try {
+                pingRepository.measurePing(server, timeoutMs = 2000)
+            } catch (t: Throwable) {
+                if (t is kotlinx.coroutines.CancellationException) throw t
+                -1L
+            }
         }
         if (gen != nodeStatusGen) return
 
@@ -2836,6 +2847,7 @@ class MainActivity : AppCompatActivity() {
                     MirageVpnService.protectSocket(socket)
                 }
             } catch (t: Throwable) {
+                if (t is kotlinx.coroutines.CancellationException) throw t
                 -1L
             }
         }
@@ -2854,7 +2866,16 @@ class MainActivity : AppCompatActivity() {
             )
         }
 
-        if (ping in 1..9998) {
+        val sinceText = status?.changedAt?.let { formatNodeSince(it) }.orEmpty()
+        if (status != null && status.state == "down") {
+            stateView.text = getString(R.string.node_status_down, sinceText)
+            stateView.setTextColor(nodeColor(true))
+            AppLogger.w("NodeStatus", "$nodeTitle: сервер сообщает down с $sinceText")
+        } else if (status != null && status.state == "wedged") {
+            stateView.text = getString(R.string.node_status_wedged, sinceText)
+            stateView.setTextColor(nodeColor(true))
+            AppLogger.w("NodeStatus", "$nodeTitle: сервер сообщает wedged с $sinceText")
+        } else if (ping in 1..9998) {
             stateView.text = getString(R.string.node_status_generic_up, nodeTitle, ping)
             stateView.setTextColor(themedSubtitle())
             AppLogger.i("NodeStatus", "$nodeTitle: узел отвечает с устройства за $ping мс")

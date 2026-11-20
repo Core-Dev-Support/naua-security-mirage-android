@@ -84,4 +84,21 @@ class VlessServerTest {
         assertEquals("cdn.example.org", server.host)
         assertEquals("ShortHy2", server.tag)
     }
+
+    @Test
+    fun parsesIpv6AddressWithPortCorrectly() {
+        val link = "vless://33333333-3333-3333-3333-333333333333@[2001:db8::1]:8443?type=tcp#Ipv6Node"
+        val server = VlessServer.fromUri(link)
+        assertNotNull(server)
+        assertEquals("2001:db8::1", server!!.address)
+        assertEquals(8443, server.port)
+        assertEquals("Ipv6Node", server.tag)
+    }
+
+    @Test
+    fun rejectsTrojanScheme() {
+        val link = "trojan://password@example.com:443#TrojanNode"
+        val server = VlessServer.fromUri(link)
+        org.junit.Assert.assertNull(server)
+    }
 }

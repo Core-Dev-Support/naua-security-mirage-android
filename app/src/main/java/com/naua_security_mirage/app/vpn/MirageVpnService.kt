@@ -263,8 +263,13 @@ class MirageVpnService : VpnService() {
                     }
 
                     val best = pickFreeServer(measuredServers)
-                    val freeProto = settingsRepository.getProtocolForNode(SettingsRepository.PLAN_FREE)
-                    val protoServer = applyProtocolPreference(best, freeProto)
+                    if (best == null) {
+                        AppLogger.e(TAG, "Бесплатные узлы недоступны или список пуст")
+                        AppLogger.onUserMessage(getString(R.string.vpn_error_panel_empty))
+                        _vpnState.value = VpnState.DISCONNECTED
+                        return@launch
+                    }
+                    val protoServer = best
                     val bestPingText = if (protoServer.pingMs in 1..9998) "${protoServer.pingMs} ms" else "доступен"
                     AppLogger.i(TAG, "Выбран оптимальный узел: ${protoServer.tag} (протокол: ${protoServer.protocol}/${protoServer.network}, задержка: $bestPingText)")
                     freeAnyReachable = measuredServers.any { it.pingMs in 1..9998 }
@@ -280,7 +285,12 @@ class MirageVpnService : VpnService() {
                     _vpnState.value = VpnState.DISCONNECTED
                     return@launch
                 }
-                val selectedServer = bestServer!!
+                val selectedServer = bestServer ?: run {
+                    AppLogger.e(TAG, "Узел для подключения не выбран")
+                    AppLogger.onUserMessage(getString(R.string.vpn_error_panel_empty))
+                    _vpnState.value = VpnState.DISCONNECTED
+                    return@launch
+                }
 
 
                 captureUnderlyingNetwork()
@@ -486,7 +496,7 @@ class MirageVpnService : VpnService() {
         if (!manager.hasActiveSubscription()) return null
         val resolved = when (node.kind) {
             PaidNode.Kind.FRANCE -> resolveFranceServer(node.label())
-            PaidNode.Kind.BELARUS -> {
+            PaidNode.Kind.BELARUS, PaidNode.Kind.TURKEY -> {
                 val refresh = serviceScope.async(Dispatchers.IO) {
                     manager.ensureBelarusVlessKey(force = force)
                 }
@@ -852,7 +862,8 @@ class MirageVpnService : VpnService() {
     private fun freeNodeKey(server: VlessServer): String =
         listOf(server.address, server.port.toString(), server.uuid).joinToString("|")
 
-    private fun pickFreeServer(servers: List<VlessServer>): VlessServer {
+    private fun pickFreeServer(servers: List<VlessServer>): VlessServer? {
+        if (servers.isEmpty()) return null
         val preferred = settingsRepository.preferredFreeNodeKey
         if (!preferred.isNullOrBlank()) {
             val pinned = servers.firstOrNull { freeNodeKey(it) == preferred }
@@ -1647,7 +1658,9 @@ class MirageVpnService : VpnService() {
                     val servers = vlessKeyRepository.getVlessServers()
                     val measured = pingRepository.measureAllPings(servers)
                     val best = pickFreeServer(measured)
-                    AppLogger.i(TAG, "Выбран оптимальный бесплатный узел для переподключения: ${best.tag}")
+                    if (best != null) {
+                        AppLogger.i(TAG, "Выбран оптимальный бесплатный узел для переподключения: ${best.tag}")
+                    }
                     best
                 }
 
@@ -1662,8 +1675,8 @@ class MirageVpnService : VpnService() {
                             "no_key"
                         )
                     }
-                    AppLogger.e(TAG, "Платный узел недоступен для переподключения")
-                    AppLogger.onUserMessage(getString(R.string.paid_unavailable_later))
+                    AppLogger.e(TAG, "Узел недоступен для переподключения")
+                    AppLogger.onUserMessage(if (isPaidPlan) getString(R.string.paid_unavailable_later) else getString(R.string.vpn_error_nodes_blocked))
                     _vpnState.value = VpnState.DISCONNECTED
                     stopVpn()
                     return@launch

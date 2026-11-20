@@ -30,7 +30,7 @@ class PingRepository {
             }
         }
         val collected = probes.filterNotNull()
-        val result = if (collected.isEmpty()) 9999L else collected.min()
+        val result = if (collected.isEmpty()) 9999L else collected.sorted()[collected.size / 2]
         server.pingMs = result
         if (result in 1..9998) {
             Log.d(TAG, "Server ${server.tag} ping: ${result}ms from ${collected.size}/$count probes")
@@ -70,20 +70,30 @@ class PingRepository {
         val target = resolveAddress(server.address) ?: return@withTimeoutOrNull null
 
         if (server.isHysteria2) {
-            // Узел работает на Hysteria 2 (UDP/QUIC): TCP не проверяем, опрашиваем через UDP
+            // Узел работает на Hysteria 2 (UDP/QUIC): опрашиваем через QUIC UDP probe с ожиданием ответа
             var datagramSocket: java.net.DatagramSocket? = null
             try {
                 datagramSocket = java.net.DatagramSocket()
-                datagramSocket.soTimeout = timeoutMs
+                datagramSocket.soTimeout = timeoutMs.coerceAtLeast(400)
                 val start = System.currentTimeMillis()
                 datagramSocket.connect(InetSocketAddress(target, server.port))
-                val dummy = byteArrayOf(0x00)
-                val packet = java.net.DatagramPacket(dummy, dummy.size, target, server.port)
+                // Отправляем QUIC Long Header / Initial packet с версией 0x1a2a3a4a
+                // Сервер QUIC / Hysteria 2 при получении отвечает пакетом Version Negotiation
+                val quicProbe = byteArrayOf(
+                    0xc0.toByte(),
+                    0x1a.toByte(), 0x2a.toByte(), 0x3a.toByte(), 0x4a.toByte(),
+                    0x00, 0x00, 0x00
+                )
+                val packet = java.net.DatagramPacket(quicProbe, quicProbe.size, target, server.port)
                 datagramSocket.send(packet)
+                val buffer = ByteArray(1500)
+                val responsePacket = java.net.DatagramPacket(buffer, buffer.size)
+                datagramSocket.receive(responsePacket)
                 val duration = System.currentTimeMillis() - start
                 return@withTimeoutOrNull if (duration > 0) duration else 1L
             } catch (_: Exception) {
-                return@withTimeoutOrNull null
+                // Если UDP-ответ не получен (обфускация obfs или блокировка UDP),
+                // проверяем доступность порта через резервный TCP connect ниже
             } finally {
                 try {
                     datagramSocket?.close()
@@ -182,12 +192,13 @@ class PingRepository {
         )
     }
 
-    fun selectBestServer(servers: List<VlessServer>): VlessServer {
+    fun selectBestServer(servers: List<VlessServer>): VlessServer? {
+        if (servers.isEmpty()) return null
         val reachable = servers.filter { it.pingMs in 1..9998 }
-        if (reachable.isEmpty()) return servers.first()
+        if (reachable.isEmpty()) return servers.firstOrNull()
 
-        val best = reachable.minByOrNull { score(it) } ?: servers.first()
-        if (reachable.size > 1) {
+        val best = reachable.minByOrNull { score(it) } ?: servers.firstOrNull()
+        if (reachable.size > 1 && best != null) {
             Log.d(
                 TAG,
                 "Chose ${best.tag} (${best.pingMs}ms loss=${best.lossPercent}%) out of ${reachable.size}"

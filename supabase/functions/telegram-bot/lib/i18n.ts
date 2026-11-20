@@ -292,7 +292,7 @@ const ru: Record<string, string> = {
   "status.title": "⚡ <b>Статус узлов</b>",
   "status.intro": "<blockquote><b>Что это:</b> статус работы выделенных узлов и протоколов маскировки.</blockquote>",
   "status.body":
-    "🇨🇭 <b>Швейцария (Платная)</b> — 🟢 Онлайн\n<i>Протокол: VLESS + Reality + XHTTP</i>\n\n" +
+    "🇨🇭 <b>Швейцария (протокол)</b> — 🟢 Онлайн\n<i>Протокол: VLESS + Reality + XHTTP</i>\n\n" +
     "🇹🇷 <b>Турция (Платная)</b> — 🟢 Онлайн\n<i>Протокол: VLESS + Reality</i>\n\n" +
     "✅ Выделенные узлы работают в штатном режиме. Маскировка активна.",
   "status.refresh": "🔄 Обновить статус",
@@ -610,7 +610,7 @@ const en: Record<string, string> = {
   "status.title": "⚡ <b>Node Status</b>",
   "status.intro": "<blockquote><b>What is this:</b> live health check of dedicated nodes and masquerading protocols.</blockquote>",
   "status.body":
-    "🇨🇭 <b>Switzerland (Paid)</b> — 🟢 Online\n<i>Protocol: VLESS + Reality + XHTTP</i>\n\n" +
+    "🇨🇭 <b>Switzerland (Protocol)</b> — 🟢 Online\n<i>Protocol: VLESS + Reality + XHTTP</i>\n\n" +
     "🇹🇷 <b>Turkey (Paid)</b> — 🟢 Online\n<i>Protocol: VLESS + Reality</i>\n\n" +
     "✅ Dedicated nodes are operating normally. Masquerade is active.",
   "status.refresh": "🔄 Refresh Status",

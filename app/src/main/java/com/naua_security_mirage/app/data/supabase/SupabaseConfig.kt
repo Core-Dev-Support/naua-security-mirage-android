@@ -148,7 +148,7 @@ object SupabaseConfig {
 
     val FRANCE_ENDPOINTS: String get() = BuildConfig.FRANCE_ENDPOINTS
 
-    val BELARUS_LABEL = "Беларусь (Платный)"
+    val BELARUS_LABEL = "Турция (Платная)"
 
     var yooMoneyWallet: String = BuildConfig.YOOMONEY_WALLET
     var subscriptionPriceRub: Int = 50

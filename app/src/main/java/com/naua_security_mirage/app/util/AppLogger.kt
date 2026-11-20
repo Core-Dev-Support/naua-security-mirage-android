@@ -43,6 +43,8 @@ object AppLogger {
         Regex("""[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}""")
     private val keyPattern = Regex("""[A-Za-z0-9_-]{43}=""")
     private val vlessPattern = Regex("""vless://[^\s"']+""", RegexOption.IGNORE_CASE)
+    private val hy2Pattern = Regex("""(hysteria2|hy2)://[^\s"']+""", RegexOption.IGNORE_CASE)
+    private val trojanPattern = Regex("""trojan://[^\s"']+""", RegexOption.IGNORE_CASE)
     private val ipv4Pattern = Regex("""\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(:\d{1,5})?\b""")
     private val hostPortPattern =
         Regex("""\b[A-Za-z0-9-]{1,63}(\.[A-Za-z0-9-]{1,63})+:\d{1,5}\b""")
@@ -102,6 +104,8 @@ object AppLogger {
         result = result.replace(keyPattern, "*******************************************=")
 
         result = result.replace(vlessPattern, "vless://<redacted-link>")
+        result = result.replace(hy2Pattern, "hysteria2://<redacted-link>")
+        result = result.replace(trojanPattern, "trojan://<redacted-link>")
 
         result = result.replace(ipv4Pattern, "<redacted-endpoint>")
         result = result.replace(hostPortPattern, "<redacted-endpoint>")

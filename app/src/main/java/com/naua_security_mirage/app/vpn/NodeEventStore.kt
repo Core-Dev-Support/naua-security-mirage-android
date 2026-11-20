@@ -59,7 +59,7 @@ object NodeEventStore {
     }
 
     private fun nodeLabel(node: String): String = when (node) {
-        NODE_BELARUS -> "Беларусь"
+        NODE_BELARUS -> "Турция"
         else -> node
     }
 
