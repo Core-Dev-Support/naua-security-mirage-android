@@ -202,6 +202,7 @@
     <string name="node_status_title_format">Узел: %1$s</string>
     <string name="node_status_generic_up">%1$s отвечает · %2$d ms</string>
     <string name="node_status_generic_down">%1$s не отвечает</string>
+    <string name="node_status_generic_no_key">%1$s: ключ узла не получен</string>
     <string name="protocol_selector_title">Протокол</string>
     <string name="protocol_auto">Авто</string>
     <string name="protocol_vless">VLESS</string>

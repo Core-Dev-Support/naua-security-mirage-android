@@ -2299,7 +2299,11 @@ class MainActivity : AppCompatActivity() {
         refreshAnimationJob?.cancel()
         refreshCheckmarkJob?.cancel()
         isRefreshing = false
-        binding.pbRefreshBar.visibility = View.GONE
+        binding.pbRefreshSpinner.visibility = View.GONE
+        val density = resources.displayMetrics.density
+        binding.ivRefreshIcon.layoutParams.width = (19 * density).toInt()
+        binding.ivRefreshIcon.layoutParams.height = (19 * density).toInt()
+        binding.ivRefreshIcon.requestLayout()
         binding.ivRefreshIcon.setImageResource(R.drawable.ic_refresh)
         binding.ivRefreshIcon.rotation = 0f
         if (MirageVpnService.vpnState.value == VpnState.DISCONNECTED) {
@@ -2311,7 +2315,11 @@ class MainActivity : AppCompatActivity() {
         isRefreshing = false
         refreshJob = null
         refreshAnimationJob?.cancel()
-        binding.pbRefreshBar.visibility = View.GONE
+        binding.pbRefreshSpinner.visibility = View.GONE
+        val density = resources.displayMetrics.density
+        binding.ivRefreshIcon.layoutParams.width = (19 * density).toInt()
+        binding.ivRefreshIcon.layoutParams.height = (19 * density).toInt()
+        binding.ivRefreshIcon.requestLayout()
         binding.ivRefreshIcon.setImageResource(R.drawable.ic_check)
         binding.ivRefreshIcon.rotation = 0f
         refreshNodeStatus()
@@ -2328,7 +2336,11 @@ class MainActivity : AppCompatActivity() {
         isRefreshing = false
         refreshJob = null
         refreshAnimationJob?.cancel()
-        binding.pbRefreshBar.visibility = View.GONE
+        binding.pbRefreshSpinner.visibility = View.GONE
+        val density = resources.displayMetrics.density
+        binding.ivRefreshIcon.layoutParams.width = (19 * density).toInt()
+        binding.ivRefreshIcon.layoutParams.height = (19 * density).toInt()
+        binding.ivRefreshIcon.requestLayout()
         binding.ivRefreshIcon.setImageResource(R.drawable.ic_refresh)
         binding.ivRefreshIcon.rotation = 0f
     }
@@ -2338,8 +2350,12 @@ class MainActivity : AppCompatActivity() {
         isRefreshing = true
         refreshCheckmarkJob?.cancel()
 
-        // Google Play style: горизонтальная анимированная полоска загрузки
-        binding.pbRefreshBar.visibility = View.VISIBLE
+        // Google Play style: Material Design Indeterminate Circular Progress Indicator around cancel cross
+        binding.pbRefreshSpinner.visibility = View.VISIBLE
+        val density = resources.displayMetrics.density
+        binding.ivRefreshIcon.layoutParams.width = (14 * density).toInt()
+        binding.ivRefreshIcon.layoutParams.height = (14 * density).toInt()
+        binding.ivRefreshIcon.requestLayout()
         binding.ivRefreshIcon.setImageResource(R.drawable.ic_close)
         binding.ivRefreshIcon.rotation = 0f
 
@@ -2411,7 +2427,8 @@ class MainActivity : AppCompatActivity() {
                                         val manager = com.naua_security_mirage.app.data.supabase.SupabaseManager.instance
                                         // Пингуем тот же сервер, на который реально пойдёт туннель:
                                         // ключ из базы, а не зашитый в APK адрес (он может отставать).
-                                        val server = manager.getActiveVlessKey()?.let {
+                                        val key = manager.getActiveVlessKey() ?: manager.ensureFranceVlessKey()
+                                        val server = key?.let {
                                             com.naua_security_mirage.app.data.model.VlessServer
                                                 .fromUri(it, paidNode.label())
                                         } ?: run {
@@ -2419,7 +2436,13 @@ class MainActivity : AppCompatActivity() {
                                             com.naua_security_mirage.app.data.supabase.SupabaseConfig
                                                 .getFranceServer(uuid, manager.getActiveClientFlow(uuid))
                                         }
-                                        val p = pingRepository.measurePing(server, timeoutMs = 2500)
+                                        val p = try {
+                                            pingRepository.measurePing(server, timeoutMs = 2500) { socket ->
+                                                MirageVpnService.protectSocket(socket)
+                                            }
+                                        } catch (t: Throwable) {
+                                            -1L
+                                        }
                                         if (p in 1..9998) "$p ms" else getString(R.string.ping_timeout)
                                     }
                                     PaidNode.Kind.VLESS -> {
@@ -2451,22 +2474,30 @@ class MainActivity : AppCompatActivity() {
                     }
                     val servers = vlessKeyRepository.getVlessServers()
                     AppLogger.d("DataRefresh", "Получено конфигураций: ${servers.size}. Измерение пинга...")
-                    val measured = pingRepository.measureAllPings(servers, probeTimeoutMs = 2500, totalBudgetMs = 8000L)
+                    val measured = if (servers.isNotEmpty()) {
+                        pingRepository.measureAllPings(servers, probeTimeoutMs = 2500, totalBudgetMs = 8000L)
+                    } else {
+                        emptyList()
+                    }
                     measured.forEach { s ->
                         val pingStr = if (s.pingMs in 1..9998) "${s.pingMs} ms" else getString(R.string.ping_timeout)
                         AppLogger.d("DataRefresh", "Узел ${s.tag} -> пинг: $pingStr")
                     }
-                    val best = pingRepository.selectBestServer(measured)
-                    val pingText = if (best.pingMs in 1..9998) "${best.pingMs} ms" else getString(R.string.ping_timeout)
+                    val best = if (measured.isNotEmpty()) pingRepository.selectBestServer(measured) else null
+                    val pingText = best?.let {
+                        if (it.pingMs in 1..9998) "${it.pingMs} ms" else getString(R.string.ping_timeout)
+                    } ?: getString(R.string.ping_timeout)
                     val paidPingText = paidPingJob?.await()
 
-                    val statusText = if (paidPingText != null) paidPingText else pingText
+                    val statusText = paidPingText ?: pingText
                     AppLogger.i(
                         "DataRefresh",
                         if (paidPingText != null) {
-                            "Обновление завершено. Показан пинг платного узла $paidPingText, бесплатные обновлены: ${best.tag} $pingText"
+                            "Обновление завершено. Показан пинг платного узла $paidPingText" +
+                                (best?.let { ", бесплатные обновлены: ${it.tag} $pingText" } ?: "")
                         } else {
-                            "Обновление завершено. Показан пинг бесплатного ${best.tag} $pingText"
+                            "Обновление завершено. Показан пинг бесплатного " +
+                                (best?.let { "${it.tag} $pingText" } ?: pingText)
                         }
                     )
                     withContext(Dispatchers.Main) {
@@ -2643,11 +2674,11 @@ class MainActivity : AppCompatActivity() {
                 stateView.text = getString(R.string.node_status_no_subscription)
                 stateView.setTextColor(themedSubtitle())
             } else if (isBelarusPlan) {
-                refreshBelarusState(stateView, gen, forceRefresh = force)
+                refreshBelarusState(nodeTitle, stateView, gen, forceRefresh = force)
             } else if (isGenericPlan) {
                 refreshGenericNodeState(trackedNode, stateView, gen, force)
             } else {
-                refreshFranceState(stateView, gen)
+                refreshFranceState(nodeTitle, stateView, gen, forceRefresh = force)
             }
 
             if (gen != nodeStatusGen) return@launch
@@ -2689,14 +2720,19 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private suspend fun refreshBelarusState(stateView: TextView, gen: Int, forceRefresh: Boolean) {
+    private suspend fun refreshBelarusState(
+        nodeTitle: String,
+        stateView: TextView,
+        gen: Int,
+        forceRefresh: Boolean
+    ) {
         val probe = BelarusNodeMonitor.probe(this@MainActivity, forceRefresh = forceRefresh)
         if (gen != nodeStatusGen) return
 
         if (probe.reason == "no_session") {
             stateView.text = getString(R.string.node_status_login_required)
             stateView.setTextColor(nodeColor(true))
-            AppLogger.w("NodeStatus", "Беларусь: требуется вход в аккаунт")
+            AppLogger.w("NodeStatus", "$nodeTitle: требуется вход в аккаунт")
             return
         }
 
@@ -2708,29 +2744,29 @@ class MainActivity : AppCompatActivity() {
 
         val server = probe.server
         if (server == null) {
-            stateView.text = getString(R.string.node_status_belarus_no_key)
+            stateView.text = getString(R.string.node_status_generic_no_key, nodeTitle)
             stateView.setTextColor(nodeColor(true))
             AppLogger.w(
                 "NodeStatus",
-                "Беларусь: ключ узла не получен (${probe.reason}), проверка не выполнена"
+                "$nodeTitle: ключ узла не получен (${probe.reason}), проверка не выполнена"
             )
             return
         }
 
         if (probe.reachable) {
-            stateView.text = getString(R.string.node_status_belarus_up, probe.pingMs)
+            stateView.text = getString(R.string.node_status_generic_up, nodeTitle, probe.pingMs)
             stateView.setTextColor(themedSubtitle())
             AppLogger.i(
                 "NodeStatus",
-                "Беларусь: узел отвечает с устройства за ${probe.pingMs} мс " +
+                "$nodeTitle: узел отвечает с устройства за ${probe.pingMs} мс " +
                         "(${server.address}:${server.port})"
             )
         } else {
-            stateView.text = getString(R.string.node_status_belarus_down)
+            stateView.text = getString(R.string.node_status_generic_down, nodeTitle)
             stateView.setTextColor(nodeColor(true))
             AppLogger.w(
                 "NodeStatus",
-                "Беларусь: узел не отвечает с устройства (${server.address}:${server.port})"
+                "$nodeTitle: узел не отвечает с устройства (${server.address}:${server.port})"
             )
         }
     }
@@ -2773,39 +2809,64 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private suspend fun refreshFranceState(stateView: TextView, gen: Int) {
-            val status = com.naua_security_mirage.app.vpn.NodeStatusReporter.fetch()
-            if (gen != nodeStatusGen) return
-            if (status == null) {
-                stateView.text = getString(R.string.node_status_fetch_failed)
-            } else {
-                AppLogger.i(
-                    "NodeStatus",
-                    "Франция: state=${status.state} core=${status.core} reported=${status.reportedAt}"
-                )
-                lastNodeCore = status.core
-                val reported = status.reportedAt
-                val stale = reported == null ||
-                        System.currentTimeMillis() - reported > STATUS_STALE_MS
-                val since = status.changedAt?.let { formatNodeSince(it) }
-                stateView.text = when {
-                    stale -> getString(
-                        R.string.node_status_stale,
-                        reported?.let { formatNodeSince(it) } ?: "?"
-                    )
-                    status.state == "up" -> getString(R.string.node_status_up, status.core ?: "?")
-                    status.state == "down" -> getString(R.string.node_status_down, since ?: "?")
-                    status.state == "wedged" -> getString(R.string.node_status_wedged, since ?: "?")
-                    else -> getString(R.string.node_status_unknown)
+    private suspend fun refreshFranceState(
+        nodeTitle: String,
+        stateView: TextView,
+        gen: Int,
+        forceRefresh: Boolean
+    ) {
+        val manager = com.naua_security_mirage.app.data.supabase.SupabaseManager.instance
+        val key = if (forceRefresh) {
+            withContext(Dispatchers.IO) { manager.ensureFranceVlessKey() }
+        } else {
+            manager.getActiveVlessKey() ?: withContext(Dispatchers.IO) { manager.ensureFranceVlessKey() }
+        }
+        if (gen != nodeStatusGen) return
+
+        val server = key?.let {
+            com.naua_security_mirage.app.data.model.VlessServer.fromUri(it, nodeTitle)
+        } ?: run {
+            val uuid = manager.getActiveClientUuid()
+            com.naua_security_mirage.app.data.supabase.SupabaseConfig.getFranceServer(uuid, manager.getActiveClientFlow(uuid))
+        }
+
+        val ping = withContext(Dispatchers.IO) {
+            try {
+                pingRepository.measurePing(server, timeoutMs = 2500) { socket ->
+                    MirageVpnService.protectSocket(socket)
                 }
-                stateView.setTextColor(
-                    nodeColor(stale || status.state == "down" || status.state == "wedged")
-                )
-                com.naua_security_mirage.app.work.NodeStatusAlertNotifier.onStatus(
-                    this@MainActivity,
-                    status
-                )
+            } catch (t: Throwable) {
+                -1L
             }
+        }
+        if (gen != nodeStatusGen) return
+
+        val status = withContext(Dispatchers.IO) {
+            runCatching { com.naua_security_mirage.app.vpn.NodeStatusReporter.fetch() }.getOrNull()
+        }
+        if (gen != nodeStatusGen) return
+
+        if (status != null) {
+            lastNodeCore = status.core
+            com.naua_security_mirage.app.work.NodeStatusAlertNotifier.onStatus(
+                this@MainActivity,
+                status
+            )
+        }
+
+        if (ping in 1..9998) {
+            stateView.text = getString(R.string.node_status_generic_up, nodeTitle, ping)
+            stateView.setTextColor(themedSubtitle())
+            AppLogger.i("NodeStatus", "$nodeTitle: узел отвечает с устройства за $ping мс")
+        } else if (key.isNullOrBlank()) {
+            stateView.text = getString(R.string.node_status_generic_no_key, nodeTitle)
+            stateView.setTextColor(nodeColor(true))
+            AppLogger.w("NodeStatus", "$nodeTitle: ключ узла не получен")
+        } else {
+            stateView.text = getString(R.string.node_status_generic_down, nodeTitle)
+            stateView.setTextColor(nodeColor(true))
+            AppLogger.w("NodeStatus", "$nodeTitle: узел не отвечает с устройства")
+        }
     }
 
     private data class NodeHistoryRow(
