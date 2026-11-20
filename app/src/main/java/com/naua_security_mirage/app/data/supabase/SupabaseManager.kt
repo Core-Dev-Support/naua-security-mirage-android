@@ -1727,7 +1727,9 @@ class SupabaseManager private constructor() {
         if (_currentUser.value == null) return null
         if (nodeId.isBlank()) return null
         val key = prefs?.getString(nodeCacheKey(nodeId), null)
-        return key?.takeIf { it.startsWith("vless://") }
+        return key?.takeIf {
+            it.startsWith("vless://") || it.startsWith("hysteria2://") || it.startsWith("hy2://") || it.startsWith("trojan://")
+        }
     }
 
     /**
@@ -1840,7 +1842,7 @@ class SupabaseManager private constructor() {
     fun getActiveVlessKey(): String? {
         val sub = _subscription.value
         val vlessUrl = sub?.vlessKey ?: prefs?.getString(KEY_SUB_VLESS_KEY, null)
-        if (!vlessUrl.isNullOrBlank() && vlessUrl.startsWith("vless://")) {
+        if (!vlessUrl.isNullOrBlank() && (vlessUrl.startsWith("vless://") || vlessUrl.startsWith("hysteria2://") || vlessUrl.startsWith("hy2://") || vlessUrl.startsWith("trojan://"))) {
             return vlessUrl
         }
         return null

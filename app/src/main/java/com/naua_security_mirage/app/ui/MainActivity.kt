@@ -1240,6 +1240,10 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupProtocolSelectorUI() {
+        binding.containerProtocolSelector.btnProtoAuto.setOnClickListener {
+            AnimationHelper.bounceClick(it, minScale = 0.92f, durationMs = 150)
+            selectProtocol(SettingsRepository.PROTOCOL_AUTO)
+        }
         binding.containerProtocolSelector.btnProtoHysteria.setOnClickListener {
             AnimationHelper.bounceClick(it, minScale = 0.92f, durationMs = 150)
             selectProtocol(SettingsRepository.PROTOCOL_HYSTERIA2)
@@ -1270,6 +1274,12 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun updateProtocolSelectorUI() {
+        if (!settingsRepository.isPaidPlan()) {
+            binding.containerProtocolSelector.root.visibility = View.GONE
+            return
+        }
+        binding.containerProtocolSelector.root.visibility = View.VISIBLE
+
         val nodeId = currentActiveNodeId()
         val selectedProto = settingsRepository.getProtocolForNode(nodeId)
 
@@ -1287,7 +1297,7 @@ class MainActivity : AppCompatActivity() {
             ContextCompat.getColor(this, R.color.ink_soft)
         }
 
-        binding.containerProtocolSelector.root.background = getCardDrawable(isLightNow, 30f)
+        binding.containerProtocolSelector.containerProtocolPills.background = getCardDrawable(isLightNow, 30f)
 
         fun applyButton(view: TextView, active: Boolean) {
             if (active) {
@@ -1299,6 +1309,10 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+        applyButton(
+            binding.containerProtocolSelector.btnProtoAuto,
+            selectedProto == SettingsRepository.PROTOCOL_AUTO
+        )
         applyButton(
             binding.containerProtocolSelector.btnProtoHysteria,
             selectedProto == SettingsRepository.PROTOCOL_HYSTERIA2
@@ -2285,7 +2299,7 @@ class MainActivity : AppCompatActivity() {
         refreshAnimationJob?.cancel()
         refreshCheckmarkJob?.cancel()
         isRefreshing = false
-        binding.pbRefreshSpinner.visibility = View.GONE
+        binding.pbRefreshBar.visibility = View.GONE
         binding.ivRefreshIcon.setImageResource(R.drawable.ic_refresh)
         binding.ivRefreshIcon.rotation = 0f
         if (MirageVpnService.vpnState.value == VpnState.DISCONNECTED) {
@@ -2297,9 +2311,10 @@ class MainActivity : AppCompatActivity() {
         isRefreshing = false
         refreshJob = null
         refreshAnimationJob?.cancel()
-        binding.pbRefreshSpinner.visibility = View.GONE
+        binding.pbRefreshBar.visibility = View.GONE
         binding.ivRefreshIcon.setImageResource(R.drawable.ic_check)
         binding.ivRefreshIcon.rotation = 0f
+        refreshNodeStatus()
         refreshCheckmarkJob?.cancel()
         refreshCheckmarkJob = lifecycleScope.launch(Dispatchers.Main) {
             delay(2000)
@@ -2313,7 +2328,7 @@ class MainActivity : AppCompatActivity() {
         isRefreshing = false
         refreshJob = null
         refreshAnimationJob?.cancel()
-        binding.pbRefreshSpinner.visibility = View.GONE
+        binding.pbRefreshBar.visibility = View.GONE
         binding.ivRefreshIcon.setImageResource(R.drawable.ic_refresh)
         binding.ivRefreshIcon.rotation = 0f
     }
@@ -2323,7 +2338,8 @@ class MainActivity : AppCompatActivity() {
         isRefreshing = true
         refreshCheckmarkJob?.cancel()
 
-        binding.pbRefreshSpinner.visibility = View.VISIBLE
+        // Google Play style: горизонтальная анимированная полоска загрузки
+        binding.pbRefreshBar.visibility = View.VISIBLE
         binding.ivRefreshIcon.setImageResource(R.drawable.ic_close)
         binding.ivRefreshIcon.rotation = 0f
 
@@ -2403,7 +2419,7 @@ class MainActivity : AppCompatActivity() {
                                             com.naua_security_mirage.app.data.supabase.SupabaseConfig
                                                 .getFranceServer(uuid, manager.getActiveClientFlow(uuid))
                                         }
-                                        val p = pingRepository.measurePing(server, timeoutMs = 1800)
+                                        val p = pingRepository.measurePing(server, timeoutMs = 2500)
                                         if (p in 1..9998) "$p ms" else getString(R.string.ping_timeout)
                                     }
                                     PaidNode.Kind.VLESS -> {
@@ -2422,7 +2438,7 @@ class MainActivity : AppCompatActivity() {
                                             if (server == null) {
                                                 getString(R.string.refresh_paid_no_key)
                                             } else {
-                                                val p = pingRepository.measurePing(server, timeoutMs = 1800)
+                                                val p = pingRepository.measurePing(server, timeoutMs = 2500)
                                                 if (p in 1..9998) "$p ms" else getString(R.string.ping_timeout)
                                             }
                                         }
@@ -2435,7 +2451,7 @@ class MainActivity : AppCompatActivity() {
                     }
                     val servers = vlessKeyRepository.getVlessServers()
                     AppLogger.d("DataRefresh", "Получено конфигураций: ${servers.size}. Измерение пинга...")
-                    val measured = pingRepository.measureAllPings(servers)
+                    val measured = pingRepository.measureAllPings(servers, probeTimeoutMs = 2500, totalBudgetMs = 8000L)
                     measured.forEach { s ->
                         val pingStr = if (s.pingMs in 1..9998) "${s.pingMs} ms" else getString(R.string.ping_timeout)
                         AppLogger.d("DataRefresh", "Узел ${s.tag} -> пинг: $pingStr")
@@ -5703,10 +5719,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupAppearanceUI() {
-        installUiStyleRow()
-        updateUiStyleRow()
-        val isGlassStyle = settingsRepository.uiStyle == SettingsRepository.UI_STYLE_GLASS
-        val themeChipAlpha = if (isGlassStyle) 0.45f else 1f
+        val isGlassStyle = false
+        val themeChipAlpha = 1f
         binding.chipThemeDark.alpha = themeChipAlpha
         binding.chipThemeLight.alpha = themeChipAlpha
 

@@ -203,6 +203,7 @@
     <string name="node_status_generic_up">%1$s отвечает · %2$d ms</string>
     <string name="node_status_generic_down">%1$s не отвечает</string>
     <string name="protocol_selector_title">Протокол</string>
+    <string name="protocol_auto">Авто</string>
     <string name="protocol_vless">VLESS</string>
     <string name="protocol_hysteria2">Hysteria 2</string>
     <string name="protocol_xhttp">XHTTP</string>

@@ -69,25 +69,8 @@ class PingRepository {
     ): Long? = kotlinx.coroutines.withTimeoutOrNull(timeoutMs.toLong() + 1500L) {
         val target = resolveAddress(server.address) ?: return@withTimeoutOrNull null
 
-        // 1. Попытка TCP connect (для VLESS Reality, XHTTP, TCP)
-        var socket: Socket? = null
-        try {
-            socket = Socket()
-            protectSocket?.invoke(socket)
-            val start = System.currentTimeMillis()
-            socket.connect(InetSocketAddress(target, server.port), timeoutMs)
-            val duration = System.currentTimeMillis() - start
-            return@withTimeoutOrNull if (duration > 0) duration else 1L
-        } catch (_: Exception) {
-            // TCP connect не удался, пробуем fallback
-        } finally {
-            try {
-                socket?.close()
-            } catch (_: Throwable) {}
-        }
-
-        // 2. Если узел работает на Hysteria 2 (UDP-only) или порт TCP закрыт
         if (server.isHysteria2) {
+            // Узел работает на Hysteria 2 (UDP/QUIC): TCP не проверяем, опрашиваем через UDP
             var datagramSocket: java.net.DatagramSocket? = null
             try {
                 datagramSocket = java.net.DatagramSocket()
@@ -100,6 +83,7 @@ class PingRepository {
                 val duration = System.currentTimeMillis() - start
                 return@withTimeoutOrNull if (duration > 0) duration else 1L
             } catch (_: Exception) {
+                return@withTimeoutOrNull null
             } finally {
                 try {
                     datagramSocket?.close()
@@ -107,7 +91,22 @@ class PingRepository {
             }
         }
 
-        null
+        // Попытка TCP connect (для VLESS Reality, XHTTP, TCP)
+        var socket: Socket? = null
+        try {
+            socket = Socket()
+            protectSocket?.invoke(socket)
+            val start = System.currentTimeMillis()
+            socket.connect(InetSocketAddress(target, server.port), timeoutMs)
+            val duration = System.currentTimeMillis() - start
+            return@withTimeoutOrNull if (duration > 0) duration else 1L
+        } catch (_: Exception) {
+            null
+        } finally {
+            try {
+                socket?.close()
+            } catch (_: Throwable) {}
+        }
     }
 
     private fun isIpAddress(address: String): Boolean {
@@ -130,14 +129,14 @@ class PingRepository {
             return try { InetAddress.getByName(cached.ip) } catch (_: Exception) { null }
         }
         val resolved = try {
-            kotlinx.coroutines.withTimeoutOrNull(1000L) {
+            try {
+                InetAddress.getByName(key)
+            } catch (_: Exception) {
                 com.naua_security_mirage.app.data.supabase.SupabaseConfig
                     .resolveHostDoh(key).firstOrNull()
-            } ?: kotlinx.coroutines.withTimeoutOrNull(1000L) {
-                InetAddress.getByName(key)
             }
         } catch (_: Exception) {
-            try { InetAddress.getByName(key) } catch (_: Exception) { null }
+            null
         } ?: return null
 
         val literal = resolved.hostAddress

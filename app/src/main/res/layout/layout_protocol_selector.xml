@@ -2,61 +2,121 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="wrap_content"
     android:layout_height="wrap_content"
-    android:background="?attr/miragePillBg"
-    android:gravity="center_vertical"
-    android:orientation="horizontal"
-    android:padding="3dp">
+    android:gravity="center_horizontal"
+    android:orientation="vertical">
 
-    <TextView
-        android:id="@+id/btnProtoHysteria"
+    <!-- Header with Title and Cherrygram-style NEW Badge -->
+    <LinearLayout
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:background="@drawable/bg_pill_active"
-        android:clickable="true"
-        android:focusable="true"
-        android:maxLines="1"
-        android:paddingStart="12dp"
-        android:paddingTop="5dp"
-        android:paddingEnd="12dp"
-        android:paddingBottom="5dp"
-        android:text="@string/protocol_hysteria2"
-        android:textColor="#FFFFFF"
-        android:textSize="11.5sp"
-        android:textStyle="bold" />
+        android:layout_marginBottom="5dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
 
-    <TextView
-        android:id="@+id/btnProtoXhttp"
+        <TextView
+            android:id="@+id/tvProtocolTitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/protocol_selector_title"
+            android:textColor="@color/ink_soft"
+            android:textSize="12sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/badgeProtocolNew"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="6dp"
+            android:background="@drawable/bg_badge_pill_new"
+            android:paddingStart="6dp"
+            android:paddingTop="1.5dp"
+            android:paddingEnd="6dp"
+            android:paddingBottom="1.5dp"
+            android:text="NEW"
+            android:textColor="#FFFFFF"
+            android:textSize="9.5sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+    <!-- Pill Container -->
+    <LinearLayout
+        android:id="@+id/containerProtocolPills"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginStart="3dp"
-        android:background="@android:color/transparent"
-        android:clickable="true"
-        android:focusable="true"
-        android:maxLines="1"
-        android:paddingStart="12dp"
-        android:paddingTop="5dp"
-        android:paddingEnd="12dp"
-        android:paddingBottom="5dp"
-        android:text="@string/protocol_xhttp"
-        android:textColor="@color/ink_soft"
-        android:textSize="11.5sp"
-        android:textStyle="bold" />
+        android:background="?attr/miragePillBg"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:padding="3dp">
 
-    <TextView
-        android:id="@+id/btnProtoVless"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginStart="3dp"
-        android:background="@android:color/transparent"
-        android:clickable="true"
-        android:focusable="true"
-        android:maxLines="1"
-        android:paddingStart="12dp"
-        android:paddingTop="5dp"
-        android:paddingEnd="12dp"
-        android:paddingBottom="5dp"
-        android:text="@string/protocol_vless"
-        android:textColor="@color/ink_soft"
-        android:textSize="11.5sp"
-        android:textStyle="bold" />
+        <TextView
+            android:id="@+id/btnProtoAuto"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="@drawable/bg_pill_active"
+            android:clickable="true"
+            android:focusable="true"
+            android:maxLines="1"
+            android:paddingStart="11dp"
+            android:paddingTop="5dp"
+            android:paddingEnd="11dp"
+            android:paddingBottom="5dp"
+            android:text="@string/protocol_auto"
+            android:textColor="#FFFFFF"
+            android:textSize="11.5sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/btnProtoHysteria"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="3dp"
+            android:background="@android:color/transparent"
+            android:clickable="true"
+            android:focusable="true"
+            android:maxLines="1"
+            android:paddingStart="11dp"
+            android:paddingTop="5dp"
+            android:paddingEnd="11dp"
+            android:paddingBottom="5dp"
+            android:text="@string/protocol_hysteria2"
+            android:textColor="@color/ink_soft"
+            android:textSize="11.5sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/btnProtoXhttp"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="3dp"
+            android:background="@android:color/transparent"
+            android:clickable="true"
+            android:focusable="true"
+            android:maxLines="1"
+            android:paddingStart="11dp"
+            android:paddingTop="5dp"
+            android:paddingEnd="11dp"
+            android:paddingBottom="5dp"
+            android:text="@string/protocol_xhttp"
+            android:textColor="@color/ink_soft"
+            android:textSize="11.5sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/btnProtoVless"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="3dp"
+            android:background="@android:color/transparent"
+            android:clickable="true"
+            android:focusable="true"
+            android:maxLines="1"
+            android:paddingStart="11dp"
+            android:paddingTop="5dp"
+            android:paddingEnd="11dp"
+            android:paddingBottom="5dp"
+            android:text="@string/protocol_vless"
+            android:textColor="@color/ink_soft"
+            android:textSize="11.5sp"
+            android:textStyle="bold" />
+    </LinearLayout>
 </LinearLayout>

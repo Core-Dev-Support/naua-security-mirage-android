@@ -87,4 +87,17 @@ object FranceAccessPolicy {
         }
         return UUID_PATTERN.matches(candidate)
     }
+
+    fun mayBuildGenericPaidTunnel(authOrUuid: String?): Boolean {
+        val raw = authOrUuid?.trim().orEmpty()
+        if (raw.isEmpty()) return false
+        val candidate = when {
+            raw.startsWith("vless://", ignoreCase = true) -> raw.removePrefix("vless://").substringBefore('@').substringBefore('?')
+            raw.startsWith("hysteria2://", ignoreCase = true) -> return true
+            raw.startsWith("hy2://", ignoreCase = true) -> return true
+            raw.startsWith("trojan://", ignoreCase = true) -> return true
+            else -> raw
+        }
+        return candidate.isNotEmpty()
+    }
 }

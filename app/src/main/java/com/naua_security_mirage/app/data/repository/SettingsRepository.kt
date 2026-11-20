@@ -26,8 +26,8 @@ class SettingsRepository(context: Context) {
         set(value) = prefs.edit().putString(KEY_THEME_PRESET, value).apply()
 
     var uiStyle: String
-        get() = prefs.getString(KEY_UI_STYLE, UI_STYLE_CLASSIC) ?: UI_STYLE_CLASSIC
-        set(value) = prefs.edit().putString(KEY_UI_STYLE, value).apply()
+        get() = UI_STYLE_CLASSIC
+        set(value) = prefs.edit().putString(KEY_UI_STYLE, UI_STYLE_CLASSIC).apply()
 
     var customBgColor: Int
         get() = prefs.getInt(KEY_CUSTOM_BG_COLOR, 0)
@@ -291,7 +291,7 @@ class SettingsRepository(context: Context) {
             .commit()
     }
 
-    fun getProtocolForNode(nodeId: String, defaultProtocol: String = PROTOCOL_HYSTERIA2): String {
+    fun getProtocolForNode(nodeId: String, defaultProtocol: String = PROTOCOL_AUTO): String {
         return prefs.getString(KEY_NODE_PROTOCOL_PREFIX + nodeId, defaultProtocol) ?: defaultProtocol
     }
 
@@ -300,6 +300,7 @@ class SettingsRepository(context: Context) {
     }
 
     companion object {
+        const val PROTOCOL_AUTO = "auto"
         const val PROTOCOL_HYSTERIA2 = "hysteria2"
         const val PROTOCOL_XHTTP = "xhttp"
         const val PROTOCOL_VLESS = "vless"

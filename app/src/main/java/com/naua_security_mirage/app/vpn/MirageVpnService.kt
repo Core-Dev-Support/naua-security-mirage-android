@@ -593,9 +593,9 @@ class MirageVpnService : VpnService() {
             return null
         }
         if (!com.naua_security_mirage.app.data.supabase.FranceAccessPolicy
-                .mayBuildPaidTunnel(server.uuid)
+                .mayBuildGenericPaidTunnel(server.uuid)
         ) {
-            AppLogger.w(TAG, "У узла ${node.id} некорректный UUID, узел пропущен")
+            AppLogger.w(TAG, "У узла ${node.id} некорректный ключ доступа, узел пропущен")
             return null
         }
         AppLogger.i(

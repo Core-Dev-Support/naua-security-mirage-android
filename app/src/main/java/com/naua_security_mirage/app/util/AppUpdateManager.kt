@@ -420,7 +420,7 @@ object AppUpdateManager {
         } else {
             tvLabel.visibility = View.VISIBLE
         }
-        tvChangelog.text = updateInfo.changelog
+        tvChangelog.text = com.naua_security_mirage.app.ui.view.CherryBadgeHelper.formatChangelog(updateInfo.changelog)
         tvChangelog.setTextColor(subtitleTextColor)
         ivIcon.imageTintList = ColorStateList.valueOf(accentColor)
         dialog.findViewById<TextView>(R.id.tvChangelogFullLink).apply {

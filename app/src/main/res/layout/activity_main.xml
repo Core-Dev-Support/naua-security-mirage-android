@@ -161,16 +161,6 @@
             app:layout_constraintEnd_toStartOf="@+id/btnSettings"
             app:layout_constraintTop_toTopOf="@+id/headerBrand">
 
-            <ProgressBar
-                android:id="@+id/pbRefreshSpinner"
-                style="?android:attr/progressBarStyleSmall"
-                android:layout_width="28dp"
-                android:layout_height="28dp"
-                android:layout_gravity="center"
-                android:indeterminate="true"
-                android:indeterminateTint="@color/accent"
-                android:visibility="gone" />
-
             <ImageView
                 android:id="@+id/ivRefreshIcon"
                 android:layout_width="19dp"
@@ -201,6 +191,20 @@
                 android:contentDescription="@string/settings_title"
                 android:src="@drawable/ic_gear" />
         </FrameLayout>
+
+        <!-- Google Play style horizontal animated loading bar during refresh -->
+        <ProgressBar
+            android:id="@+id/pbRefreshBar"
+            style="?android:attr/progressBarStyleHorizontal"
+            android:layout_width="0dp"
+            android:layout_height="3dp"
+            android:layout_marginTop="2dp"
+            android:indeterminate="true"
+            android:indeterminateTint="@color/accent"
+            android:visibility="gone"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/headerBrand" />
 
         <!-- Glow Ring Behind Button -->
         <View
