@@ -161,17 +161,12 @@
             app:layout_constraintEnd_toStartOf="@+id/btnSettings"
             app:layout_constraintTop_toTopOf="@+id/headerBrand">
 
-            <com.google.android.material.progressindicator.CircularProgressIndicator
+            <com.naua_security_mirage.app.ui.view.GoogleCircularProgressView
                 android:id="@+id/pbRefreshSpinner"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
+                android:layout_width="34dp"
+                android:layout_height="34dp"
                 android:layout_gravity="center"
-                android:indeterminate="true"
-                android:visibility="gone"
-                app:indicatorColor="@color/accent"
-                app:indicatorSize="32dp"
-                app:trackCornerRadius="2dp"
-                app:trackThickness="2.5dp" />
+                android:visibility="gone" />
 
             <ImageView
                 android:id="@+id/ivRefreshIcon"

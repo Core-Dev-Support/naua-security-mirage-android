@@ -2299,7 +2299,7 @@ class MainActivity : AppCompatActivity() {
         refreshAnimationJob?.cancel()
         refreshCheckmarkJob?.cancel()
         isRefreshing = false
-        binding.pbRefreshSpinner.visibility = View.GONE
+        binding.pbRefreshSpinner.stop()
         val density = resources.displayMetrics.density
         binding.ivRefreshIcon.layoutParams.width = (19 * density).toInt()
         binding.ivRefreshIcon.layoutParams.height = (19 * density).toInt()
@@ -2315,7 +2315,7 @@ class MainActivity : AppCompatActivity() {
         isRefreshing = false
         refreshJob = null
         refreshAnimationJob?.cancel()
-        binding.pbRefreshSpinner.visibility = View.GONE
+        binding.pbRefreshSpinner.stop()
         val density = resources.displayMetrics.density
         binding.ivRefreshIcon.layoutParams.width = (19 * density).toInt()
         binding.ivRefreshIcon.layoutParams.height = (19 * density).toInt()
@@ -2336,7 +2336,7 @@ class MainActivity : AppCompatActivity() {
         isRefreshing = false
         refreshJob = null
         refreshAnimationJob?.cancel()
-        binding.pbRefreshSpinner.visibility = View.GONE
+        binding.pbRefreshSpinner.stop()
         val density = resources.displayMetrics.density
         binding.ivRefreshIcon.layoutParams.width = (19 * density).toInt()
         binding.ivRefreshIcon.layoutParams.height = (19 * density).toInt()
@@ -2351,7 +2351,7 @@ class MainActivity : AppCompatActivity() {
         refreshCheckmarkJob?.cancel()
 
         // Google Play style: Material Design Indeterminate Circular Progress Indicator around cancel cross
-        binding.pbRefreshSpinner.visibility = View.VISIBLE
+        binding.pbRefreshSpinner.start()
         val density = resources.displayMetrics.density
         binding.ivRefreshIcon.layoutParams.width = (14 * density).toInt()
         binding.ivRefreshIcon.layoutParams.height = (14 * density).toInt()
@@ -2658,7 +2658,7 @@ class MainActivity : AppCompatActivity() {
 
         val trackedNode = AppConfigRepository.node(trackedPlan)
         val nodeTitle = trackedNode?.label() ?: paidNodeLabel(trackedPlan)
-        titleView?.text = getString(R.string.node_status_title_format, nodeTitle)
+        titleView?.text = getString(R.string.node_status_title)
 
         val isBelarusPlan = trackedPlan == SettingsRepository.PLAN_PREMIUM_BELARUS
         val isGenericPlan = trackedNode?.kind == PaidNode.Kind.VLESS

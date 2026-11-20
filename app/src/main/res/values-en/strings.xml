@@ -198,7 +198,7 @@
     <string name="private_dns_state_auto">Automatic — usually compatible</string>
     <string name="private_dns_state_strict">Provider %1$s — may interfere with the VPN</string>
     <string name="private_dns_state_unknown">Could not detect</string>
-    <string name="node_status_title">Paid node status</string>
+    <string name="node_status_title">Paid nodes</string>
     <string name="node_status_title_format">Node: %1$s</string>
     <string name="node_status_generic_up">%1$s responds · %2$d ms</string>
     <string name="node_status_generic_down">%1$s is unreachable</string>
