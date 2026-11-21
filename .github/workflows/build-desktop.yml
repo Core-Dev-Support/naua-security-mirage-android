@@ -1,8 +1,6 @@
 name: Build Windows PC Desktop Release
 
 on:
-  push:
-    branches: [main, master]
   workflow_dispatch:
     inputs:
       create_release:

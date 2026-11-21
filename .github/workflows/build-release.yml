@@ -13,6 +13,8 @@ on:
         required: false
         default: 'v1.4.1'
   push:
+    branches:
+      - main
     tags:
       - 'v*'
 
