@@ -487,7 +487,7 @@ serve(async (req) => {
       if (!resolved) continue;
       // Флаг остаётся у названия для Happ/других клиентов: в приложении его
       // даёт то же поле, вшитых иконок больше нет. Двойной флаг не склеиваем.
-      const flag = node.kind === "belarus" ? "🇧🇾" : node.kind === "turkey" ? "🇹🇷" : "🇨🇭";
+      const flag = node.kind === "belarus" ? "🇧🇾" : node.kind === "turkey" ? "🇹🇷" : "🇳🇱";
       let label: string;
       if (node.kind === "france" || node.id === "premium_france") {
         label = "Швейцария (протокол)";
