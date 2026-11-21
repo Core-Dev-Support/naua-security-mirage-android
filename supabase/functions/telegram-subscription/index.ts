@@ -227,11 +227,17 @@ async function refreshAccessToken(account: AccountRow): Promise<string | null> {
   }
 }
 
+type ResolvedNode = {
+  link: string;
+  links: string[];
+  uuid: string;
+};
+
 // Запрашивает узел у готовой edge-функции.
 async function fetchNode(
   functionName: string,
   bearer: string,
-): Promise<{ link: string; uuid: string } | null> {
+): Promise<ResolvedNode | null> {
   try {
     const response = await fetch(
       `${SUPABASE_URL}/functions/v1/${functionName}`,
@@ -248,12 +254,33 @@ async function fetchNode(
       return null;
     }
     const parsed = await response.json();
-    const link = String(parsed?.vlessKey || "");
-    if (!link.startsWith("vless://")) {
-      console.warn("paid node config returned no VLESS link", { functionName });
+    const rawLinks: string[] = [];
+    if (Array.isArray(parsed?.links)) {
+      for (const item of parsed.links) {
+        if (
+          typeof item === "string" &&
+          (item.startsWith("vless://") || item.startsWith("hysteria2://") || item.startsWith("hy2://"))
+        ) {
+          rawLinks.push(item);
+        }
+      }
+    }
+    const single = String(parsed?.vlessKey || "");
+    if (
+      rawLinks.length === 0 &&
+      (single.startsWith("vless://") || single.startsWith("hysteria2://") || single.startsWith("hy2://"))
+    ) {
+      rawLinks.push(single);
+    }
+    if (rawLinks.length === 0) {
+      console.warn("paid node config returned no usable link", { functionName });
       return null;
     }
-    return { link, uuid: String(parsed?.clientUuid || "") };
+    return {
+      link: rawLinks[0],
+      links: rawLinks,
+      uuid: String(parsed?.clientUuid || ""),
+    };
   } catch (error) {
     console.warn("paid node config request failed", {
       functionName,
@@ -267,12 +294,11 @@ async function fetchNode(
 //
 // Запасной путь на случай, когда Google-сессия бота отозвана или протухла:
 // подписка оплачена, ключи лежат в базе, и клиент не должен оставаться с
-// одним бесплатным узлом. Швейцария и Турция хранят ключи в отдельных
-// колонках; для остальных узлов ключа в базе нет.
+// одним бесплатным узлом.
 function storedNodeLink(
   nodeId: string,
   subscription: SubscriptionRow | undefined,
-): { link: string; uuid: string } | null {
+): ResolvedNode | null {
   if (!subscription) return null;
   const link = nodeId === "premium_france"
     ? subscription.vless_key
@@ -285,7 +311,44 @@ function storedNodeLink(
     return null;
   }
   const uuid = link.match(/^(?:vless|hysteria2|hy2):\/\/([^@]+)@/)?.[1] || "";
-  return { link, uuid };
+  return { link, links: [link], uuid };
+}
+
+function detectProtocolTag(link: string): string {
+  if (link.startsWith("hysteria2://") || link.startsWith("hy2://")) {
+    return "Hysteria 2";
+  }
+  if (link.startsWith("vless://")) {
+    const lower = link.toLowerCase();
+    if (lower.includes("type=xhttp") || lower.includes("network=xhttp") || lower.includes("xhttp")) {
+      return "XHTTP";
+    }
+    if (lower.includes("type=tcp") || lower.includes("network=tcp")) {
+      return "TCP";
+    }
+    if (lower.includes("type=grpc") || lower.includes("network=grpc")) {
+      return "gRPC";
+    }
+    if (lower.includes("type=ws") || lower.includes("network=ws")) {
+      return "WebSocket";
+    }
+    return "VLESS";
+  }
+  return "";
+}
+
+function formatNodeLabel(node: PaidNodeConfig, rawLink: string): string {
+  const flag = node.kind === "belarus" ? "🇧🇾" : node.kind === "turkey" ? "🇹🇷" : "🇳🇱";
+  const proto = detectProtocolTag(rawLink);
+  const protoSuffix = proto ? ` (${proto})` : "";
+
+  if (node.kind === "france" || node.id === "premium_france") {
+    return proto ? `🇳🇱 Нидерланды (${proto})` : "🇳🇱 Нидерланды (XHTTP)";
+  }
+  if (node.kind === "turkey" || node.kind === "belarus" || node.id === "premium_belarus") {
+    return proto ? `🇹🇷 Турция (${proto})` : "🇹🇷 Турция (XHTTP)";
+  }
+  return `${flag} ${node.label}${protoSuffix}`;
 }
 
 serve(async (req) => {
@@ -452,31 +515,38 @@ serve(async (req) => {
     const paidNodeConfigs = await loadPaidNodes();
     const paidNodes = await Promise.all(
       paidNodeConfigs.map(async (node) => {
-        // Мгновенный ответ: если у пользователя уже есть готовый рабочий ключ
-        // в базе данных (subscriptions), отдаём его СРАЗУ. Это работает за 0 мс
-        // и полностью исключает ошибку «тайм-аут» при добавлении в Happ/Hiddify.
-        const stored = storedNodeLink(node.id, subscription);
-        if (stored) return { node, result: stored };
+        // Для Нидерландов зовём панель H1 напрямую: панель сразу отдаёт все активные
+        // инбаунды клиента (VLESS XHTTP Reality и Hysteria 2).
+        if (node.configFunction === "france-config" && subscription?.email && hasPaid) {
+          try {
+            const ensured = await h1EnsureNode(subscription.email, subscription.paid_until);
+            return {
+              node,
+              result: { link: ensured.link, links: ensured.links, uuid: ensured.uuid },
+            };
+          } catch (e) {
+            console.warn("h1EnsureNode direct call failed, fallback to fetchNode/stored", e);
+          }
+        }
 
-        // Иначе запрашиваем через edge-функцию узла (короткий таймаут 3.5 с)
+        // Запрашиваем через edge-функцию узла (короткий таймаут 3.5 с)
         const result = userToken ? await fetchNode(node.configFunction, userToken) : null;
-        return { node, result };
+        if (result) return { node, result };
+
+        // Иначе запасной сохранённый ключ из базы
+        const stored = storedNodeLink(node.id, subscription);
+        return { node, result: stored };
       }),
     );
 
     const links: string[] = [];
     const nodes: Record<string, unknown>[] = [];
     for (const { node, result } of paidNodes) {
-      // Сначала свежий ключ от config-функции; если сессия Google отозвана
-      // или панель не ответила — уже выданный ключ из subscriptions.
       let resolved = result ?? storedNodeLink(node.id, subscription);
-      // Токен в Happ-ссылке живёт недолго, а ключ мог быть очищен при смене
-      // узла. Для Швейцарии бот сам заводит/находит клиента в панели H1,
-      // иначе у оплатившего остаются только Турция и бесплатный узел.
       if (!resolved && subscription && hasPaid && node.configFunction === "france-config" && subscription.email) {
         try {
           const ensured = await h1EnsureNode(subscription.email, subscription.paid_until);
-          resolved = { link: ensured.link, uuid: ensured.uuid };
+          resolved = { link: ensured.link, links: ensured.links, uuid: ensured.uuid };
         } catch (error) {
           console.warn(
             "subscription: H1 fallback failed:",
@@ -485,19 +555,17 @@ serve(async (req) => {
         }
       }
       if (!resolved) continue;
-      // Флаг остаётся у названия для Happ/других клиентов: в приложении его
-      // даёт то же поле, вшитых иконок больше нет. Двойной флаг не склеиваем.
-      const flag = node.kind === "belarus" ? "🇧🇾" : node.kind === "turkey" ? "🇹🇷" : "🇳🇱";
-      let label: string;
-      if (node.kind === "france" || node.id === "premium_france") {
-        label = "🇳🇱 Нидерланды (протокол)";
-      } else {
-        label = node.label.startsWith(flag)
-          ? `NAUA Security Mirage ${node.label}`
-          : `NAUA Security Mirage ${flag} ${node.label}`;
+
+      const rawLinks = (resolved.links && resolved.links.length > 0)
+        ? resolved.links
+        : [resolved.link];
+
+      for (const rawLink of rawLinks) {
+        if (!rawLink) continue;
+        const label = formatNodeLabel(node, rawLink);
+        links.push(withNodeName(rawLink, label));
+        nodes.push({ host: node.id, label, uuid: resolved.uuid });
       }
-      links.push(withNodeName(resolved.link, label));
-      nodes.push({ host: node.id, label, uuid: resolved.uuid });
     }
 
     // Бесплатные узлы в подписке не выдаются: их парсер Happ всё равно не

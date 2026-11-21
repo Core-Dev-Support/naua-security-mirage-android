@@ -98,6 +98,7 @@ serve(async (req) => {
 
     return json({
       vlessKey: key,
+      links: node.links,
       clientUuid: node.uuid,
       flow: "",
       trafficSeen,

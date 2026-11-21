@@ -319,11 +319,32 @@ function pickLink(client: Record<string, unknown>): string {
   return "";
 }
 
+function collectLinks(client: Record<string, unknown>): string[] {
+  const result: string[] = [];
+  const inbounds = client.inbound_links;
+  if (Array.isArray(inbounds)) {
+    for (const entry of inbounds) {
+      const link = (entry as H1InboundLink)?.link;
+      if (
+        typeof link === "string" &&
+        (link.startsWith("vless://") || link.startsWith("hysteria2://") || link.startsWith("hy2://"))
+      ) {
+        result.push(link);
+      }
+    }
+  }
+  if (result.length === 0) {
+    const single = pickLink(client);
+    if (single) result.push(single);
+  }
+  return result;
+}
+
 async function findLink(
   token: string,
   name: string,
   budget: PanelBudget,
-): Promise<{ link: string; uuid: string } | null> {
+): Promise<{ link: string; links: string[]; uuid: string } | null> {
   const { status, parsed } = await panelCall(
     "GET",
     `/info?name=${encodeURIComponent(name)}`,
@@ -344,12 +365,13 @@ async function findLink(
 
   const link = pickLink(record);
   if (!link) return null;
+  const allLinks = collectLinks(record);
 
   const uuid = link.replace(/^vless:\/\//, "").split("@")[0].split("?")[0].trim();
   if (!UUID_PATTERN.test(uuid)) {
     throw new Error("The H1Cloud link does not carry a usable client identifier");
   }
-  return { link, uuid };
+  return { link, links: allLinks, uuid };
 }
 
 function daysUntil(paidUntil: string | null): number {
@@ -492,6 +514,7 @@ serve(async (req) => {
 
     return json({
       vlessKey: namedLink,
+      links: resolved.links,
       clientUuid: resolved.uuid,
       clientName,
       paidUntil: row.paid_until,

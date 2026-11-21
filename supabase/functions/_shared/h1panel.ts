@@ -311,8 +311,30 @@ function pickLink(client: Record<string, unknown>): string {
   return "";
 }
 
+export function collectLinks(client: Record<string, unknown>): string[] {
+  const result: string[] = [];
+  const inbounds = client.inbound_links;
+  if (Array.isArray(inbounds)) {
+    for (const entry of inbounds) {
+      const link = (entry as H1InboundLink)?.link;
+      if (
+        typeof link === "string" &&
+        (link.startsWith("vless://") || link.startsWith("hysteria2://") || link.startsWith("hy2://"))
+      ) {
+        result.push(link);
+      }
+    }
+  }
+  if (result.length === 0) {
+    const single = pickLink(client);
+    if (single) result.push(single);
+  }
+  return result;
+}
+
 export type H1Node = {
   link: string;
+  links: string[];
   uuid: string;
   trafficSeen: boolean;
   paidUntil: string | null;
@@ -367,14 +389,17 @@ export async function h1EnsureNode(
       throw new Error(`The H1 panel client for this account is ${statusText}`);
     }
 
-    const link = pickLink(fresh as unknown as Record<string, unknown>);
+    const freshRecord = fresh as unknown as Record<string, unknown>;
+    const link = pickLink(freshRecord);
     if (!link) continue;
+    const allLinks = collectLinks(freshRecord);
     const uuid = link.replace(/^vless:\/\//, "").split("@")[0].split("?")[0].trim();
     if (!UUID_PATTERN.test(uuid)) {
       throw new Error("The H1 panel link does not carry a usable client identifier");
     }
     return {
       link,
+      links: allLinks,
       uuid,
       trafficSeen: Number(fresh.traffic_used_bytes || 0) > 0,
       paidUntil,
