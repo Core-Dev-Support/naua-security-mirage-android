@@ -26,7 +26,7 @@ const PLAN_IDS = /^[a-z0-9][a-z0-9_-]{0,31}$/;
 const NODE_IDS = /^[a-z0-9][a-z0-9_]{1,47}$/;
 const FUNCTION_NAMES = /^[a-z0-9][a-z0-9-]{1,63}$/;
 const FLAGS = /^[a-z0-9][a-z0-9_-]{0,31}$/;
-const NODE_KINDS = new Set(["france", "belarus", "turkey", "vless"]);
+const NODE_KINDS = new Set(["france", "belarus", "turkey", "netherlands", "vless"]);
 
 type Plan = {
   id: string;
@@ -39,7 +39,7 @@ type Plan = {
 
 type PaidNode = {
   id: string;
-  kind: "france" | "belarus" | "turkey" | "vless";
+  kind: "france" | "belarus" | "turkey" | "netherlands" | "vless";
   label_ru: string;
   label_en: string;
   flag: string;
