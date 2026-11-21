@@ -490,7 +490,7 @@ serve(async (req) => {
       const flag = node.kind === "belarus" ? "🇧🇾" : node.kind === "turkey" ? "🇹🇷" : "🇳🇱";
       let label: string;
       if (node.kind === "france" || node.id === "premium_france") {
-        label = "Нидерланды (протокол)";
+        label = "🇳🇱 Нидерланды (протокол)";
       } else {
         label = node.label.startsWith(flag)
           ? `NAUA Security Mirage ${node.label}`
