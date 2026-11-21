@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.8";
 import {
+  base64Encode,
   base64Url,
   buildSubscriptionBody,
   freeToken,
@@ -669,7 +670,7 @@ serve(async (req) => {
       hasPaid,
       Deno.env.get("BOT_USERNAME") || undefined,
     );
-    const encoded = base64Url(body);
+    const encoded = base64Encode(body);
 
     // Пустая подписка — нормальный случай для бесплатного пользователя:
     // в теле только заголовок с просьбой купить и кнопка бота.

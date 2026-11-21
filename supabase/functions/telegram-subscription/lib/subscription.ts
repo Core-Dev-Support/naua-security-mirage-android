@@ -123,6 +123,17 @@ export function buildSubscriptionBody(
   return [meta.join("\n"), ...links].join("\n");
 }
 
+// Стандартный RFC 4648 Base64 для тела подписки.
+// Клиенты (Happ, v2ray, Sing-box) используют стандартный декодер с '+' и '/',
+// а URL-safe алфавит с '_' и отсутствием padding приводит к ошибке декодирования
+// и обрезанию списка узлов.
+export function base64Encode(text: string): string {
+  const bytes = new TextEncoder().encode(text);
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary);
+}
+
 // Base64 для тела подписки (URL-безопасный алфавит).
 export function base64Url(text: string): string {
   const bytes = new TextEncoder().encode(text);
