@@ -398,6 +398,26 @@ function clientNameFor(email: string): string {
   return `mrge_${safe}_${fingerprint(lowered)}`;
 }
 
+function detectProtocolTag(link: string): string {
+  if (link.startsWith("hysteria2://") || link.startsWith("hy2://")) {
+    return "Hysteria 2";
+  }
+  if (link.startsWith("vless://")) {
+    const lower = link.toLowerCase();
+    if (lower.includes("type=xhttp") || lower.includes("network=xhttp") || lower.includes("xhttp")) {
+      return "XHTTP";
+    }
+    return "VLESS";
+  }
+  return "";
+}
+
+function nameTurkeyLink(rawLink: string): string {
+  const proto = detectProtocolTag(rawLink);
+  const label = proto ? `🇹🇷 Турция (${proto})` : "🇹🇷 Турция (XHTTP)";
+  return `${rawLink.split("#")[0]}#${encodeURIComponent(label)}`;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   if (req.method !== "GET") return json({ error: "Method not allowed" }, 405);
@@ -411,15 +431,26 @@ serve(async (req) => {
     const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
     if (!token) return json({ error: "Missing bearer token" }, 401);
 
-    const userClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-      auth: { persistSession: false, autoRefreshToken: false },
-    });
-    const { data: userData, error: userError } = await userClient.auth.getUser(token);
-    if (userError || !userData?.user?.email) {
-      return json({ error: "Invalid session" }, 401);
+    const url = new URL(req.url);
+    const requestedProto = (url.searchParams.get("proto") || "").toLowerCase();
+
+    let userId: string;
+    let email: string;
+
+    if (token === SUPABASE_SERVICE_ROLE_KEY && (url.searchParams.get("user_id") || url.searchParams.get("email"))) {
+      userId = url.searchParams.get("user_id") || "";
+      email = url.searchParams.get("email") || "";
+    } else {
+      const userClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+        auth: { persistSession: false, autoRefreshToken: false },
+      });
+      const { data: userData, error: userError } = await userClient.auth.getUser(token);
+      if (userError || !userData?.user?.email) {
+        return json({ error: "Invalid session" }, 401);
+      }
+      userId = userData.user.id;
+      email = userData.user.email as string;
     }
-    const userId = userData.user.id;
-    const email = userData.user.email as string;
 
     const service = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
       auth: { persistSession: false, autoRefreshToken: false },
@@ -489,22 +520,30 @@ serve(async (req) => {
       throw new Error("The H1Cloud client carries no VLESS link yet");
     }
 
-    // Своё название узла: H1Cloud отдаёт служебное, вида
-    // «mrge_<почта>_<хэш> · custom-vless-…», и его видно в клиенте.
-    const namedLink = `${resolved.link.split("#")[0]}#${
-      encodeURIComponent("NAUA Security Mirage Турция (Платная)")
-    }`;
+    const namedLinks = (resolved.links && resolved.links.length > 0 ? resolved.links : [resolved.link])
+      .map(nameTurkeyLink);
+
+    let chosenKey = namedLinks[0] || nameTurkeyLink(resolved.link);
+    if (requestedProto === "hysteria2" || requestedProto === "hy2") {
+      const hy = namedLinks.find((l) => l.startsWith("hysteria2://") || l.startsWith("hy2://"));
+      if (hy) chosenKey = hy;
+    } else if (requestedProto === "xhttp") {
+      const xh = namedLinks.find((l) => l.toLowerCase().includes("type=xhttp"));
+      if (xh) chosenKey = xh;
+    }
+
+    const storedValue = namedLinks.join("\n");
 
     if (
       row.belarus_client_uuid !== resolved.uuid ||
-      row.belarus_vless_key !== namedLink ||
+      row.belarus_vless_key !== storedValue ||
       row.belarus_client_name !== clientName
     ) {
       await service
         .from("subscriptions")
         .update({
           belarus_client_uuid: resolved.uuid,
-          belarus_vless_key: namedLink,
+          belarus_vless_key: storedValue,
           belarus_client_name: clientName,
           email,
           updated_at: new Date().toISOString(),
@@ -513,8 +552,8 @@ serve(async (req) => {
     }
 
     return json({
-      vlessKey: namedLink,
-      links: resolved.links,
+      vlessKey: chosenKey,
+      links: namedLinks,
       clientUuid: resolved.uuid,
       clientName,
       paidUntil: row.paid_until,

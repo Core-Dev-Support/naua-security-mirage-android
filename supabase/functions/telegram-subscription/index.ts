@@ -45,8 +45,8 @@ type PaidNodeConfig = {
 };
 
 const DEFAULT_PAID_NODES: PaidNodeConfig[] = [
-  { id: "premium_france", kind: "france", label: "Нидерланды (протокол)", configFunction: "france-config", sort: 10 },
-  { id: "premium_belarus", kind: "turkey", label: "Турция (Платная)", configFunction: "belarus-config", sort: 20 },
+  { id: "premium_france", kind: "france", label: "Нидерланды", configFunction: "france-config", sort: 10 },
+  { id: "premium_belarus", kind: "turkey", label: "Турция", configFunction: "belarus-config", sort: 20 },
 ];
 
 // loadPaidNodes — каталог платных узлов из app_config.
@@ -233,6 +233,59 @@ type ResolvedNode = {
   uuid: string;
 };
 
+// Запрашивает узел у edge-функции с сервисным ключом.
+async function fetchNodeWithService(
+  functionName: string,
+  userId: string,
+  email: string,
+): Promise<ResolvedNode | null> {
+  try {
+    const url = `${SUPABASE_URL}/functions/v1/${functionName}?user_id=${encodeURIComponent(userId)}&email=${encodeURIComponent(email)}`;
+    const response = await fetch(url, {
+      headers: {
+        apikey: SUPABASE_SERVICE_ROLE_KEY,
+        Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+      },
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!response.ok) {
+      console.warn("fetchNodeWithService failed", { functionName, status: response.status });
+      return null;
+    }
+    const parsed = await response.json();
+    const rawLinks: string[] = [];
+    if (Array.isArray(parsed?.links)) {
+      for (const item of parsed.links) {
+        if (
+          typeof item === "string" &&
+          (item.startsWith("vless://") || item.startsWith("hysteria2://") || item.startsWith("hy2://"))
+        ) {
+          rawLinks.push(item);
+        }
+      }
+    }
+    const single = String(parsed?.vlessKey || "");
+    if (
+      rawLinks.length === 0 &&
+      (single.startsWith("vless://") || single.startsWith("hysteria2://") || single.startsWith("hy2://"))
+    ) {
+      rawLinks.push(single);
+    }
+    if (rawLinks.length === 0) return null;
+    return {
+      link: rawLinks[0],
+      links: rawLinks,
+      uuid: String(parsed?.clientUuid || ""),
+    };
+  } catch (error) {
+    console.warn("fetchNodeWithService request failed", {
+      functionName,
+      error: error instanceof Error ? error.message : error,
+    });
+    return null;
+  }
+}
+
 // Запрашивает узел у готовой edge-функции.
 async function fetchNode(
   functionName: string,
@@ -246,7 +299,7 @@ async function fetchNode(
           apikey: SUPABASE_ANON_KEY,
           Authorization: `Bearer ${bearer}`,
         },
-        signal: AbortSignal.timeout(3500),
+        signal: AbortSignal.timeout(8000),
       },
     );
     if (!response.ok) {
@@ -300,18 +353,24 @@ function storedNodeLink(
   subscription: SubscriptionRow | undefined,
 ): ResolvedNode | null {
   if (!subscription) return null;
-  const link = nodeId === "premium_france"
+  const raw = nodeId === "premium_france"
     ? subscription.vless_key
     : nodeId === "premium_belarus"
     ? subscription.belarus_vless_key
     : null;
-  if (!link || (!link.startsWith("vless://") && !link.startsWith("hysteria2://") && !link.startsWith("hy2://"))) return null;
+  if (!raw) return null;
+  const links = raw
+    .split("\n")
+    .map((l) => l.trim())
+    .filter((l) => l.startsWith("vless://") || l.startsWith("hysteria2://") || l.startsWith("hy2://"));
+  if (links.length === 0) return null;
+  const link = links[0];
   // Устаревшие/недоступные хосты Швейцарии и старых серверов не отдаём из кэша базы
   if (nodeId === "premium_france" && (link.includes("ch1.") || link.includes("ch4.") || link.includes(".ch") || link.includes("swiss"))) {
     return null;
   }
   const uuid = link.match(/^(?:vless|hysteria2|hy2):\/\/([^@]+)@/)?.[1] || "";
-  return { link, links: [link], uuid };
+  return { link, links, uuid };
 }
 
 function detectProtocolTag(link: string): string {
@@ -337,17 +396,27 @@ function detectProtocolTag(link: string): string {
   return "";
 }
 
+function isAllowedProtocol(link: string): boolean {
+  if (link.startsWith("hysteria2://") || link.startsWith("hy2://")) return true;
+  if (link.startsWith("vless://")) {
+    const lower = link.toLowerCase();
+    // Разрешаем только XHTTP, фильтруем TCP ("Server 3") и устаревшие транспорты
+    return lower.includes("type=xhttp") || lower.includes("network=xhttp") || lower.includes("xhttp");
+  }
+  return false;
+}
+
 function formatNodeLabel(node: PaidNodeConfig, rawLink: string): string {
-  const flag = node.kind === "belarus" ? "🇧🇾" : node.kind === "turkey" ? "🇹🇷" : "🇳🇱";
   const proto = detectProtocolTag(rawLink);
   const protoSuffix = proto ? ` (${proto})` : "";
 
   if (node.kind === "france" || node.id === "premium_france") {
-    return proto ? `🇳🇱 Нидерланды (${proto})` : "🇳🇱 Нидерланды (XHTTP)";
+    return `🇳🇱 Нидерланды${protoSuffix}`;
   }
   if (node.kind === "turkey" || node.kind === "belarus" || node.id === "premium_belarus") {
-    return proto ? `🇹🇷 Турция (${proto})` : "🇹🇷 Турция (XHTTP)";
+    return `🇹🇷 Турция${protoSuffix}`;
   }
+  const flag = node.kind === "belarus" ? "🇧🇾" : node.kind === "turkey" ? "🇹🇷" : "🇳🇱";
   return `${flag} ${node.label}${protoSuffix}`;
 }
 
@@ -503,6 +572,19 @@ serve(async (req) => {
         const parsed = Date.parse(subscription.paid_until);
         if (Number.isFinite(parsed)) expiry = parsed;
       }
+    } else if (tgId) {
+      const { data: subRows, error: subError } = await service()
+        .from("subscriptions")
+        .select("user_id,email,is_active,plan,paid_until,vless_key,belarus_vless_key")
+        .eq("tg_id", tgId)
+        .limit(1);
+      if (subError) throw new Error(subError.message);
+      subscription = (subRows && subRows[0]) as SubscriptionRow | undefined;
+      if (subscription?.is_active && subscription.paid_until) {
+        const parsed = Date.parse(subscription.paid_until);
+        if (Number.isFinite(parsed)) expiry = parsed;
+        subjectId = subscription.user_id;
+      }
     }
 
     const hasPaid = Boolean(subscription?.is_active && expiry > Date.now());
@@ -529,7 +611,17 @@ serve(async (req) => {
           }
         }
 
-        // Запрашиваем через edge-функцию узла (короткий таймаут 3.5 с)
+        // Для Турции зовём edge-функцию с сервисным ключом (надежно, не зависит от сессии Google)
+        if (node.configFunction === "belarus-config" && subscription?.email && hasPaid) {
+          try {
+            const res = await fetchNodeWithService("belarus-config", subjectId || subscription.user_id, subscription.email);
+            if (res) return { node, result: res };
+          } catch (e) {
+            console.warn("belarus-config service call failed, fallback to userToken/stored", e);
+          }
+        }
+
+        // Запрашиваем через edge-функцию узла с токеном пользователя (таймаут 8 с)
         const result = userToken ? await fetchNode(node.configFunction, userToken) : null;
         if (result) return { node, result };
 
@@ -561,7 +653,7 @@ serve(async (req) => {
         : [resolved.link];
 
       for (const rawLink of rawLinks) {
-        if (!rawLink) continue;
+        if (!rawLink || !isAllowedProtocol(rawLink)) continue;
         const label = formatNodeLabel(node, rawLink);
         links.push(withNodeName(rawLink, label));
         nodes.push({ host: node.id, label, uuid: resolved.uuid });

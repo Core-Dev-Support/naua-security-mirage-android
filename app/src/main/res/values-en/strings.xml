@@ -401,7 +401,7 @@
     <string name="site_direct">Direct connection</string>
     <string name="site_via_tunnel">Via tunnel (default)</string>
     <string name="plan_free">⚡ Free</string>
-    <string name="plan_france">Netherlands (Protocol)</string>
+    <string name="plan_france">Netherlands</string>
 
     <string name="toast_vpn_denied">VPN permission not granted</string>
     <string name="toast_storage_denied">File write permission not granted</string>
@@ -531,7 +531,7 @@
   <string name="tunnel_dns_formerr">server rejected the query</string>
   <string name="tunnel_dns_no_records">answered, no records</string>
   <string name="backup_restored_with_wallpaper">Settings restored, wallpaper included</string>
-  <string name="plan_belarus">Turkey (Paid)</string>
+  <string name="plan_belarus">Turkey</string>
   <string name="paid_server_picker_title">Paid server</string>
   <string name="paid_server_selected">selected</string>
   <string name="node_status_untracked">Status of this node is not tracked</string>

@@ -484,6 +484,24 @@ class MirageVpnService : VpnService() {
         }
     }
 
+    private fun pickLinkForProtocol(links: List<String>, preferredProto: String): String? {
+        if (links.isEmpty()) return null
+        return when (preferredProto) {
+            SettingsRepository.PROTOCOL_HYSTERIA2 -> {
+                links.firstOrNull { it.startsWith("hysteria2://", true) || it.startsWith("hy2://", true) }
+            }
+            SettingsRepository.PROTOCOL_XHTTP -> {
+                links.firstOrNull { it.contains("type=xhttp", true) || it.contains("xhttp", true) }
+                    ?: links.firstOrNull { it.startsWith("vless://", true) }
+            }
+            SettingsRepository.PROTOCOL_VLESS -> {
+                links.firstOrNull { it.startsWith("vless://", true) && !it.contains("type=xhttp", true) }
+                    ?: links.firstOrNull { it.startsWith("vless://", true) }
+            }
+            else -> links.firstOrNull()
+        }
+    }
+
     /**
      * Resolves any node listed in `app_config.paid_nodes`.
      *
@@ -494,6 +512,33 @@ class MirageVpnService : VpnService() {
     private suspend fun resolvePaidNode(node: PaidNode, force: Boolean = false): VlessServer? {
         val manager = com.naua_security_mirage.app.data.supabase.SupabaseManager.instance
         if (!manager.hasActiveSubscription()) return null
+        val preferredProto = settingsRepository.getProtocolForNode(node.id)
+
+        val links = when (node.kind) {
+            PaidNode.Kind.FRANCE -> {
+                if (force || manager.getFranceLinks().isEmpty()) {
+                    serviceScope.async(Dispatchers.IO) { manager.ensureFranceVlessKey() }.await()
+                }
+                manager.getFranceLinks()
+            }
+            PaidNode.Kind.BELARUS, PaidNode.Kind.TURKEY -> {
+                if (force || manager.getBelarusLinks().isEmpty()) {
+                    serviceScope.async(Dispatchers.IO) { manager.ensureBelarusVlessKey(force = force) }.await()
+                }
+                manager.getBelarusLinks()
+            }
+            PaidNode.Kind.VLESS -> emptyList()
+        }
+
+        val matchedUri = pickLinkForProtocol(links, preferredProto)
+        if (!matchedUri.isNullOrBlank()) {
+            val s = VlessServer.fromUri(matchedUri, node.label())
+            if (s != null) {
+                AppLogger.i(TAG, "Узел ${node.id}: выбран протокол $preferredProto -> ${s.address}:${s.port} (${s.protocol})")
+                return applyFingerprintPreference(s)
+            }
+        }
+
         val resolved = when (node.kind) {
             PaidNode.Kind.FRANCE -> resolveFranceServer(node.label())
             PaidNode.Kind.BELARUS, PaidNode.Kind.TURKEY -> {
@@ -505,7 +550,6 @@ class MirageVpnService : VpnService() {
             PaidNode.Kind.VLESS -> resolveGenericServer(node, force)
         } ?: return null
 
-        val preferredProto = settingsRepository.getProtocolForNode(node.id)
         return applyProtocolPreference(resolved, preferredProto)
     }
 

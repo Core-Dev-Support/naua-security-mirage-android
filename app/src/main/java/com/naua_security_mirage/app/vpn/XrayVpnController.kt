@@ -878,7 +878,7 @@ class XrayVpnController(private val vpnService: VpnService) {
 
         var officialOutbound: JsonObject? = null
 
-        val shouldUseLibXrayConverter = SupabaseConfig.USE_LIBXRAY_CONVERTER && !isXhttpNetwork(server.network)
+        val shouldUseLibXrayConverter = SupabaseConfig.USE_LIBXRAY_CONVERTER && !isXhttpNetwork(server.network) && !server.isHysteria2
         if (shouldUseLibXrayConverter) {
             try {
             val vlessLink = buildShareLink(xrayServer)

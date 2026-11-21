@@ -83,8 +83,8 @@ data class AppConfig(
             PaidNode(
                 id = "premium_france",
                 kind = PaidNode.Kind.FRANCE,
-                labelRu = "Нидерланды (протокол)",
-                labelEn = "Netherlands (Protocol)",
+                labelRu = "Нидерланды",
+                labelEn = "Netherlands",
                 flag = "netherlands",
                 configFunction = "france-config",
                 sort = 10
@@ -92,8 +92,8 @@ data class AppConfig(
             PaidNode(
                 id = "premium_belarus",
                 kind = PaidNode.Kind.TURKEY,
-                labelRu = "Турция (Платная)",
-                labelEn = "Turkey (Paid)",
+                labelRu = "Турция",
+                labelEn = "Turkey",
                 flag = "turkey",
                 configFunction = "belarus-config",
                 sort = 20

@@ -401,7 +401,7 @@
     <string name="site_direct">Прямое подключение</string>
     <string name="site_via_tunnel">Через туннель (по умолчанию)</string>
     <string name="plan_free">⚡ Бесплатный</string>
-    <string name="plan_france">Нидерланды (протокол)</string>
+    <string name="plan_france">Нидерланды</string>
 
     <string name="toast_vpn_denied">Разрешение на VPN не получено</string>
     <string name="toast_storage_denied">Разрешение на запись файлов не предоставлено</string>
@@ -531,7 +531,7 @@
   <string name="tunnel_dns_formerr">сервер не понял запрос</string>
   <string name="tunnel_dns_no_records">ответил, записей нет</string>
   <string name="backup_restored_with_wallpaper">Настройки загружены, вместе с фото обоев</string>
-  <string name="plan_belarus">Турция (Платная)</string>
+  <string name="plan_belarus">Турция</string>
   <string name="paid_server_picker_title">Платный сервер</string>
   <string name="paid_server_selected">выбран</string>
   <string name="node_status_untracked">Состояние этого узла не отслеживается</string>

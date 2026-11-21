@@ -99,6 +99,7 @@ const CONSENT_VERSION = "2026-10-22";
 const ADMIN_ID = Number(Deno.env.get("ADMIN_ID") || "0");
 const BOT_USERNAME = Deno.env.get("BOT_USERNAME") || "";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
 const SUBSCRIPTION_SECRET = Deno.env.get("SUBSCRIPTION_SECRET") || "";
 const SUB_SECRET = Deno.env.get("SUB_SECRET") || "";
 // CRON_KEY — ключ для pg_cron. Отдельный от SUB_SECRET, чтобы можно было
@@ -2208,6 +2209,14 @@ async function resolveTargetAccount(input: string | number): Promise<TargetAccou
     if (subData && subData[0] && subData[0].email) {
       return { userId: subData[0].user_id, email: subData[0].email, tgId };
     }
+
+    // Если пользователь есть в боте или передан валидный Telegram ID:
+    const botUser = await getUser(tgId);
+    if (botUser || /^\d+$/.test(noAt)) {
+      const syntheticUserId = `tg_${tgId}`;
+      const syntheticEmail = `tg_${tgId}@mirage.internal`;
+      return { userId: syntheticUserId, email: syntheticEmail, tgId };
+    }
   }
 
   return null;
@@ -2218,7 +2227,7 @@ async function grantSubscription(targetInput: string | number, days: number): Pr
   if (!target) {
     await telegram.sendMessage(
       ADMIN_ID,
-      `❌ Пользователь <code>${escapeHtml(String(targetInput))}</code> не найден или ещё не вошёл через Google в боте.\n\n💡 <b>Подсказка:</b> если пользователь зарегистрирован в приложении, введите его Google-почту напрямую:\n<code>/give_sub user@gmail.com ${days}</code>`,
+      `❌ Пользователь <code>${escapeHtml(String(targetInput))}</code> не найден в боте.\n\n💡 <b>Подсказка:</b> укажите Google-почту, Telegram ID или @username:\n<code>/give_sub user@gmail.com ${days}</code> или <code>/give_sub 123456789 ${days}</code>`,
     );
     return;
   }
@@ -2253,22 +2262,67 @@ async function grantSubscription(targetInput: string | number, days: number): Pr
     return;
   }
 
-  // 2. Сразу продлеваем на панелях серверов (H1 Switzerland + Turkey)
-  let nodeSync = "синхронизировано";
+  // Создаём/обновляем запись в telegram_accounts
+  if (target.tgId) {
+    await supabase().from("telegram_accounts").upsert({
+      tg_id: target.tgId,
+      user_id: target.userId,
+      email: target.email,
+      updated_at: nowIso(),
+    }, { onConflict: "tg_id" });
+  }
+
+  // 2. Сразу продлеваем на панелях серверов (Нидерланды + Турция)
+  let nodeSync = "Нидерланды и Турция синхронизированы";
+  const syncErrors: string[] = [];
   try {
     if (target.email) {
-      await h1EnsureNode(target.email, expiry);
+      // 2a. Нидерланды (H1)
+      try {
+        const h1Res = await h1EnsureNode(target.email, expiry);
+        if (h1Res?.links?.length) {
+          await supabase()
+            .from("subscriptions")
+            .update({ vless_key: h1Res.links.join("\n") })
+            .eq("user_id", target.userId);
+        }
+      } catch (errNl) {
+        syncErrors.push(`Нидерланды: ${errNl instanceof Error ? errNl.message : String(errNl)}`);
+      }
+
+      // 2b. Турция (H1Cloud / belarus-config)
+      try {
+        const trUrl = `${SUPABASE_URL}/functions/v1/belarus-config?user_id=${encodeURIComponent(target.userId)}&email=${encodeURIComponent(target.email)}`;
+        const trRes = await fetch(trUrl, {
+          headers: {
+            apikey: SUPABASE_SERVICE_ROLE_KEY,
+            Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+          },
+          signal: AbortSignal.timeout(8000),
+        });
+        if (!trRes.ok) {
+          syncErrors.push(`Турция: HTTP ${trRes.status}`);
+        }
+      } catch (errTr) {
+        syncErrors.push(`Турция: ${errTr instanceof Error ? errTr.message : String(errTr)}`);
+      }
     }
   } catch (err) {
-    nodeSync = `панель: ${err instanceof Error ? err.message : String(err)}`;
+    syncErrors.push(err instanceof Error ? err.message : String(err));
+  }
+  if (syncErrors.length > 0) {
+    nodeSync = syncErrors.join("; ");
   }
 
   // 3. Отчёт админу
   const expiryDate = expiry.slice(0, 10);
   const tgNote = target.tgId ? ` (Telegram ID: <code>${target.tgId}</code>)` : "";
+  const targetLabel = target.email.endsWith("@mirage.internal")
+    ? `пользователя Telegram <code>${target.tgId}</code>`
+    : `Google-аккаунта <b>${escapeHtml(target.email)}</b>${tgNote}`;
   await telegram.sendMessage(
     ADMIN_ID,
-    `✅ Подписка выдана для Google-аккаунта <b>${escapeHtml(target.email)}</b>${tgNote} на <b>${days} дн.</b> (до ${expiryDate}).\n\n📱 <b>Приложение Mirage, Happ и Бот</b> синхронизированы.\n🌐 <b>Серверы хостера:</b> ${nodeSync}.`,
+    `✅ Подписка выдана для ${targetLabel} на <b>${days} дн.</b> (до ${expiryDate}).\n\n📱 <b>Приложение Mirage, Happ и Бот</b> синхронизированы.\n🌐 <b>Серверы:</b> ${nodeSync}.`,
   );
 
   // 4. Уведомление пользователю в Telegram (если привязан)

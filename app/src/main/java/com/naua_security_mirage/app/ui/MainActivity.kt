@@ -3832,7 +3832,9 @@ class MainActivity : AppCompatActivity() {
         val paidTarget = (if (paid) plan else paidNodePlanForLabel())
             .ifBlank { SettingsRepository.PLAN_PREMIUM_FRANCE }
         shell.auPaidName.text = paidNodeLabel(paidTarget)
-        shell.auPaidFlagView.code = if (paidTarget == SettingsRepository.PLAN_PREMIUM_BELARUS) "by" else "ch"
+        val targetNode = AppConfigRepository.node(paidTarget)
+        shell.auPaidFlagView.code = targetNode?.flag?.ifBlank { null }
+            ?: if (paidTarget == SettingsRepository.PLAN_PREMIUM_BELARUS) "tr" else "nl"
         shell.auFreeName.setTextColor(
             ContextCompat.getColor(this, if (!paid) R.color.au_fg else R.color.au_fg_2)
         )

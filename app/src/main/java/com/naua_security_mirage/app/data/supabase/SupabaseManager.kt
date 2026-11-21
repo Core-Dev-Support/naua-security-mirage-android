@@ -1096,6 +1096,9 @@ class SupabaseManager private constructor() {
     private suspend fun fetchFranceConfigFromServer(): String? = withContext(Dispatchers.IO) {
         when (val result = fetchFranceConfig()) {
             is FranceConfigResult.Key -> {
+                if (result.links.isNotEmpty()) {
+                    persistFranceLinks(result.links)
+                }
                 when (result.trafficSeen) {
                     true -> AppLogger.i(TAG, "Сервер видел трафик этого клиента")
                     false -> AppLogger.w(TAG, "Сервер не видел трафика от клиента: авторизация, вероятно, отклоняется")
@@ -1115,7 +1118,13 @@ class SupabaseManager private constructor() {
     }
 
     private sealed class FranceConfigResult {
-        data class Key(val vlessKey: String, val clientUuid: String, val paidUntil: String?, val trafficSeen: Boolean? = null) : FranceConfigResult()
+        data class Key(
+            val vlessKey: String,
+            val clientUuid: String,
+            val paidUntil: String?,
+            val trafficSeen: Boolean? = null,
+            val links: List<String> = emptyList()
+        ) : FranceConfigResult()
         object NoSubscription : FranceConfigResult()
         data class Unavailable(val reason: String) : FranceConfigResult()
     }
@@ -1230,11 +1239,20 @@ class SupabaseManager private constructor() {
                     if (key.isNullOrBlank()) {
                         FranceConfigResult.Unavailable("в ответе нет ключа")
                     } else {
+                        val rawLinks = mutableListOf<String>()
+                        val linksArr = json.getAsJsonArray("links")
+                        if (linksArr != null) {
+                            for (elem in linksArr) {
+                                val s = elem?.asString
+                                if (!s.isNullOrBlank()) rawLinks.add(s)
+                            }
+                        }
                         FranceConfigResult.Key(
                             vlessKey = key,
                             clientUuid = json.get("clientUuid")?.asString.orEmpty(),
                             paidUntil = json.get("paidUntil")?.takeIf { !it.isJsonNull }?.asString,
-                            trafficSeen = json.get("trafficSeen")?.takeIf { !it.isJsonNull }?.asBoolean
+                            trafficSeen = json.get("trafficSeen")?.takeIf { !it.isJsonNull }?.asBoolean,
+                            links = rawLinks
                         )
                     }
                 }
@@ -1551,6 +1569,51 @@ class SupabaseManager private constructor() {
         return sub?.belarusVlessKey ?: prefs?.getString(KEY_SUB_BELARUS_VLESS_KEY, null)
     }
 
+    @Volatile
+    private var _franceLinks: List<String> = emptyList()
+    @Volatile
+    private var _belarusLinks: List<String> = emptyList()
+
+    fun getFranceLinks(): List<String> {
+        if (_franceLinks.isNotEmpty()) return _franceLinks
+        val saved = prefs?.getString("sub_france_links", null)
+        if (!saved.isNullOrBlank()) {
+            try {
+                val arr = gson.fromJson(saved, Array<String>::class.java)
+                if (arr != null) {
+                    _franceLinks = arr.toList()
+                    return _franceLinks
+                }
+            } catch (_: Throwable) {}
+        }
+        return emptyList()
+    }
+
+    fun getBelarusLinks(): List<String> {
+        if (_belarusLinks.isNotEmpty()) return _belarusLinks
+        val saved = prefs?.getString("sub_belarus_links", null)
+        if (!saved.isNullOrBlank()) {
+            try {
+                val arr = gson.fromJson(saved, Array<String>::class.java)
+                if (arr != null) {
+                    _belarusLinks = arr.toList()
+                    return _belarusLinks
+                }
+            } catch (_: Throwable) {}
+        }
+        return emptyList()
+    }
+
+    fun persistFranceLinks(links: List<String>) {
+        _franceLinks = links
+        prefs?.edit()?.putString("sub_france_links", gson.toJson(links))?.apply()
+    }
+
+    fun persistBelarusLinks(links: List<String>) {
+        _belarusLinks = links
+        prefs?.edit()?.putString("sub_belarus_links", gson.toJson(links))?.apply()
+    }
+
     /**
      * Сбрасывает пул HTTP-соединений.
      *
@@ -1615,6 +1678,9 @@ class SupabaseManager private constructor() {
     private suspend fun fetchBelarusConfigFromServer(): String? = withContext(Dispatchers.IO) {
         when (val result = fetchBelarusConfig()) {
             is BelarusConfigResult.Key -> {
+                if (result.links.isNotEmpty()) {
+                    persistBelarusLinks(result.links)
+                }
                 persistBelarusKey(result.vlessKey, result.clientUuid, result.paidUntil)
                 result.vlessKey
             }
@@ -1633,7 +1699,8 @@ class SupabaseManager private constructor() {
         data class Key(
             val vlessKey: String,
             val clientUuid: String,
-            val paidUntil: String?
+            val paidUntil: String?,
+            val links: List<String> = emptyList()
         ) : BelarusConfigResult()
         object NoSubscription : BelarusConfigResult()
         data class Unavailable(val reason: String) : BelarusConfigResult()
@@ -1701,10 +1768,19 @@ class SupabaseManager private constructor() {
                     if (key.isNullOrBlank()) {
                         BelarusConfigResult.Unavailable("в ответе нет ключа")
                     } else {
+                        val rawLinks = mutableListOf<String>()
+                        val linksArr = json.getAsJsonArray("links")
+                        if (linksArr != null) {
+                            for (elem in linksArr) {
+                                val s = elem?.asString
+                                if (!s.isNullOrBlank()) rawLinks.add(s)
+                            }
+                        }
                         BelarusConfigResult.Key(
                             vlessKey = key,
                             clientUuid = json.get("clientUuid")?.asString.orEmpty(),
-                            paidUntil = json.get("paidUntil")?.takeIf { !it.isJsonNull }?.asString
+                            paidUntil = json.get("paidUntil")?.takeIf { !it.isJsonNull }?.asString,
+                            links = rawLinks
                         )
                     }
                 }

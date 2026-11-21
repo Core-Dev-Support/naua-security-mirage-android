@@ -30,6 +30,26 @@ function json(body: unknown, status = 200): Response {
   });
 }
 
+function detectProtocolTag(link: string): string {
+  if (link.startsWith("hysteria2://") || link.startsWith("hy2://")) {
+    return "Hysteria 2";
+  }
+  if (link.startsWith("vless://")) {
+    const lower = link.toLowerCase();
+    if (lower.includes("type=xhttp") || lower.includes("network=xhttp") || lower.includes("xhttp")) {
+      return "XHTTP";
+    }
+    return "VLESS";
+  }
+  return "";
+}
+
+function nameNlLink(rawLink: string): string {
+  const proto = detectProtocolTag(rawLink);
+  const label = proto ? `🇳🇱 Нидерланды (${proto})` : "🇳🇱 Нидерланды (XHTTP)";
+  return `${rawLink.split("#")[0]}#${encodeURIComponent(label)}`;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   if (req.method !== "GET") return json({ error: "Method not allowed" }, 405);
@@ -39,19 +59,30 @@ serve(async (req) => {
       throw new Error("Supabase service configuration is incomplete");
     }
 
+    const url = new URL(req.url);
+    const requestedProto = (url.searchParams.get("proto") || "").toLowerCase();
+
     const authHeader = req.headers.get("Authorization") || "";
     const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
     if (!token) return json({ error: "Missing bearer token" }, 401);
 
-    const userClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-      auth: { persistSession: false, autoRefreshToken: false },
-    });
-    const { data: userData, error: userError } = await userClient.auth.getUser(token);
-    if (userError || !userData?.user?.email) {
-      return json({ error: "Invalid session" }, 401);
+    let userId: string;
+    let email: string;
+
+    if (token === SUPABASE_SERVICE_ROLE_KEY && (url.searchParams.get("user_id") || url.searchParams.get("email"))) {
+      userId = url.searchParams.get("user_id") || "";
+      email = url.searchParams.get("email") || "";
+    } else {
+      const userClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+        auth: { persistSession: false, autoRefreshToken: false },
+      });
+      const { data: userData, error: userError } = await userClient.auth.getUser(token);
+      if (userError || !userData?.user?.email) {
+        return json({ error: "Invalid session" }, 401);
+      }
+      userId = userData.user.id;
+      email = userData.user.email as string;
     }
-    const userId = userData.user.id;
-    const email = userData.user.email as string;
 
     const service = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
       auth: { persistSession: false, autoRefreshToken: false },
@@ -80,15 +111,28 @@ serve(async (req) => {
     }
 
     const node = await h1EnsureNode(email, row.paid_until);
-    const key = node.link;
     const trafficSeen = node.trafficSeen;
 
-    if (row.client_uuid !== node.uuid || row.vless_key !== key || row.flow !== "") {
+    const namedLinks = (node.links && node.links.length > 0 ? node.links : [node.link])
+      .map(nameNlLink);
+
+    let chosenKey = namedLinks[0] || nameNlLink(node.link);
+    if (requestedProto === "hysteria2" || requestedProto === "hy2") {
+      const hy = namedLinks.find((l) => l.startsWith("hysteria2://") || l.startsWith("hy2://"));
+      if (hy) chosenKey = hy;
+    } else if (requestedProto === "xhttp") {
+      const xh = namedLinks.find((l) => l.toLowerCase().includes("type=xhttp"));
+      if (xh) chosenKey = xh;
+    }
+
+    const key = chosenKey;
+
+    if (row.client_uuid !== node.uuid || row.vless_key !== namedLinks[0] || row.flow !== "") {
       await service
         .from("subscriptions")
         .update({
           client_uuid: node.uuid,
-          vless_key: key,
+          vless_key: namedLinks[0],
           flow: "",
           email,
           updated_at: new Date().toISOString(),
@@ -98,7 +142,7 @@ serve(async (req) => {
 
     return json({
       vlessKey: key,
-      links: node.links,
+      links: namedLinks,
       clientUuid: node.uuid,
       flow: "",
       trafficSeen,
