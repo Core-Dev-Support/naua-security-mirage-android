@@ -8,6 +8,7 @@ local.properties
 
 # Gradle & Build Artifacts
 .gradle/
+.kotlin/
 build/
 app/build/
 desktop/build/

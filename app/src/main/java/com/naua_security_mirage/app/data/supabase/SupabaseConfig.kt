@@ -183,7 +183,7 @@ object SupabaseConfig {
         return franceEndpoints().mapIndexed { index, endpoint ->
             VlessServer(
                 id = "france-premium",
-                tag = if (index == 0) "Швейцария (Платный)" else "Швейцария (Платный) ${endpoint.host}",
+                tag = if (index == 0) "Нидерланды (протокол)" else "Нидерланды (протокол) ${endpoint.host}",
                 address = endpoint.host,
                 port = endpoint.port,
                 uuid = finalUuid,

@@ -76,9 +76,9 @@ data class AppConfig(
             PaidNode(
                 id = "premium_france",
                 kind = PaidNode.Kind.FRANCE,
-                labelRu = "Швейцария (Платная)",
-                labelEn = "Switzerland (Paid)",
-                flag = "switzerland",
+                labelRu = "Нидерланды (протокол)",
+                labelEn = "Netherlands (Protocol)",
+                flag = "netherlands",
                 configFunction = "france-config",
                 sort = 10
             ),

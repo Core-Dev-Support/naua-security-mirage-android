@@ -45,7 +45,7 @@ type PaidNodeConfig = {
 };
 
 const DEFAULT_PAID_NODES: PaidNodeConfig[] = [
-  { id: "premium_france", kind: "france", label: "Швейцария (протокол)", configFunction: "france-config", sort: 10 },
+  { id: "premium_france", kind: "france", label: "Нидерланды (протокол)", configFunction: "france-config", sort: 10 },
   { id: "premium_belarus", kind: "turkey", label: "Турция (Платная)", configFunction: "belarus-config", sort: 20 },
 ];
 
@@ -280,8 +280,8 @@ function storedNodeLink(
     ? subscription.belarus_vless_key
     : null;
   if (!link || (!link.startsWith("vless://") && !link.startsWith("hysteria2://") && !link.startsWith("hy2://"))) return null;
-  // Устаревшие/недоступные хосты Швейцарии не отдаём из кэша базы
-  if (nodeId === "premium_france" && (link.includes("ch1.") || link.includes("ch4."))) {
+  // Устаревшие/недоступные хосты Швейцарии и старых серверов не отдаём из кэша базы
+  if (nodeId === "premium_france" && (link.includes("ch1.") || link.includes("ch4.") || link.includes(".ch") || link.includes("swiss"))) {
     return null;
   }
   const uuid = link.match(/^(?:vless|hysteria2|hy2):\/\/([^@]+)@/)?.[1] || "";
@@ -490,7 +490,7 @@ serve(async (req) => {
       const flag = node.kind === "belarus" ? "🇧🇾" : node.kind === "turkey" ? "🇹🇷" : "🇳🇱";
       let label: string;
       if (node.kind === "france" || node.id === "premium_france") {
-        label = "Швейцария (протокол)";
+        label = "Нидерланды (протокол)";
       } else {
         label = node.label.startsWith(flag)
           ? `NAUA Security Mirage ${node.label}`

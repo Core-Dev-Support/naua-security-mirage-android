@@ -1,15 +1,69 @@
-// H1 panel client for the paid Switzerland node.
+// H1 panel client for the paid node (Switzerland / Netherlands).
 //
 // The old France provider used the 3X-UI session API. The H1 panel speaks a
 // token API instead; this module mirrors the proven belarus-config flows:
 // list clients, create on 409 with name suffixes, extend via /api/edit and
 // take the ready VLESS link from the panel.
 //
-// Supabase runs outside Russia, so H1_PANEL_URL must point at the direct-*
-// panel host.
+// Credentials are read from env (H1_PANEL_URL, H1_PANEL_TOKEN) and can be
+// overridden at runtime via the app_config table ('h1_panel' row) so changing
+// servers from a phone doesn't require redeploying Edge Functions.
 
-const PANEL_URL = (Deno.env.get("H1_PANEL_URL") || "").replace(/\/+$/, "");
-const PANEL_TOKEN = Deno.env.get("H1_PANEL_TOKEN") || "";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.8";
+
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+
+const DEFAULT_PANEL_URL = "https://s-25703.nl1.h1clayd.click";
+const DEFAULT_PANEL_TOKEN = "14195247a7ea4beebc49abee3ff96b1c5928f2f84e44406f9bece7543dac7e52";
+
+let cachedPanelUrl = "";
+let cachedPanelToken = "";
+let cacheExpiry = 0;
+
+async function resolvePanelCredentials(): Promise<{ url: string; token: string }> {
+  const now = Date.now();
+  if (cachedPanelUrl && cachedPanelToken && now < cacheExpiry) {
+    return { url: cachedPanelUrl, token: cachedPanelToken };
+  }
+
+  let url = (Deno.env.get("H1_PANEL_URL") || DEFAULT_PANEL_URL).replace(/\/+$/, "");
+  let token = Deno.env.get("H1_PANEL_TOKEN") || DEFAULT_PANEL_TOKEN;
+
+  if (SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
+    try {
+      const client = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+        auth: { persistSession: false, autoRefreshToken: false },
+      });
+      const { data } = await client
+        .from("app_config")
+        .select("payload")
+        .eq("id", "h1_panel")
+        .maybeSingle();
+
+      if (data?.payload && typeof data.payload === "object") {
+        const payload = data.payload as Record<string, unknown>;
+        if (typeof payload.url === "string" && payload.url.trim()) {
+          url = payload.url.trim().replace(/\/+$/, "");
+        }
+        if (typeof payload.token === "string" && payload.token.trim()) {
+          token = payload.token.trim();
+        }
+      }
+    } catch (e) {
+      console.warn("h1panel: failed to check app_config for panel credentials", e);
+    }
+  }
+
+  if (url && token) {
+    cachedPanelUrl = url;
+    cachedPanelToken = token;
+    cacheExpiry = now + 60_000;
+  }
+
+  return { url, token };
+}
+
 const INBOUND_ID = Deno.env.get("H1_INBOUND_ID") || "";
 
 const CLIENT_DEVICES = 0;
@@ -61,17 +115,18 @@ async function panelCall(
   body: unknown,
   budget: PanelBudget,
 ): Promise<{ status: number; parsed: Record<string, unknown> }> {
-  if (!PANEL_URL) throw new Error("H1 panel address is not configured");
-  if (!PANEL_TOKEN) throw new Error("H1 panel token is not configured");
+  const { url, token } = await resolvePanelCredentials();
+  if (!url) throw new Error("H1 panel address is not configured");
+  if (!token) throw new Error("H1 panel token is not configured");
   if (budget.expired()) throw new Error("H1 panel did not respond in time");
 
   const headers: Record<string, string> = {
     Accept: "application/json",
-    Authorization: `Bearer ${PANEL_TOKEN}`,
+    Authorization: `Bearer ${token}`,
   };
   if (body !== undefined) headers["Content-Type"] = "application/json";
 
-  const response = await fetch(`${PANEL_URL}/api${path}`, {
+  const response = await fetch(`${url}/api${path}`, {
     method,
     headers,
     body: body === undefined ? undefined : JSON.stringify(body),
