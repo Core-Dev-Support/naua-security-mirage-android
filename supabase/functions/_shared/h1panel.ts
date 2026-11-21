@@ -14,9 +14,6 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.8";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
 
-const DEFAULT_PANEL_URL = "https://s-25703.nl1.h1clayd.click";
-const DEFAULT_PANEL_TOKEN = "14195247a7ea4beebc49abee3ff96b1c5928f2f84e44406f9bece7543dac7e52";
-
 let cachedPanelUrl = "";
 let cachedPanelToken = "";
 let cacheExpiry = 0;
@@ -27,8 +24,8 @@ async function resolvePanelCredentials(): Promise<{ url: string; token: string }
     return { url: cachedPanelUrl, token: cachedPanelToken };
   }
 
-  let url = (Deno.env.get("H1_PANEL_URL") || DEFAULT_PANEL_URL).replace(/\/+$/, "");
-  let token = Deno.env.get("H1_PANEL_TOKEN") || DEFAULT_PANEL_TOKEN;
+  let url = (Deno.env.get("H1_PANEL_URL") || "").replace(/\/+$/, "");
+  let token = Deno.env.get("H1_PANEL_TOKEN") || "";
 
   if (SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
     try {
