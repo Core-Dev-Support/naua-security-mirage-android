@@ -24,6 +24,7 @@ data class VlessServer(
     val insecure: Boolean = false,
     val obfs: String = "",
     val obfsPassword: String = "",
+    val pinSha256: String = "",
     var pingMs: Long = -1L,
     var lossPercent: Int = -1,
     var jitterMs: Long = -1L
@@ -47,6 +48,9 @@ data class VlessServer(
             }
             if (insecure) {
                 queryParams.add("insecure=1")
+            }
+            if (pinSha256.isNotEmpty()) {
+                queryParams.add("pinSHA256=" + URLEncoder.encode(pinSha256, "UTF-8"))
             }
             if (obfs.isNotEmpty()) {
                 queryParams.add("obfs=" + URLEncoder.encode(obfs, "UTF-8"))
@@ -155,6 +159,7 @@ data class VlessServer(
                     val insecure = params["insecure"] == "1" || params["allowinsecure"] == "1"
                     val obfs = params["obfs"] ?: ""
                     val obfsPassword = params["obfs-password"] ?: params["obfspassword"] ?: ""
+                    val pinSha256 = params["pinsha256"] ?: params["pcs"] ?: ""
 
                     return VlessServer(
                         id = "hy2-${auth.take(8).ifEmpty { host.take(8) }}",
@@ -175,7 +180,8 @@ data class VlessServer(
                         protocol = "hysteria2",
                         insecure = insecure,
                         obfs = obfs,
-                        obfsPassword = obfsPassword
+                        obfsPassword = obfsPassword,
+                        pinSha256 = pinSha256
                     )
                 }
 

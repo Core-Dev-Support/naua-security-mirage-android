@@ -42,7 +42,7 @@ class VlessServerTest {
 
     @Test
     fun parsesHysteria2UriAndSerializesCorrectly() {
-        val link = "hysteria2://password123@example.com:8443?sni=hy2.example.com&insecure=1&obfs=salamander&obfs-password=mysecret#SwissNode"
+        val link = "hysteria2://password123@example.com:8443?sni=hy2.example.com&insecure=1&obfs=salamander&obfs-password=mysecret&pinSHA256=abcdef1234#SwissNode"
 
         val server = VlessServer.fromUri(link)
 
@@ -57,6 +57,7 @@ class VlessServerTest {
         assertTrue(server.insecure)
         assertEquals("salamander", server.obfs)
         assertEquals("mysecret", server.obfsPassword)
+        assertEquals("abcdef1234", server.pinSha256)
         assertEquals("SwissNode", server.tag)
 
         val serialized = server.toVlessUri()
@@ -65,6 +66,7 @@ class VlessServerTest {
         assertTrue(serialized.contains("insecure=1"))
         assertTrue(serialized.contains("obfs=salamander"))
         assertTrue(serialized.contains("obfs-password=mysecret"))
+        assertTrue(serialized.contains("pinSHA256=abcdef1234"))
         assertTrue(serialized.endsWith("#SwissNode"))
     }
 

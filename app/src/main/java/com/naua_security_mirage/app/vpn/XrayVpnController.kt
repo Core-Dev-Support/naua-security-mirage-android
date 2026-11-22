@@ -981,12 +981,6 @@ class XrayVpnController(private val vpnService: VpnService) {
                 addProperty("version", 2)
                 addProperty("address", xrayServer.address)
                 addProperty("port", server.port)
-                val users = JsonArray().apply {
-                    add(JsonObject().apply {
-                        addProperty("auth", server.uuid)
-                    })
-                }
-                add("users", users)
             }
             add("settings", settings)
 
@@ -997,7 +991,14 @@ class XrayVpnController(private val vpnService: VpnService) {
 
                 val tlsSettings = JsonObject().apply {
                     addProperty("serverName", server.serverName.ifEmpty { server.address })
-                    addProperty("allowInsecure", server.insecure)
+                    val alpnArray = JsonArray().apply { add("h3") }
+                    add("alpn", alpnArray)
+                    if (server.insecure) {
+                        addProperty("allowInsecure", true)
+                    }
+                    if (server.pinSha256.isNotEmpty()) {
+                        addProperty("pinnedPeerCertSha256", server.pinSha256)
+                    }
                 }
                 add("tlsSettings", tlsSettings)
 

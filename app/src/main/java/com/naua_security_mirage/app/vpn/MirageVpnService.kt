@@ -516,13 +516,17 @@ class MirageVpnService : VpnService() {
 
         val links = when (node.kind) {
             PaidNode.Kind.FRANCE -> {
-                if (force || manager.getFranceLinks().isEmpty()) {
+                if (force || manager.getFranceLinks().isEmpty() ||
+                    (preferredProto == SettingsRepository.PROTOCOL_HYSTERIA2 && manager.getFranceLinks().none { it.startsWith("hysteria2://", true) || it.startsWith("hy2://", true) })
+                ) {
                     serviceScope.async(Dispatchers.IO) { manager.ensureFranceVlessKey() }.await()
                 }
                 manager.getFranceLinks()
             }
             PaidNode.Kind.BELARUS, PaidNode.Kind.TURKEY -> {
-                if (force || manager.getBelarusLinks().isEmpty()) {
+                if (force || manager.getBelarusLinks().isEmpty() ||
+                    (preferredProto == SettingsRepository.PROTOCOL_HYSTERIA2 && manager.getBelarusLinks().none { it.startsWith("hysteria2://", true) || it.startsWith("hy2://", true) })
+                ) {
                     serviceScope.async(Dispatchers.IO) { manager.ensureBelarusVlessKey(force = force) }.await()
                 }
                 manager.getBelarusLinks()
@@ -556,11 +560,10 @@ class MirageVpnService : VpnService() {
     private fun applyProtocolPreference(server: VlessServer, preferredProto: String): VlessServer {
         return when (preferredProto) {
             SettingsRepository.PROTOCOL_HYSTERIA2 -> {
-                if (server.isHysteria2) server else server.copy(
-                    protocol = "hysteria2",
-                    network = "hysteria",
-                    security = "tls"
-                )
+                if (server.isHysteria2) server else {
+                    AppLogger.w(TAG, "Для узла '${server.tag}' запрошена Hysteria 2, но узел не имеет Hysteria 2 конфига — подключение через ${server.protocol}")
+                    server
+                }
             }
             SettingsRepository.PROTOCOL_XHTTP -> {
                 if (server.isXhttp) server else server.copy(
