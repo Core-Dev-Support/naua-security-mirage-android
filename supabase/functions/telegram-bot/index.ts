@@ -424,12 +424,14 @@ function backButton(lang: Lang | null): InlineKeyboard {
   return [[{ text: t(lang, "common.back"), callback_data: "back" }]];
 }
 
-// Откуда открыт экран: из главного меню или из профиля. «Назад» должна
+// Откуда открыт экран: из главного меню, профиля или поддержки. «Назад» должна
 // возвращать туда, откуда пришли, а не всегда в главное меню.
-type ScreenOrigin = "main" | "profile";
+type ScreenOrigin = "main" | "profile" | "support";
 
 function originOf(data: string): ScreenOrigin {
-  return data.endsWith(":profile") ? "profile" : "main";
+  if (data.endsWith(":support")) return "support";
+  if (data.endsWith(":profile")) return "profile";
+  return "main";
 }
 
 function backTo(origin: ScreenOrigin, lang: Lang): InlineKeyboard {
@@ -914,7 +916,7 @@ async function showSupport(
   }
   keyboard.push([
     { text: t(lang, "support.chat"), url: SUPPORT_URL },
-    { text: t(lang, "support.docs"), url: CONNECT_PAGE_URL },
+    { text: t(lang, "support.docs"), callback_data: "setup_guide:support" },
   ]);
   keyboard.push([
     { text: t(lang, "support.channel"), url: CHANNEL_URL },
@@ -2816,9 +2818,11 @@ async function handleCallback(callback: CallbackQuery): Promise<void> {
     }
     case data === "back" || data.startsWith("back:"):
       // «Назад» возвращает туда, откуда пришли: из профиля — в профиль,
-      // из главного меню — в главное меню.
+      // из поддержки — в поддержку, из главного меню — в главное меню.
       if (data === "back:profile") {
         await showProfile(ctx, chatId, messageId, user?.name ?? "", lang);
+      } else if (data === "back:support") {
+        await showSupport(chatId, messageId, lang);
       } else {
         await renderScreen(
           chatId,

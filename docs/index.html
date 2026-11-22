@@ -84,8 +84,19 @@
   <h1>NAUA Mirage</h1>
   <p class="sub" id="subtitle">Подключение к VPN</p>
 
-  <div id="broken" class="error hidden">
-    Ссылка неполная. Открой экран «Подключиться» в боте и нажми кнопку там.
+  <div id="broken" class="hint hidden" style="border-color: rgba(232, 163, 61, 0.4); text-align: center;">
+    <p style="margin: 0 0 10px; font-weight: 600; font-size: 16px; color: var(--accent);" id="brokenTitle">Быстрое подключение NAUA Mirage</p>
+    <p style="margin: 0 0 14px; font-size: 14px; line-height: 1.5; color: var(--text);" id="brokenText">
+      Эта страница добавляет подписку в Happ и Hiddify в один тап. Чтобы получить персональную ссылку:
+    </p>
+    <div id="brokenSteps" style="text-align: left; background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; margin-bottom: 16px; font-size: 13px; line-height: 1.6;">
+      1. Откройте нашего бота в Telegram;<br>
+      2. Перейдите в раздел <b>«🚀 Подключиться»</b>;<br>
+      3. Нажмите кнопку <b>«Открыть подписку»</b>.
+    </div>
+    <a class="btn primary" id="openBotBtn" href="https://t.me/NAUA_Security_Mirage_Bot" target="_blank" rel="noreferrer" style="justify-content: center; text-decoration: none;">
+      <span id="brokenBotText">🤖 Открыть бота в Telegram</span>
+    </a>
   </div>
 
   <div id="ready" class="hidden">
@@ -141,7 +152,10 @@
       copy: "📋 Скопировать ссылку",
       copied: "Ссылка скопирована ✓",
       copyFail: "Не получилось скопировать — выдели ссылку вручную.",
-      broken: "Ссылка неполная. Открой экран «Подключиться» в боте и нажми кнопку там.",
+      brokenTitle: "Быстрое подключение NAUA Mirage",
+      brokenText: "Эта страница добавляет подписку в Happ и Hiddify в один тап. Чтобы получить персональную ссылку:",
+      brokenSteps: "1. Откройте нашего бота в Telegram;<br>2. Перейдите в раздел <b>«🚀 Подключиться»</b>;<br>3. Нажмите кнопку <b>«Открыть подписку»</b>.",
+      brokenBotBtn: "🤖 Открыть бота в Telegram",
       note: "Если приложение не открылось — скопируй ссылку и добавь её в приложении вручную.",
       appHint: "Приложение не открылось? <a href=\"{store}\" target=\"_blank\" rel=\"noreferrer\">Установи его</a> или скопируй ссылку ниже и добавь вручную.",
       tag: "рекомендуем",
@@ -156,7 +170,10 @@
       copy: "📋 Copy the link",
       copied: "Link copied ✓",
       copyFail: "Could not copy — select the link manually.",
-      broken: "The link is incomplete. Open “Connect” in the bot and use the button there.",
+      brokenTitle: "NAUA Mirage 1-Tap Connect",
+      brokenText: "This page adds your VPN subscription in 1 tap. To get your personal connection link:",
+      brokenSteps: "1. Open our Telegram bot;<br>2. Go to the <b>«🚀 Connect»</b> section;<br>3. Tap <b>«Open Subscription»</b>.",
+      brokenBotBtn: "🤖 Open Telegram Bot",
       note: "If the app did not open, copy the link and add it inside the app manually.",
       appHint: "The app did not open? <a href=\"{store}\" target=\"_blank\" rel=\"noreferrer\">Install it</a> or copy the link below and add it manually.",
       tag: "recommended",
@@ -177,7 +194,14 @@
   if (verEl) verEl.textContent = t.verification;
 
   if (!url) {
-    document.getElementById("broken").textContent = t.broken;
+    var bTitle = document.getElementById("brokenTitle");
+    var bText = document.getElementById("brokenText");
+    var bSteps = document.getElementById("brokenSteps");
+    var bBot = document.getElementById("brokenBotText");
+    if (bTitle) bTitle.textContent = t.brokenTitle;
+    if (bText) bText.textContent = t.brokenText;
+    if (bSteps) bSteps.innerHTML = t.brokenSteps;
+    if (bBot) bBot.textContent = t.brokenBotBtn;
     document.getElementById("broken").classList.remove("hidden");
     return;
   }
