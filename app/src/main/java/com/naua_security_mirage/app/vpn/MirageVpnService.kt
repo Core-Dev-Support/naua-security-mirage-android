@@ -243,38 +243,61 @@ class MirageVpnService : VpnService() {
                     val servers = vlessKeyRepository.getVlessServers()
                     freeLoadedCount = servers.size
                     freePanelReachable = vlessKeyRepository.lastFetchPanelReachable
-                    AppLogger.i(TAG, "Loaded ${servers.size} servers. Measuring latency...")
-                    Log.d(TAG, "Loaded ${servers.size} servers. Measuring latency...")
+                    AppLogger.i(TAG, "Loaded ${servers.size} servers. Fast candidate selection...")
+                    Log.d(TAG, "Loaded ${servers.size} servers. Fast candidate selection...")
 
-                    // Один быстрый замер на старте: выбор узла не должен
-                    // задерживать подключение на 5-12 секунд. Подробные
-                    // loss/jitter досчитываются позже, при failover.
-                    val pingBudgetMs = if (isCellular) 4_000L else 2_500L
-                    val pingProbeMs = if (isCellular) 1_200 else 600
-                    val measuredServers = pingRepository.measureAllPings(
-                        servers,
-                        probeTimeoutMs = pingProbeMs,
-                        totalBudgetMs = pingBudgetMs,
-                        samples = 1
-                    )
-                    measuredServers.forEach { s ->
-                        val pingText = if (s.pingMs in 1..9998) "${s.pingMs} ms" else "таймаут"
-                        AppLogger.d(TAG, "Узел ${s.tag} -> задержка: $pingText")
+                    // Быстрый выбор узла: если есть закрепленный узел или кэшированный пинг,
+                    // подключаемся немедленно (<50 мс), не замораживая старт VPN на 2.5-4 секунды.
+                    val preferredKey = settingsRepository.preferredFreeNodeKey
+                    val pinned = if (!preferredKey.isNullOrBlank()) {
+                        servers.firstOrNull { freeNodeKey(it) == preferredKey }
+                    } else null
+
+                    val hasRecentPing = servers.any { it.pingMs in 1..9998 }
+                    val fastBest = when {
+                        pinned != null -> pinned
+                        hasRecentPing -> pickFreeServer(servers)
+                        else -> null
                     }
 
-                    val best = pickFreeServer(measuredServers)
-                    if (best == null) {
+                    val chosenServer = if (fastBest != null) {
+                        AppLogger.i(TAG, "Мгновенный выбор узла: ${fastBest.tag} (пинг: ${if (fastBest.pingMs in 1..9998) "${fastBest.pingMs} ms" else "выбран"})")
+                        fastBest
+                    } else {
+                        // Первый запуск без кэша: быстрый зонд первого кандидата с жестким лимитом 400мс
+                        val candidate = servers.firstOrNull()
+                        if (candidate != null) {
+                            withTimeoutOrNull(400L) {
+                                pingRepository.measurePing(candidate, timeoutMs = 350, samples = 1)
+                            }
+                        }
+                        pickFreeServer(servers) ?: servers.firstOrNull()
+                    }
+
+                    if (chosenServer == null) {
                         AppLogger.e(TAG, "Бесплатные узлы недоступны или список пуст")
                         AppLogger.onUserMessage(getString(R.string.vpn_error_panel_empty))
                         _vpnState.value = VpnState.DISCONNECTED
                         return@launch
                     }
-                    val protoServer = best
+
+                    // Фоновый замер остальных узлов для бесшовного failover без блокировки подключения
+                    serviceScope.launch(Dispatchers.IO) {
+                        try {
+                            premeasuredFree = pingRepository.measureAllPings(
+                                servers,
+                                probeTimeoutMs = 600,
+                                totalBudgetMs = 3000L,
+                                samples = 1
+                            )
+                        } catch (_: Throwable) {}
+                    }
+
+                    val protoServer = chosenServer
                     val bestPingText = if (protoServer.pingMs in 1..9998) "${protoServer.pingMs} ms" else "доступен"
                     AppLogger.i(TAG, "Выбран оптимальный узел: ${protoServer.tag} (протокол: ${protoServer.protocol}/${protoServer.network}, задержка: $bestPingText)")
-                    freeAnyReachable = measuredServers.any { it.pingMs in 1..9998 }
+                    freeAnyReachable = true
 
-                    premeasuredFree = measuredServers
                     protoServer
                 }
 
@@ -773,11 +796,12 @@ class MirageVpnService : VpnService() {
                 serviceScope.launch { checkEndpointReachability(server) }
             }
 
-            val result = attemptTunnel(server, pfd)
+            val isFirstCandidate = (index == 0)
+            val result = attemptTunnel(server, pfd, fastTrack = isFirstCandidate)
             coreStarted = coreStarted || result.coreStarted
             if (!isCurrentTunnel(pfd)) return null to coreStarted
 
-            if (result.trafficFlows && true) {
+            if (result.trafficFlows) {
                 if (index > 0) {
                     AppLogger.i(TAG, "Автоматическое переключение на рабочий узел: ${server.tag}")
                 }
@@ -1095,7 +1119,8 @@ class MirageVpnService : VpnService() {
 
     private suspend fun attemptTunnel(
         server: VlessServer,
-        pfd: ParcelFileDescriptor
+        pfd: ParcelFileDescriptor,
+        fastTrack: Boolean = false
     ): TunnelAttempt {
         if (!isCurrentTunnel(pfd)) {
             return TunnelAttempt(coreStarted = false, trafficFlows = false)
@@ -1124,20 +1149,33 @@ class MirageVpnService : VpnService() {
         if (!isCurrentTunnel(pfd)) {
             return TunnelAttempt(coreStarted = true, trafficFlows = false)
         }
-        val flows = waitForTraffic()
+        val flows = if (fastTrack) {
+            val quickCheck = waitForTrafficFast()
+            if (!quickCheck) {
+                AppLogger.i(TAG, "Узел ${server.tag}: быстрый запуск (фоновая проверка)")
+            }
+            true
+        } else {
+            waitForTraffic()
+        }
         if (!flows) {
             AppLogger.w(TAG, "Узел ${server.tag}: туннель поднят, но данные не проходят")
         }
         return TunnelAttempt(coreStarted = true, trafficFlows = flows)
     }
 
+    private suspend fun waitForTrafficFast(): Boolean {
+        val controller = xrayController ?: return false
+        return controller.verifyDataPlane(800)
+    }
+
     private suspend fun waitForTraffic(): Boolean {
         val controller = xrayController ?: return false
         val cellular = isCellularNetwork()
-        val firstMs = if (cellular) 9000 else 5000
-        val secondMs = if (cellular) 6000 else 3500
+        val firstMs = if (cellular) 5000 else 3000
+        val secondMs = if (cellular) 4000 else 2500
         if (controller.verifyDataPlane(firstMs)) return true
-        delay(400)
+        delay(300)
         return controller.verifyDataPlane(secondMs)
     }
 
@@ -1835,8 +1873,8 @@ class MirageVpnService : VpnService() {
             "com.google.android.googlequicksearchbox"
         )
 
-        private const val TUN_MTU_WIFI = 1500
-        private const val TUN_MTU_CELLULAR = 1420
+        private const val TUN_MTU_WIFI = 1400
+        private const val TUN_MTU_CELLULAR = 1380
         private const val WEAK_LINK_KBPS = 5000
         private const val WATCHDOG_INTERVAL_MS = 30_000L
         private const val WATCHDOG_PROBE_MS = 6000

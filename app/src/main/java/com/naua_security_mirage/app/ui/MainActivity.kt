@@ -2099,6 +2099,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun handleConnectButtonClick() {
+        try {
+            binding.btnConnect.performHapticFeedback(android.view.HapticFeedbackConstants.VIRTUAL_KEY)
+        } catch (_: Throwable) {}
         val currentState = MirageVpnService.vpnState.value
         when (currentState) {
             VpnState.CONNECTED -> {
