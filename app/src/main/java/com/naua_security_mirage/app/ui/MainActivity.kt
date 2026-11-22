@@ -2843,9 +2843,16 @@ class MainActivity : AppCompatActivity() {
 
         val ping = withContext(Dispatchers.IO) {
             try {
-                pingRepository.measurePing(server, timeoutMs = 2500) { socket ->
-                    MirageVpnService.protectSocket(socket)
-                }
+                pingRepository.measurePing(
+                    server,
+                    timeoutMs = 2500,
+                    protectSocket = { socket ->
+                        MirageVpnService.protectSocket(socket)
+                    },
+                    protectDatagram = { socket ->
+                        MirageVpnService.protectDatagram(socket)
+                    }
+                )
             } catch (t: Throwable) {
                 if (t is kotlinx.coroutines.CancellationException) throw t
                 -1L
@@ -2867,7 +2874,18 @@ class MainActivity : AppCompatActivity() {
         }
 
         val sinceText = status?.changedAt?.let { formatNodeSince(it) }.orEmpty()
-        if (status != null && status.state == "down") {
+        val isConnectedToNode = MirageVpnService.vpnState.value == VpnState.CONNECTED &&
+                (MirageVpnService.activeServer.value?.address == server.address ||
+                 MirageVpnService.activeServer.value?.tag == server.tag)
+        val isDeviceReachable = (ping in 1..9998) || isConnectedToNode
+        val displayPing = if (ping in 1..9998) ping else MirageVpnService.activePing.value.takeIf { it in 1..9998 } ?: ping
+
+        if (isDeviceReachable) {
+            val shownPing = if (displayPing in 1..9998) displayPing else ping
+            stateView.text = getString(R.string.node_status_generic_up, nodeTitle, shownPing)
+            stateView.setTextColor(themedSubtitle())
+            AppLogger.i("NodeStatus", "$nodeTitle: узел отвечает с устройства за $shownPing мс")
+        } else if (status != null && status.state == "down") {
             stateView.text = getString(R.string.node_status_down, sinceText)
             stateView.setTextColor(nodeColor(true))
             AppLogger.w("NodeStatus", "$nodeTitle: сервер сообщает down с $sinceText")
@@ -2875,10 +2893,6 @@ class MainActivity : AppCompatActivity() {
             stateView.text = getString(R.string.node_status_wedged, sinceText)
             stateView.setTextColor(nodeColor(true))
             AppLogger.w("NodeStatus", "$nodeTitle: сервер сообщает wedged с $sinceText")
-        } else if (ping in 1..9998) {
-            stateView.text = getString(R.string.node_status_generic_up, nodeTitle, ping)
-            stateView.setTextColor(themedSubtitle())
-            AppLogger.i("NodeStatus", "$nodeTitle: узел отвечает с устройства за $ping мс")
         } else if (key.isNullOrBlank()) {
             stateView.text = getString(R.string.node_status_generic_no_key, nodeTitle)
             stateView.setTextColor(nodeColor(true))

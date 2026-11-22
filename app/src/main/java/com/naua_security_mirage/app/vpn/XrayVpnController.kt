@@ -452,7 +452,8 @@ class XrayVpnController(private val vpnService: VpnService) {
             "xhttp", "splithttp" -> {
                 params.append("&path=").append(enc(server.path.ifEmpty { "/widgetComponent.js" }))
                 params.append("&host=").append(enc(server.host.ifEmpty { server.serverName }))
-                params.append("&mode=").append(enc(server.mode.ifEmpty { "packet-up" }))
+                val shareMode = if (server.mode.isNotEmpty() && server.mode != "none") server.mode else "auto"
+                params.append("&mode=").append(enc(shareMode))
             }
             "tcp" -> {
                 if (security == "reality") {
@@ -603,7 +604,7 @@ class XrayVpnController(private val vpnService: VpnService) {
                 addProperty("connIdle", 300)
                 addProperty("uplinkOnly", 0)
                 addProperty("downlinkOnly", 0)
-                addProperty("buffer", 1024)
+                addProperty("buffer", 4096)
             }
             levels.add("8", level8)
             val level0 = JsonObject().apply {
@@ -611,7 +612,7 @@ class XrayVpnController(private val vpnService: VpnService) {
                 addProperty("connIdle", 300)
                 addProperty("uplinkOnly", 0)
                 addProperty("downlinkOnly", 0)
-                addProperty("buffer", 1024)
+                addProperty("buffer", 4096)
             }
             levels.add("0", level0)
             add("levels", levels)
@@ -846,9 +847,12 @@ class XrayVpnController(private val vpnService: VpnService) {
                 if (isXhttpNetwork(network)) {
                     val xhttpSettings = JsonObject().apply {
                         addProperty("host", server.host.ifEmpty { server.serverName })
-                        addProperty("mode", server.mode.ifEmpty { "packet-up" })
+                        val xhttpMode = when {
+                            server.mode.isNotBlank() && server.mode != "none" -> server.mode
+                            else -> "auto"
+                        }
+                        addProperty("mode", xhttpMode)
                         addProperty("path", server.path.ifEmpty { "/widgetComponent.js" })
-                        addProperty("scMinPostsIntervalMs", XHTTP_POSTS_INTERVAL_MS)
                     }
                     add("xhttpSettings", xhttpSettings)
                 }
@@ -870,6 +874,7 @@ class XrayVpnController(private val vpnService: VpnService) {
                     addProperty("tcpKeepAliveIdle", 30)
                     addProperty("tcpKeepAliveInterval", 15)
                     addProperty("tcpKeepAliveCount", 4)
+                    addProperty("tcpMptcp", true)
                 }
                 add("sockopt", sockopt)
             }
@@ -1280,7 +1285,7 @@ class XrayVpnController(private val vpnService: VpnService) {
 
         private const val REALITY_MUX_CONCURRENCY = 8
 
-        private const val DEFAULT_TUN_MTU = 1360
+        private const val DEFAULT_TUN_MTU = 1500
 
         private const val HOST_RESOLVE_TTL_MS = 5 * 60 * 1000L
 

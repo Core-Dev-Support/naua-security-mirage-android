@@ -972,13 +972,24 @@ class MirageVpnService : VpnService() {
         // за сокеты и полосу: даём туннелю подняться первым.
         delay(2_000)
         entryProbePingMs = -1L
-        val reachability = pingRepository.measurePing(server, timeoutMs = 3000) { socket ->
-            try {
-                protect(socket)
-            } catch (t: Throwable) {
-                Log.w(TAG, "protect(socket) failed during reachability probe: ${t.message}")
+        val reachability = pingRepository.measurePing(
+            server,
+            timeoutMs = 3000,
+            protectSocket = { socket ->
+                try {
+                    protect(socket)
+                } catch (t: Throwable) {
+                    Log.w(TAG, "protect(socket) failed during reachability probe: ${t.message}")
+                }
+            },
+            protectDatagram = { socket ->
+                try {
+                    protect(socket)
+                } catch (t: Throwable) {
+                    Log.w(TAG, "protect(datagramSocket) failed during reachability probe: ${t.message}")
+                }
             }
-        }
+        )
         if (reachability in 1..9998) {
             entryProbePingMs = reachability
             AppLogger.i(TAG, "Платный вход ${server.address}:${server.port} доступен с устройства (${reachability} мс)")
@@ -986,12 +997,14 @@ class MirageVpnService : VpnService() {
                 _activePing.value = reachability
                 AppLogger.i(TAG, "Пинг сессии взят из проверки входа: ${reachability} мс")
             }
-            probeTlsHandshake(server)
+            if (!server.isHysteria2) {
+                probeTlsHandshake(server)
+            }
         } else {
             AppLogger.w(
                 TAG,
                 "Платный вход ${server.address}:${server.port} НЕДОСТУПЕН с этого устройства " +
-                        "(TCP не установлен). Туннель может подняться, но данные не пройдут."
+                        "(сеть не отвечает). Туннель может подняться, но данные не пройдут."
             )
         }
     }
@@ -1170,14 +1183,22 @@ class MirageVpnService : VpnService() {
                 val ping = pingRepository.measurePing(
                     target,
                     timeoutMs = if (waitingForFirst) FIRST_PING_TIMEOUT_MS else PING_TIMEOUT_MS,
-                    samples = if (waitingForFirst) FIRST_PING_SAMPLES else PING_SAMPLES_PER_MEASUREMENT
-                ) { socket ->
-                    try {
-                        protect(socket)
-                    } catch (t: Throwable) {
-                        Log.w(TAG, "protect(socket) failed: ${t.message}")
+                    samples = if (waitingForFirst) FIRST_PING_SAMPLES else PING_SAMPLES_PER_MEASUREMENT,
+                    protectSocket = { socket ->
+                        try {
+                            protect(socket)
+                        } catch (t: Throwable) {
+                            Log.w(TAG, "protect(socket) failed: ${t.message}")
+                        }
+                    },
+                    protectDatagram = { socket ->
+                        try {
+                            protect(socket)
+                        } catch (t: Throwable) {
+                            Log.w(TAG, "protect(datagramSocket) failed: ${t.message}")
+                        }
                     }
-                }
+                )
                 if (ping in 1..9998) {
                     if (pingSamples.size >= PING_HISTORY) pingSamples.removeFirst()
                     pingSamples.addLast(ping)
@@ -1814,8 +1835,8 @@ class MirageVpnService : VpnService() {
             "com.google.android.googlequicksearchbox"
         )
 
-        private const val TUN_MTU_WIFI = 1360
-        private const val TUN_MTU_CELLULAR = 1280
+        private const val TUN_MTU_WIFI = 1500
+        private const val TUN_MTU_CELLULAR = 1420
         private const val WEAK_LINK_KBPS = 5000
         private const val WATCHDOG_INTERVAL_MS = 30_000L
         private const val WATCHDOG_PROBE_MS = 6000
@@ -1873,6 +1894,16 @@ class MirageVpnService : VpnService() {
                 service.protect(socket)
             } catch (t: Throwable) {
                 Log.w(TAG, "protect(socket) не удался: ${t.message}")
+                false
+            }
+        }
+
+        fun protectDatagram(socket: java.net.DatagramSocket): Boolean {
+            val service = serviceInstance ?: return false
+            return try {
+                service.protect(socket)
+            } catch (t: Throwable) {
+                Log.w(TAG, "protect(datagramSocket) не удался: ${t.message}")
                 false
             }
         }

@@ -17,15 +17,16 @@ class PingRepository {
         server: VlessServer,
         timeoutMs: Int = 1500,
         samples: Int = 1,
-        protectSocket: ((Socket) -> Unit)? = null
+        protectSocket: ((Socket) -> Unit)? = null,
+        protectDatagram: ((java.net.DatagramSocket) -> Unit)? = null
     ): Long = withContext(Dispatchers.IO) {
         val count = samples.coerceAtLeast(1)
         val probes = if (count == 1) {
-            listOf(probeOnce(server, timeoutMs, protectSocket))
+            listOf(probeOnce(server, timeoutMs, protectSocket, protectDatagram))
         } else {
             coroutineScope {
                 (1..count)
-                    .map { async { probeOnce(server, timeoutMs, protectSocket) } }
+                    .map { async { probeOnce(server, timeoutMs, protectSocket, protectDatagram) } }
                     .awaitAll()
             }
         }
@@ -43,6 +44,7 @@ class PingRepository {
     suspend fun measureAllPings(
         servers: List<VlessServer>,
         protectSocket: ((Socket) -> Unit)? = null,
+        protectDatagram: ((java.net.DatagramSocket) -> Unit)? = null,
         probeTimeoutMs: Int = QUALITY_PROBE_TIMEOUT_MS,
         totalBudgetMs: Long = 6000L,
         samples: Int = QUALITY_SAMPLES
@@ -53,6 +55,7 @@ class PingRepository {
                     measureQuality(
                         server,
                         protectSocket = protectSocket,
+                        protectDatagram = protectDatagram,
                         probeTimeoutMs = probeTimeoutMs,
                         samples = samples
                     )
@@ -65,47 +68,75 @@ class PingRepository {
     private suspend fun probeOnce(
         server: VlessServer,
         timeoutMs: Int,
-        protectSocket: ((Socket) -> Unit)?
+        protectSocket: ((Socket) -> Unit)?,
+        protectDatagram: ((java.net.DatagramSocket) -> Unit)? = null
     ): Long? = kotlinx.coroutines.withTimeoutOrNull(timeoutMs.toLong() + 1500L) {
         val target = resolveAddress(server.address) ?: return@withTimeoutOrNull null
 
+        val socketProtector: (Socket) -> Unit = protectSocket ?: { s ->
+            com.naua_security_mirage.app.vpn.MirageVpnService.protectSocket(s)
+        }
+        val datagramProtector: (java.net.DatagramSocket) -> Unit = protectDatagram ?: { ds ->
+            com.naua_security_mirage.app.vpn.MirageVpnService.protectDatagram(ds)
+        }
+
         if (server.isHysteria2) {
-            // Узел работает на Hysteria 2 (UDP/QUIC): опрашиваем через QUIC UDP probe с ожиданием ответа
+            // Узел работает на Hysteria 2 (UDP/QUIC): опрашиваем через QUIC UDP probe
             var datagramSocket: java.net.DatagramSocket? = null
             try {
                 datagramSocket = java.net.DatagramSocket()
+                datagramProtector(datagramSocket)
                 datagramSocket.soTimeout = timeoutMs.coerceAtLeast(400)
                 val start = System.currentTimeMillis()
                 datagramSocket.connect(InetSocketAddress(target, server.port))
-                // Отправляем QUIC Long Header / Initial packet с версией 0x1a2a3a4a
-                // Сервер QUIC / Hysteria 2 при получении отвечает пакетом Version Negotiation
-                val quicProbe = byteArrayOf(
-                    0xc0.toByte(),
-                    0x1a.toByte(), 0x2a.toByte(), 0x3a.toByte(), 0x4a.toByte(),
-                    0x00, 0x00, 0x00
-                )
+                // QUIC Initial datagram MUST be >= 1200 bytes per RFC 9000 (shorter packets are dropped by quic-go)
+                val quicProbe = ByteArray(1200)
+                quicProbe[0] = 0xc0.toByte()
+                quicProbe[1] = 0x1a.toByte()
+                quicProbe[2] = 0x2a.toByte()
+                quicProbe[3] = 0x3a.toByte()
+                quicProbe[4] = 0x4a.toByte()
+                quicProbe[5] = 0x08.toByte()
+                for (i in 1..8) { quicProbe[5 + i] = i.toByte() }
                 val packet = java.net.DatagramPacket(quicProbe, quicProbe.size, target, server.port)
                 datagramSocket.send(packet)
                 val buffer = ByteArray(1500)
                 val responsePacket = java.net.DatagramPacket(buffer, buffer.size)
                 datagramSocket.receive(responsePacket)
                 val duration = System.currentTimeMillis() - start
-                return@withTimeoutOrNull if (duration > 0) duration else 1L
+                if (duration > 0) return@withTimeoutOrNull duration
             } catch (_: Exception) {
-                // Если UDP-ответ не получен (обфускация obfs или блокировка UDP),
-                // проверяем доступность порта через резервный TCP connect ниже
+                // Если UDP-ответ не получен (обфускация salamander или UDP-фильтрация),
+                // проверяем задержку до того же сервера через TCP (порт 443)
             } finally {
                 try {
                     datagramSocket?.close()
                 } catch (_: Throwable) {}
             }
+
+            val tcpPort = if (server.port != 443) 443 else server.port
+            var socket: Socket? = null
+            try {
+                socket = Socket()
+                socketProtector(socket)
+                val start = System.currentTimeMillis()
+                socket.connect(InetSocketAddress(target, tcpPort), timeoutMs)
+                val duration = System.currentTimeMillis() - start
+                return@withTimeoutOrNull if (duration > 0) duration else 1L
+            } catch (_: Exception) {
+            } finally {
+                try {
+                    socket?.close()
+                } catch (_: Throwable) {}
+            }
+            return@withTimeoutOrNull null
         }
 
         // Попытка TCP connect (для VLESS Reality, XHTTP, TCP)
         var socket: Socket? = null
         try {
             socket = Socket()
-            protectSocket?.invoke(socket)
+            socketProtector(socket)
             val start = System.currentTimeMillis()
             socket.connect(InetSocketAddress(target, server.port), timeoutMs)
             val duration = System.currentTimeMillis() - start
@@ -162,12 +193,13 @@ class PingRepository {
     private suspend fun measureQuality(
         server: VlessServer,
         protectSocket: ((Socket) -> Unit)?,
+        protectDatagram: ((java.net.DatagramSocket) -> Unit)? = null,
         probeTimeoutMs: Int = QUALITY_PROBE_TIMEOUT_MS,
         samples: Int = QUALITY_SAMPLES
     ) {
         val qualitySamples = mutableListOf<Long>()
         repeat(samples) {
-            val duration = probeOnce(server, probeTimeoutMs, protectSocket)
+            val duration = probeOnce(server, probeTimeoutMs, protectSocket, protectDatagram)
             if (duration != null) qualitySamples.add(duration)
         }
 

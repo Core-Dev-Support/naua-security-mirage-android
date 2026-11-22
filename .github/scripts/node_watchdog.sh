@@ -11,7 +11,7 @@ set -euo pipefail
 HOST="${NODE_HOST:?NODE_HOST is required}"
 STATE="down"
 DETAIL="no TLS response"
-if curl -fsS -o /dev/null -m 10 "https://${HOST}/"; then
+if curl -fsSk -o /dev/null -m 10 "https://${HOST}/"; then
   STATE="up"
   DETAIL=""
 fi
