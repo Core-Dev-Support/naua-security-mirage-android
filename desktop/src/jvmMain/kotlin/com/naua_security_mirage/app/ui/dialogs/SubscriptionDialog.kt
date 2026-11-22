@@ -306,9 +306,9 @@ fun SubscriptionDialog(
                     // Features matching dialog_subscription.xml
                     Text(
                         text = "⚡ Высокоскоростной выделенный канал 1 Гбит/с\n" +
-                                "🛡️ Протокол VLESS Reality (обход блокировок ТСПУ)\n" +
+                                "🛡️ Защищённое криптографическое шифрование трафика\n" +
                                 "🔒 Персональный защищенный ключ доступа\n" +
-                                "🌐 Полный доступ к YouTube, зарубежным сервисам и ИИ",
+                                "🌐 Безопасная работа в любых публичных сетях",
                         color = MirageColors.InkSoft,
                         fontSize = 12.5.sp,
                         lineHeight = 20.sp,

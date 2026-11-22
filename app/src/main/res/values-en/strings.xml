@@ -386,7 +386,7 @@
     <string name="sub_premium_desc">Dedicated servers with no limits</string>
     <string name="sub_plan_30days">Access from 30 days</string>
     <string name="sub_hit_badge">HIT</string>
-    <string name="sub_features">• Dedicated server in the Netherlands\n• Dedicated server in Turkey\n• Top speed up to 1 Gbps with no caps\n• Reality protocol against any blocking\n• Instant online activation</string>
+    <string name="sub_features">• Dedicated server in the Netherlands\n• Dedicated server in Turkey\n• Top speed up to 1 Gbps with no caps\n• Secure Reality and Hysteria 2 encryption\n• Instant online activation</string>
     <string name="sub_pay_button">Choose a term and pay</string>
     <string name="sub_check_payment">Check the payment</string>
     <string name="update_badge_sample">Version 1.5.0</string>
