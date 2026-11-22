@@ -558,7 +558,7 @@ serve(async (req) => {
     }
 
     // Подписка привязана к Google-аккаунту. Без него доступны только
-    // бесплатные обходы.
+    // бесплатные узлы.
     let subscription: SubscriptionRow | undefined;
     let expiry = 0;
     if (subjectId) {

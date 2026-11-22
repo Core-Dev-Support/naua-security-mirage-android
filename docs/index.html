@@ -112,6 +112,7 @@
       <span>📋 Скопировать ссылку</span>
     </button>
     <p class="note" id="note"></p>
+    <p class="note" id="verificationNote" style="margin-top: 24px; font-size: 12px; opacity: 0.7;">Проект NAUA Security Mirage · Код верификации: PLAT</p>
   </div>
 </main>
 
@@ -143,7 +144,8 @@
       broken: "Ссылка неполная. Открой экран «Подключиться» в боте и нажми кнопку там.",
       note: "Если приложение не открылось — скопируй ссылку и добавь её в приложении вручную.",
       appHint: "Приложение не открылось? <a href=\"{store}\" target=\"_blank\" rel=\"noreferrer\">Установи его</a> или скопируй ссылку ниже и добавь вручную.",
-      tag: "рекомендуем"
+      tag: "рекомендуем",
+      verification: "Проект NAUA Security Mirage · Код верификации: PLAT"
     },
     en: {
       subtitle: "VPN connection",
@@ -157,7 +159,8 @@
       broken: "The link is incomplete. Open “Connect” in the bot and use the button there.",
       note: "If the app did not open, copy the link and add it inside the app manually.",
       appHint: "The app did not open? <a href=\"{store}\" target=\"_blank\" rel=\"noreferrer\">Install it</a> or copy the link below and add it manually.",
-      tag: "recommended"
+      tag: "recommended",
+      verification: "NAUA Security Mirage Project · Verification code: PLAT"
     }
   };
   var t = texts[lang];
@@ -170,6 +173,8 @@
   document.querySelector("#v2rayng span").textContent = t.v2rayng;
   document.querySelector("#copy span").textContent = t.copy;
   document.querySelector("#happ .tag").textContent = t.tag;
+  var verEl = document.getElementById("verificationNote");
+  if (verEl) verEl.textContent = t.verification;
 
   if (!url) {
     document.getElementById("broken").textContent = t.broken;

@@ -47,10 +47,10 @@ const ru: Record<string, string> = {
   "welcome.title": "👋 <b>Добро пожаловать в NAUA Security Mirage!</b>",
   "welcome.quote":
     "<b>Что это такое?</b>\n\n" +
-    "<b>Личный VPN: приватный доступ к YouTube, играм и соцсетям — без " +
-    "лагов, без блокировок и без слежки за тем, что ты смотришь.</b>\n\n" +
-    "<b>🇳🇱 Нидерланды и 🇹🇷 Турция в одной подписке. Протоколы XHTTP и Hysteria 2. Безлимитный трафик. " +
-    "Одна подписка — и для бота, и для приложения.</b>",
+    "<b>Личный VPN-сервис: надежное шифрование интернет-соединения, безопасность в публичных сетях Wi-Fi и защита данных. Стабильное соединение на высокой скорости без задержек.</b>\n\n" +
+    "<b>🇳🇱 Нидерланды и 🇹🇷 Турция в одной подписке. Протоколы XHTTP и Hysteria 2. Безлимитный трафик.\n" +
+    "Одна подписка — и для бота, и для приложения.</b>\n\n" +
+    "<i>Код верификации: PLAT</i>",
   "welcome.hint":
     "🔐 Войди через Google — это привяжет подписку к этому Telegram. " +
     "Ссылку входа никому не пересылай.",
@@ -160,7 +160,7 @@ const ru: Record<string, string> = {
   "sub.intro":
     "<b>📦 Что входит:</b>\n\n" +
     "• 🇳🇱 Нидерланды и 🇹🇷 Турция — оба платных узла, протоколы XHTTP и Hysteria 2;\n" +
-    "• ♾ безлимитный трафик и скорость без ограничений;\n" +
+    "• ♾ безлимитный трафик и высокая стабильная скорость;\n" +
     "• 🔗 одна ссылка на узлы: работает в Hiddify, Happ и в приложении;\n" +
     "• 📱 подписка общая для бота и приложения — платишь один раз, пользуешься везде.",
   "sub.status.active":
@@ -263,7 +263,7 @@ const ru: Record<string, string> = {
   "referral.list.empty": "Пока никто не пришёл по ссылке.",
   "referral.copy": "📋 Скопировать ссылку",
   "referral.invite": "👥 Пригласить друга",
-  "referral.share": "🚀 Твой личный VPN без ограничений. Забирай!",
+  "referral.share": "🚀 Личный VPN для надежного шифрования и безопасности в сети. Забирай!",
   "referral.joined":
     "🎉 Новый пользователь {name} пришёл по вашей ссылке!\n\nБонус +2 дня начислим после его первой оплаты.",
   "referral.joined.you":
@@ -290,7 +290,7 @@ const ru: Record<string, string> = {
   // --- статус серверов ---
   "connect.server_status": "⚡ Статус серверов",
   "status.title": "⚡ <b>Статус узлов</b>",
-  "status.intro": "<blockquote><b>Что это:</b> статус работы выделенных узлов и протоколов маскировки.</blockquote>",
+  "status.intro": "<blockquote><b>Что это:</b> статус работы выделенных узлов и протоколов шифрования.</blockquote>",
   "status.body":
     "🇳🇱 <b>Нидерланды</b> — 🟢 Онлайн\n<i>Протоколы: XHTTP (Reality), Hysteria 2</i>\n\n" +
     "🇹🇷 <b>Турция</b> — 🟢 Онлайн\n<i>Протоколы: XHTTP (Reality), Hysteria 2</i>\n\n" +
@@ -363,10 +363,10 @@ const en: Record<string, string> = {
   "welcome.title": "👋 <b>Welcome to NAUA Security Mirage!</b>",
   "welcome.quote":
     "<b>What is this?</b>\n\n" +
-    "<b>A personal VPN: private access to YouTube, games and social networks " +
-    "— no lag, no blocking, no one watching what you open.</b>\n\n" +
-    "<b>🇳🇱 Netherlands and 🇹🇷 Turkey in one subscription. XHTTP and Hysteria 2 protocols. Unlimited traffic. " +
-    "One subscription — for the bot and for the app.</b>",
+    "<b>Personal VPN service: strong traffic encryption, personal data protection and cybersecurity on public Wi-Fi networks. Stable high-speed connection without delays.</b>\n\n" +
+    "<b>🇳🇱 Netherlands and 🇹🇷 Turkey in one subscription. XHTTP and Hysteria 2 protocols. Unlimited traffic.\n" +
+    "One subscription — for the bot and for the app.</b>\n\n" +
+    "<i>Verification code: PLAT</i>",
   "welcome.hint":
     "🔐 Sign in with Google — this links the subscription to this Telegram. " +
     "Never forward the sign-in link.",
@@ -477,7 +477,7 @@ const en: Record<string, string> = {
   "sub.intro":
     "<b>What you get:</b>\n\n" +
     "• 🇳🇱 Netherlands and 🇹🇷 Turkey — both paid nodes (XHTTP and Hysteria 2);\n" +
-    "• ♾ unlimited traffic and speed;\n" +
+    "• ♾ unlimited traffic and high-speed stable connection;\n" +
     "• 🔗 a single node link that works in Hiddify, Happ and the app;\n" +
     "• 📱 one subscription for the bot and the app — pay once, use it everywhere.",
   "sub.status.active":
@@ -581,7 +581,7 @@ const en: Record<string, string> = {
   "referral.list.empty": "Nobody has joined through your link yet.",
   "referral.copy": "📋 Copy the link",
   "referral.invite": "👥 Invite a friend",
-  "referral.share": "🚀 Your personal VPN, unlimited. Grab it!",
+  "referral.share": "🚀 Personal VPN for secure encryption and privacy. Join in!",
   "referral.joined":
     "🎉 A new user — {name} — came through your link!\n\nThe +2 day bonus is credited after their first payment.",
   "referral.joined.you":
@@ -608,7 +608,7 @@ const en: Record<string, string> = {
   // --- server status ---
   "connect.server_status": "⚡ Server Status",
   "status.title": "⚡ <b>Node Status</b>",
-  "status.intro": "<blockquote><b>What is this:</b> live health check of dedicated nodes and masquerading protocols.</blockquote>",
+  "status.intro": "<blockquote><b>What is this:</b> live health check of dedicated nodes and encryption protocols.</blockquote>",
   "status.body":
     "🇳🇱 <b>Netherlands</b> — 🟢 Online\n<i>Protocols: XHTTP (Reality), Hysteria 2</i>\n\n" +
     "🇹🇷 <b>Turkey</b> — 🟢 Online\n<i>Protocols: XHTTP (Reality), Hysteria 2</i>\n\n" +

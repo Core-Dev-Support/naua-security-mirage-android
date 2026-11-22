@@ -853,6 +853,7 @@ class XrayVpnController(private val vpnService: VpnService) {
                         }
                         addProperty("mode", xhttpMode)
                         addProperty("path", server.path.ifEmpty { "/widgetComponent.js" })
+                        addProperty("scMaxBufferedPosts", 60)
                     }
                     add("xhttpSettings", xhttpSettings)
                 }
@@ -929,8 +930,23 @@ class XrayVpnController(private val vpnService: VpnService) {
                             val sockopt = JsonObject().apply {
                                 addProperty("domainStrategy", "AsIs")
                                 addProperty("tcpNoDelay", true)
+                                addProperty("tcpFastOpen", true)
+                                addProperty("tcpKeepAliveIdle", 30)
+                                addProperty("tcpKeepAliveInterval", 15)
                             }
                             ss.add("sockopt", sockopt)
+
+                            val xhttp = ss.getAsJsonObject("xhttpSettings")
+                            if (xhttp != null) {
+                                val currentMode = xhttp.get("mode")?.asString.orEmpty()
+                                if (currentMode.isEmpty() || currentMode == "packet-up") {
+                                    xhttp.addProperty("mode", "auto")
+                                }
+                                xhttp.remove("scMinPostsIntervalMs")
+                                if (!xhttp.has("scMaxBufferedPosts")) {
+                                    xhttp.addProperty("scMaxBufferedPosts", 60)
+                                }
+                            }
                         } catch (_: Throwable) {}
 
                         officialOutbound = ob
