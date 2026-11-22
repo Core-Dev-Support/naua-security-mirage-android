@@ -2437,9 +2437,9 @@ class MainActivity : AppCompatActivity() {
                                                 .getFranceServer(uuid, manager.getActiveClientFlow(uuid))
                                         }
                                         val p = try {
-                                            pingRepository.measurePing(server, timeoutMs = 2500) { socket ->
+                                            pingRepository.measurePing(server, timeoutMs = 2500, protectSocket = { socket ->
                                                 MirageVpnService.protectSocket(socket)
-                                            }
+                                            })
                                         } catch (t: Throwable) {
                                             if (t is kotlinx.coroutines.CancellationException) throw t
                                             -1L

@@ -1898,6 +1898,8 @@ class MirageVpnService : VpnService() {
             }
         }
 
+        fun protectSocket(socket: java.net.DatagramSocket): Boolean = protectDatagram(socket)
+
         fun protectDatagram(socket: java.net.DatagramSocket): Boolean {
             val service = serviceInstance ?: return false
             return try {

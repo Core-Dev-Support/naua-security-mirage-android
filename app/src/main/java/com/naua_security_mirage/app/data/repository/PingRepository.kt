@@ -17,8 +17,8 @@ class PingRepository {
         server: VlessServer,
         timeoutMs: Int = 1500,
         samples: Int = 1,
-        protectSocket: ((Socket) -> Unit)? = null,
-        protectDatagram: ((java.net.DatagramSocket) -> Unit)? = null
+        protectDatagram: ((java.net.DatagramSocket) -> Unit)? = null,
+        protectSocket: ((Socket) -> Unit)? = null
     ): Long = withContext(Dispatchers.IO) {
         val count = samples.coerceAtLeast(1)
         val probes = if (count == 1) {
@@ -43,8 +43,8 @@ class PingRepository {
 
     suspend fun measureAllPings(
         servers: List<VlessServer>,
-        protectSocket: ((Socket) -> Unit)? = null,
         protectDatagram: ((java.net.DatagramSocket) -> Unit)? = null,
+        protectSocket: ((Socket) -> Unit)? = null,
         probeTimeoutMs: Int = QUALITY_PROBE_TIMEOUT_MS,
         totalBudgetMs: Long = 6000L,
         samples: Int = QUALITY_SAMPLES

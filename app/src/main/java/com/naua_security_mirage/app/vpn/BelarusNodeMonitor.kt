@@ -61,9 +61,9 @@ object BelarusNodeMonitor {
         }
 
         val ping = try {
-            pingRepository.measurePing(server, timeoutMs = PING_TIMEOUT_MS) { socket ->
+            pingRepository.measurePing(server, timeoutMs = PING_TIMEOUT_MS, protectSocket = { socket ->
                 MirageVpnService.protectSocket(socket)
-            }
+            })
         } catch (t: Throwable) {
             AppLogger.w(TAG, "Проверка Беларуси не удалась: ${t.message}")
             TIMEOUT_PING
