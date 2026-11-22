@@ -53,6 +53,7 @@ import { subscriptionSignature } from "./lib/subscription.ts";
 import { friendsToMilestone } from "./lib/referral.ts";
 import {
   APP_URL,
+  CHANNEL_URL,
   CLOUDTIPS_URL,
   CONNECT_PAGE_URL,
   LICENSE_URL,
@@ -911,6 +912,13 @@ async function showSupport(
       ]);
     }
   }
+  keyboard.push([
+    { text: t(lang, "support.chat"), url: SUPPORT_URL },
+    { text: t(lang, "support.docs"), url: CONNECT_PAGE_URL },
+  ]);
+  keyboard.push([
+    { text: t(lang, "support.channel"), url: CHANNEL_URL },
+  ]);
   keyboard.push([{ text: t(lang, "common.back"), callback_data: "back" }]);
 
   await renderScreen(chatId, msgId, lines.join("\n"), keyboard);

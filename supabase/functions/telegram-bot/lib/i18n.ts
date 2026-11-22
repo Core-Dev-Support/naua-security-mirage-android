@@ -49,8 +49,7 @@ const ru: Record<string, string> = {
     "<b>Что это такое?</b>\n\n" +
     "<b>Личный VPN-сервис: надежное шифрование интернет-соединения, безопасность в публичных сетях Wi-Fi и защита данных. Стабильное соединение на высокой скорости без задержек.</b>\n\n" +
     "<b>🇳🇱 Нидерланды и 🇹🇷 Турция в одной подписке. Протоколы XHTTP и Hysteria 2. Безлимитный трафик.\n" +
-    "Одна подписка — и для бота, и для приложения.</b>\n\n" +
-    "<i>Код верификации: PLAT</i>",
+    "Одна подписка — и для бота, и для приложения.</b>",
   "welcome.hint":
     "🔐 Войди через Google — это привяжет подписку к этому Telegram. " +
     "Ссылку входа никому не пересылай.",
@@ -203,6 +202,9 @@ const ru: Record<string, string> = {
 
   // --- поддержка ---
   "support.title": "🆘 <b>Поддержка</b>",
+  "support.chat": "💬 Чат поддержки",
+  "support.channel": "📢 Канал проекта",
+  "support.docs": "📖 База знаний",
   "thanks.button": "🎁 Поблагодарить разработчика",
   "thanks.title": "🎁 <b>Поблагодарить разработчика</b>",
   "thanks.subtitle": "3 способа",
@@ -214,7 +216,9 @@ const ru: Record<string, string> = {
   "thanks.tributeWeb":
     "🌐 Tribute в браузере — тот же Tribute, но через сайт. Подойдёт, если нет Telegram или ссылка не открывается.",
   "support.text":
-    "<blockquote><b>Что это:</b> поддержка NAUA Security Mirage. Напиши проблему прямо здесь — админ ответит в этом же чате. Можно прикрепить скрин, видео или файл с логами.</blockquote>",
+    "<blockquote><b>Служба поддержки NAUA Security Mirage</b>\n\n" +
+    "Возникли проблемы или есть вопрос по настройке? Напиши прямо сюда — админ ответит в этом же диалоге. К сообщению можно прикрепить скриншот или видео.\n\n" +
+    "👨‍💻 Администратор: @Creator_NAUA</blockquote>",
   "support.cooldown":
     "⏳ Ты только что отправил обращение. Дай минуту — и можно будет написать ещё.",
   "support.stats": "📩 Заявок: <b>{total}</b> · в обработке: <b>{open}</b>",
@@ -365,8 +369,7 @@ const en: Record<string, string> = {
     "<b>What is this?</b>\n\n" +
     "<b>Personal VPN service: strong traffic encryption, personal data protection and cybersecurity on public Wi-Fi networks. Stable high-speed connection without delays.</b>\n\n" +
     "<b>🇳🇱 Netherlands and 🇹🇷 Turkey in one subscription. XHTTP and Hysteria 2 protocols. Unlimited traffic.\n" +
-    "One subscription — for the bot and for the app.</b>\n\n" +
-    "<i>Verification code: PLAT</i>",
+    "One subscription — for the bot and for the app.</b>",
   "welcome.hint":
     "🔐 Sign in with Google — this links the subscription to this Telegram. " +
     "Never forward the sign-in link.",
@@ -520,6 +523,9 @@ const en: Record<string, string> = {
 
   // --- support ---
   "support.title": "🆘 <b>Support</b>",
+  "support.chat": "💬 Support chat",
+  "support.channel": "📢 Channel",
+  "support.docs": "📖 Knowledge base",
   "thanks.button": "🎁 Thank the developer",
   "thanks.title": "🎁 <b>Thank the developer</b>",
   "thanks.subtitle": "3 ways",
@@ -531,7 +537,9 @@ const en: Record<string, string> = {
   "thanks.tributeWeb":
     "🌐 Tribute in a browser — the same Tribute, but through the website. Handy if you have no Telegram or the link does not open.",
   "support.text":
-    "<blockquote><b>What is this:</b> NAUA Security Mirage support. Write your problem right here — an admin replies in this same chat. You can attach a screenshot, a video or a log file.</blockquote>",
+    "<blockquote><b>NAUA Security Mirage Support</b>\n\n" +
+    "Have questions or need help with setup? Write right here — admin will reply in this chat. You can attach a screenshot or video.\n\n" +
+    "👨‍💻 Administrator: @Creator_NAUA</blockquote>",
   "support.cooldown":
     "⏳ You just sent a message. Give it a minute — then you can write again.",
   "support.stats": "📩 Tickets: <b>{total}</b> · in progress: <b>{open}</b>",

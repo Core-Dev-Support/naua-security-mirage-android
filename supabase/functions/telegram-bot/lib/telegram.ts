@@ -212,6 +212,7 @@ export class Telegram {
       text,
       parse_mode: "HTML",
       disable_web_page_preview: true,
+      link_preview_options: { is_disabled: true },
     };
     if (keyboard) {
       const problem = validateKeyboard(keyboard);
@@ -242,6 +243,7 @@ export class Telegram {
       text,
       parse_mode: "HTML",
       disable_web_page_preview: true,
+      link_preview_options: { is_disabled: true },
       reply_markup: {
         keyboard,
         resize_keyboard: true,
@@ -338,6 +340,7 @@ export class Telegram {
       text,
       parse_mode: "HTML",
       disable_web_page_preview: true,
+      link_preview_options: { is_disabled: true },
     };
     if (keyboard) {
       const problem = validateKeyboard(keyboard);
