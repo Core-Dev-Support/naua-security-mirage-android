@@ -92,14 +92,14 @@ data class VlessServer(
 
     companion object {
         private fun parseHostAndPort(rawHostPort: String): Pair<String, Int> {
-            val trimmed = rawHostPort.trim()
+            val trimmed = rawHostPort.trim().trimEnd('/')
             if (trimmed.startsWith("[")) {
                 val endBracket = trimmed.indexOf(']')
                 if (endBracket != -1) {
                     val ipv6Host = trimmed.substring(1, endBracket)
                     val rest = trimmed.substring(endBracket + 1)
                     val port = if (rest.startsWith(":")) {
-                        rest.substring(1).toIntOrNull()?.takeIf { it in 1..65535 } ?: 443
+                        rest.substring(1).trimEnd('/').toIntOrNull()?.takeIf { it in 1..65535 } ?: 443
                     } else 443
                     return Pair(ipv6Host, port)
                 }
@@ -107,7 +107,7 @@ data class VlessServer(
             val lastColon = trimmed.lastIndexOf(':')
             return if (lastColon != -1 && trimmed.indexOf(':') == lastColon) {
                 val host = trimmed.substring(0, lastColon)
-                val port = trimmed.substring(lastColon + 1).toIntOrNull()?.takeIf { it in 1..65535 } ?: 443
+                val port = trimmed.substring(lastColon + 1).trimEnd('/').toIntOrNull()?.takeIf { it in 1..65535 } ?: 443
                 Pair(host, port)
             } else {
                 Pair(trimmed, 443)
@@ -130,7 +130,7 @@ data class VlessServer(
                 val afterScheme = raw.substring(prefix.length)
                 val userInfo = if (afterScheme.contains("@")) afterScheme.substringBefore("@") else ""
                 val afterUser = if (afterScheme.contains("@")) afterScheme.substringAfter("@") else afterScheme
-                val hostPort = afterUser.substringBefore("?").substringBefore("#")
+                val hostPort = afterUser.substringBefore("?").substringBefore("#").trimEnd('/')
                 val (host, port) = parseHostAndPort(hostPort)
 
                 val rawQuery = if (raw.contains("?")) raw.substringAfter("?").substringBefore("#") else ""

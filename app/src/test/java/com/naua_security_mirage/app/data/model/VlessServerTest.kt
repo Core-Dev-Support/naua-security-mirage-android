@@ -41,6 +41,18 @@ class VlessServerTest {
     }
 
     @Test
+    fun parsesHysteria2UriWithTrailingSlashBeforeQuery() {
+        val link = "hysteria2://password123@nl1.example.org:25752/?insecure=1&pinSHA256=abcdef1234#NL"
+        val server = VlessServer.fromUri(link)
+
+        assertNotNull(server)
+        assertEquals("nl1.example.org", server!!.address)
+        assertEquals(25752, server.port)
+        assertEquals("hysteria2", server.protocol)
+        assertEquals("abcdef1234", server.pinSha256)
+    }
+
+    @Test
     fun parsesHysteria2UriAndSerializesCorrectly() {
         val link = "hysteria2://password123@example.com:8443?sni=hy2.example.com&insecure=1&obfs=salamander&obfs-password=mysecret&pinSHA256=abcdef1234#SwissNode"
 

@@ -516,18 +516,24 @@ class MirageVpnService : VpnService() {
 
         val links = when (node.kind) {
             PaidNode.Kind.FRANCE -> {
-                if (force || manager.getFranceLinks().isEmpty() ||
-                    (preferredProto == SettingsRepository.PROTOCOL_HYSTERIA2 && manager.getFranceLinks().none { it.startsWith("hysteria2://", true) || it.startsWith("hy2://", true) })
-                ) {
-                    serviceScope.async(Dispatchers.IO) { manager.ensureFranceVlessKey() }.await()
+                val needForce = force || manager.getFranceLinks().isEmpty() ||
+                    (preferredProto == SettingsRepository.PROTOCOL_HYSTERIA2 &&
+                        manager.getFranceLinks().none {
+                            it.startsWith("hysteria2://", true) || it.startsWith("hy2://", true)
+                        })
+                if (needForce) {
+                    serviceScope.async(Dispatchers.IO) { manager.ensureFranceVlessKey(force = needForce) }.await()
                 }
                 manager.getFranceLinks()
             }
             PaidNode.Kind.BELARUS, PaidNode.Kind.TURKEY -> {
-                if (force || manager.getBelarusLinks().isEmpty() ||
-                    (preferredProto == SettingsRepository.PROTOCOL_HYSTERIA2 && manager.getBelarusLinks().none { it.startsWith("hysteria2://", true) || it.startsWith("hy2://", true) })
-                ) {
-                    serviceScope.async(Dispatchers.IO) { manager.ensureBelarusVlessKey(force = force) }.await()
+                val needForce = force || manager.getBelarusLinks().isEmpty() ||
+                    (preferredProto == SettingsRepository.PROTOCOL_HYSTERIA2 &&
+                        manager.getBelarusLinks().none {
+                            it.startsWith("hysteria2://", true) || it.startsWith("hy2://", true)
+                        })
+                if (needForce) {
+                    serviceScope.async(Dispatchers.IO) { manager.ensureBelarusVlessKey(force = needForce) }.await()
                 }
                 manager.getBelarusLinks()
             }

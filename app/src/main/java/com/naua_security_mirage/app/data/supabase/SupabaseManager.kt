@@ -1488,14 +1488,14 @@ class SupabaseManager private constructor() {
         return SubscriptionPolicy.isActive(true, dateStr)
     }
 
-    suspend fun ensureFranceVlessKey(): String? = withContext(Dispatchers.IO) {
+    suspend fun ensureFranceVlessKey(force: Boolean = false): String? = withContext(Dispatchers.IO) {
         if (!hasActiveSubscription()) return@withContext null
         val user = _currentUser.value ?: return@withContext null
         val sub = _subscription.value
         val knownUuid = sub?.clientUuid?.takeIf { it.isNotBlank() }
             ?: extractUuidFromVless(sub?.vlessKey)
 
-        if (isCacheFresh()) {
+        if (!force && isCacheFresh()) {
             val cached = getActiveVlessKey()
             if (!cached.isNullOrBlank()) {
                 AppLogger.i(
@@ -1507,7 +1507,7 @@ class SupabaseManager private constructor() {
         } else {
             AppLogger.w(
                 TAG,
-                "Кэш подписки протух (${cacheAgeMinutes()} мин), ключ обновляется у панели"
+                "Кэш подписки протух или запрошено принудительное обновление, ключ обновляется у панели"
             )
         }
 
