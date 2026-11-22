@@ -217,8 +217,7 @@ const ru: Record<string, string> = {
     "🌐 Tribute в браузере — тот же Tribute, но через сайт. Подойдёт, если нет Telegram или ссылка не открывается.",
   "support.text":
     "<blockquote><b>Служба поддержки NAUA Security Mirage</b>\n\n" +
-    "Возникли проблемы или есть вопрос по настройке? Напиши прямо сюда — админ ответит в этом же диалоге. К сообщению можно прикрепить скриншот или видео.\n\n" +
-    "👨‍💻 Администратор: @Creator_NAUA</blockquote>",
+    "Возникли проблемы или есть вопрос по настройке? Напиши прямо сюда — поддержка ответит в этом же диалоге. К сообщению можно прикрепить скриншот или видео.</blockquote>",
   "support.cooldown":
     "⏳ Ты только что отправил обращение. Дай минуту — и можно будет написать ещё.",
   "support.stats": "📩 Заявок: <b>{total}</b> · в обработке: <b>{open}</b>",
@@ -538,8 +537,7 @@ const en: Record<string, string> = {
     "🌐 Tribute in a browser — the same Tribute, but through the website. Handy if you have no Telegram or the link does not open.",
   "support.text":
     "<blockquote><b>NAUA Security Mirage Support</b>\n\n" +
-    "Have questions or need help with setup? Write right here — admin will reply in this chat. You can attach a screenshot or video.\n\n" +
-    "👨‍💻 Administrator: @Creator_NAUA</blockquote>",
+    "Have questions or need help with setup? Write right here — support will reply in this chat. You can attach a screenshot or video.</blockquote>",
   "support.cooldown":
     "⏳ You just sent a message. Give it a minute — then you can write again.",
   "support.stats": "📩 Tickets: <b>{total}</b> · in progress: <b>{open}</b>",
