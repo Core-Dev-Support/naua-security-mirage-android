@@ -1002,7 +1002,8 @@ async function showSyncApp(
   msgId: number,
   lang: Lang,
 ): Promise<void> {
-  const code = await createSyncCodeForBot(chatId);
+  const syncRes = await createSyncCodeForBot(chatId);
+  const code = syncRes.ok && syncRes.code ? syncRes.code : (syncRes.error || "------");
   const title = lang === "en" ? "📱 <b>Link with App</b>" : "📱 <b>Связь с приложением</b>";
   const desc = lang === "en"
     ? `You can sync your Telegram bot with the NAUA Security Mirage mobile app.\n\n` +
@@ -1024,7 +1025,10 @@ async function showSyncApp(
     chatId,
     msgId,
     `${title}\n\n${desc}`,
-    [[{ text: t(lang, "common.back"), callback_data: "back" }]],
+    [
+      [{ text: lang === "en" ? "🔄 Refresh Code" : "🔄 Обновить код", callback_data: "sync_app" }],
+      [{ text: t(lang, "common.back"), callback_data: "back" }],
+    ],
   );
 }
 
