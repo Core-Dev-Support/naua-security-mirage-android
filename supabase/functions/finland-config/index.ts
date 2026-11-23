@@ -264,6 +264,36 @@ async function ensureClient(
   return { uuid: verified.id, flow: verified.flow ?? "", trafficSeen: false };
 }
 
+async function verifyTelegramToken(token: string, secret: string): Promise<{ tgId: number } | null> {
+  if (!token || !token.startsWith("tgs_") || !secret) return null;
+  const parts = token.slice(4).split("_");
+  if (parts.length !== 3) return null;
+  const [tgIdStr, tsStr, sig] = parts;
+  const tgId = Number(tgIdStr);
+  const ts = Number(tsStr);
+  if (!Number.isFinite(tgId) || tgId <= 0 || !Number.isFinite(ts)) return null;
+  if (Date.now() - ts > 90 * 24 * 60 * 60 * 1000) return null;
+
+  try {
+    const key = await crypto.subtle.importKey(
+      "raw",
+      new TextEncoder().encode(secret),
+      { name: "HMAC", hash: "SHA-256" },
+      false,
+      ["sign"]
+    );
+    const data = new TextEncoder().encode(`${tgId}:${ts}`);
+    const sigBytes = await crypto.subtle.sign("HMAC", key, data);
+    const expectedSig = Array.from(new Uint8Array(sigBytes))
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
+    if (expectedSig !== sig) return null;
+    return { tgId };
+  } catch {
+    return null;
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   if (req.method !== "GET") return json({ error: "Method not allowed" }, 405);
@@ -277,15 +307,24 @@ serve(async (req) => {
     const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
     if (!token) return json({ error: "Missing bearer token" }, 401);
 
-    const userClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-      auth: { persistSession: false, autoRefreshToken: false },
-    });
-    const { data: userData, error: userError } = await userClient.auth.getUser(token);
-    if (userError || !userData?.user?.email) {
-      return json({ error: "Invalid session" }, 401);
+    let userId: string;
+    let email: string;
+
+    const tgSession = await verifyTelegramToken(token, SUPABASE_SERVICE_ROLE_KEY);
+    if (tgSession) {
+      userId = `tg_${tgSession.tgId}`;
+      email = `Telegram: ${tgSession.tgId}`;
+    } else {
+      const userClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+        auth: { persistSession: false, autoRefreshToken: false },
+      });
+      const { data: userData, error: userError } = await userClient.auth.getUser(token);
+      if (userError || !userData?.user?.email) {
+        return json({ error: "Invalid session" }, 401);
+      }
+      userId = userData.user.id;
+      email = userData.user.email as string;
     }
-    const userId = userData.user.id;
-    const email = userData.user.email as string;
     logEvent("authorized", { user: userId.slice(0, 8) });
 
     const service = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {

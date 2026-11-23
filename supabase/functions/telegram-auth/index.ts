@@ -106,6 +106,23 @@ async function pkceChallenge(verifier: string): Promise<string> {
   return base64Url(new Uint8Array(digest));
 }
 
+async function createTelegramToken(tgId: number, secret: string): Promise<string> {
+  const ts = Date.now();
+  const key = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"]
+  );
+  const data = new TextEncoder().encode(`${tgId}:${ts}`);
+  const sigBytes = await crypto.subtle.sign("HMAC", key, data);
+  const sig = Array.from(new Uint8Array(sigBytes))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+  return `tgs_${tgId}_${ts}_${sig}`;
+}
+
 function service() {
   return createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
     auth: { persistSession: false, autoRefreshToken: false },
@@ -411,7 +428,8 @@ serve(async (req) => {
       const syncCode = Math.floor(100000 + Math.random() * 900000).toString();
       const syncToken = randomToken(32);
       const expiresAt = Date.now() + ATTEMPT_TTL_MS;
-      const verifier = JSON.stringify({ userId, email, code: syncCode, token: syncToken, expiresAt });
+      const tgIdParam = Number(url.searchParams.get("tg_id")) || 0;
+      const verifier = JSON.stringify({ userId, email, code: syncCode, token: syncToken, expiresAt, tgId: tgIdParam });
 
       const { error: insertErr } = await service()
         .from("telegram_oauth_attempts")
@@ -446,12 +464,23 @@ serve(async (req) => {
 
     // ---- Привязать по коду или ссылке --------------------------------------
     if (action === "claim_sync") {
-      const tgId = Number(url.searchParams.get("tg_id"));
+      let tgId = Number(url.searchParams.get("tg_id"));
       const rawTarget = url.searchParams.get("code") || url.searchParams.get("token") || "";
       const cleaned = rawTarget.trim().replace(/^link_/, "");
 
-      if (!Number.isFinite(tgId) || tgId <= 0 || !cleaned) {
-        return json({ error: "Некорректные параметры" }, 400);
+      if (!cleaned) {
+        return json({ error: "Не указан код привязки" }, 400);
+      }
+
+      // Проверяем, авторизован ли вызывающий через JWT сессию приложения
+      const authHeader = req.headers.get("authorization") || "";
+      const jwt = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
+      let callerUser: { id: string; email: string } | null = null;
+      if (jwt) {
+        const { data: userData } = await service().auth.getUser(jwt);
+        if (userData?.user) {
+          callerUser = { id: userData.user.id, email: userData.user.email || "" };
+        }
       }
 
       const candidateKeys = [`sync_${cleaned}`, `token_${cleaned}`, cleaned];
@@ -466,7 +495,7 @@ serve(async (req) => {
       }
 
       const attempt = attempts[0];
-      let payload: { userId?: string; email?: string; code?: string; token?: string; expiresAt?: number };
+      let payload: { userId?: string; email?: string; code?: string; token?: string; expiresAt?: number; tgId?: number };
       try {
         payload = JSON.parse(attempt.code_verifier);
       } catch {
@@ -478,25 +507,70 @@ serve(async (req) => {
         return json({ ok: false, error: "Срок действия кода истёк (10 минут)" }, 410);
       }
 
-      const targetUserId = payload.userId;
-      const targetEmail = payload.email || "";
-
-      if (!targetUserId) {
-        return json({ ok: false, error: "Не указан пользователь" }, 400);
+      if (!Number.isFinite(tgId) || tgId <= 0) {
+        tgId = payload.tgId || Number(payload.userId?.replace(/^tg_/, "")) || 0;
+      }
+      if (!Number.isFinite(tgId) || tgId <= 0) {
+        return json({ error: "Не удалось определить Telegram ID" }, 400);
       }
 
+      const targetUserId = callerUser?.id || payload.userId || `tg_${tgId}`;
+      const targetEmail = callerUser?.email || payload.email || `Telegram: ${tgId}`;
+
       await linkAccount(tgId, targetUserId, targetEmail, "", "", null);
+
+      // Если у Telegram-аккаунта была подписка, переносим/объединяем даты
+      const { data: tgSub } = await service().from("subscriptions").select("*").eq("tg_id", tgId).limit(1);
+      if (tgSub && tgSub[0] && tgSub[0].paid_until) {
+        const { data: curSub } = await service().from("subscriptions").select("paid_until").eq("user_id", targetUserId).limit(1);
+        const curUntil = curSub?.[0]?.paid_until ? new Date(curSub[0].paid_until).getTime() : 0;
+        const tgUntil = new Date(tgSub[0].paid_until).getTime();
+        const bestUntil = Math.max(curUntil, tgUntil);
+        await service().from("subscriptions").update({
+          paid_until: new Date(bestUntil).toISOString(),
+          plan: tgSub[0].plan || "premium",
+          is_active: true,
+          tg_id: tgId,
+          updated_at: new Date().toISOString()
+        }).eq("user_id", targetUserId);
+      }
 
       const deleteKeys = [attempt.state];
       if (payload.code) deleteKeys.push(`sync_${payload.code}`);
       if (payload.token) deleteKeys.push(`token_${payload.token}`);
       await service().from("telegram_oauth_attempts").delete().in("state", deleteKeys);
 
+      const sessionToken = await createTelegramToken(tgId, SUPABASE_SERVICE_ROLE_KEY);
+
       return json({
         ok: true,
         user_id: targetUserId,
         email: targetEmail,
+        access_token: sessionToken,
+        tg_id: tgId,
       });
+    }
+
+    // ---- Получить подписку по user_id / tg_id (для устройств без Google) ----
+    if (action === "get_subscription") {
+      const targetUserId = url.searchParams.get("user_id") || "";
+      const tgIdParam = Number(url.searchParams.get("tg_id")) || 0;
+      let query = service()
+        .from("subscriptions")
+        .select("user_id,email,is_active,plan,paid_until,vless_key,client_uuid,flow,belarus_vless_key,belarus_client_uuid,updated_at");
+
+      if (targetUserId) {
+        query = query.eq("user_id", targetUserId);
+      } else if (tgIdParam > 0) {
+        query = query.eq("tg_id", tgIdParam);
+      } else {
+        return json([], 200);
+      }
+      const { data, error: qErr } = await query.limit(1);
+      if (qErr || !data) {
+        return json([], 200);
+      }
+      return json(data, 200);
     }
 
     // ---- Шаг 3: обработка возврата от Google ------------------------------

@@ -295,7 +295,7 @@ class SupabaseManager private constructor() {
             val savedEmail = prefs?.getString(KEY_USER_EMAIL, null)
             lastExchangedCode = prefs?.getString(KEY_LAST_EXCHANGED_CODE, null)
 
-            if (!savedToken.isNullOrEmpty() && !savedId.isNullOrEmpty() && !savedEmail.isNullOrEmpty()) {
+            if (!savedId.isNullOrEmpty() && !savedEmail.isNullOrEmpty()) {
                 accessToken = savedToken
                 refreshToken = savedRefreshToken
                 _currentUser.value = SupabaseUser(savedId, savedEmail)
@@ -1279,9 +1279,16 @@ class SupabaseManager private constructor() {
 
     private fun fetchSubscriptionResponse(userId: String): Pair<Int, String> {
         fun execute(): Pair<Int, String> {
-            val authHeader = if (!accessToken.isNullOrEmpty()) "Bearer $accessToken" else "Bearer ${SupabaseConfig.getAnonKey()}"
+            val token = accessToken
+            val isTelegramSession = token?.startsWith("tgs_") == true || userId.startsWith("tg_")
+            val url = if (isTelegramSession || token.isNullOrEmpty()) {
+                "${SupabaseConfig.SUPABASE_URL}/functions/v1/telegram-auth?action=get_subscription&user_id=${android.net.Uri.encode(userId)}"
+            } else {
+                "${SupabaseConfig.SUPABASE_URL}/rest/v1/subscriptions?user_id=eq.${android.net.Uri.encode(userId)}&select=user_id,email,is_active,plan,paid_until,vless_key,client_uuid,updated_at"
+            }
+            val authHeader = if (!token.isNullOrEmpty()) "Bearer $token" else "Bearer ${SupabaseConfig.getAnonKey()}"
             val request = Request.Builder()
-                .url("${SupabaseConfig.SUPABASE_URL}/rest/v1/subscriptions?user_id=eq.${android.net.Uri.encode(userId)}&select=user_id,email,is_active,plan,paid_until,vless_key,client_uuid,updated_at")
+                .url(url)
                 .header("apikey", SupabaseConfig.getAnonKey())
                 .header("Authorization", authHeader)
                 .get()
@@ -2007,7 +2014,7 @@ class SupabaseManager private constructor() {
     suspend fun createTelegramSync(): Result<TelegramSyncResult> = withContext(Dispatchers.IO) {
         val token = accessToken
         if (token.isNullOrBlank()) {
-            return@withContext Result.failure(IllegalStateException("Требуется вход в аккаунт Google"))
+            return@withContext Result.success(TelegramSyncResult("", "https://t.me/NAUA_Security_Mirage_Bot?start=sync_app"))
         }
         try {
             val url = "${SupabaseConfig.SUPABASE_URL}/functions/v1/telegram-auth?action=create_sync"
@@ -2035,6 +2042,64 @@ class SupabaseManager private constructor() {
             }
         } catch (t: Throwable) {
             AppLogger.w(TAG, "createTelegramSync error: ${t.message}")
+            Result.failure(t)
+        }
+    }
+
+    suspend fun claimTelegramSync(code: String): Result<String> = withContext(Dispatchers.IO) {
+        val cleanCode = code.trim().replace(" ", "")
+        if (cleanCode.isEmpty()) {
+            return@withContext Result.failure(IllegalArgumentException("Введите 6-значный код"))
+        }
+        val token = accessToken
+        try {
+            val url = "${SupabaseConfig.SUPABASE_URL}/functions/v1/telegram-auth?action=claim_sync&code=${android.net.Uri.encode(cleanCode)}"
+            val builder = Request.Builder()
+                .url(url)
+                .header("apikey", SupabaseConfig.getAnonKey())
+            if (!token.isNullOrBlank()) {
+                builder.header("Authorization", "Bearer $token")
+            }
+            val response = httpClient.newCall(builder.get().build()).execute()
+            val body = response.body?.string().orEmpty()
+            if (!response.isSuccessful) {
+                AppLogger.w(TAG, "claimTelegramSync failed: HTTP ${response.code} $body")
+                val errorMsg = try {
+                    gson.fromJson(body, JsonObject::class.java)?.get("error")?.asString
+                } catch (_: Exception) { null } ?: httpError(response.code)
+                return@withContext Result.failure(IllegalStateException(errorMsg))
+            }
+            val json = gson.fromJson(body, JsonObject::class.java)
+            if (json?.get("ok")?.asBoolean == true) {
+                val receivedToken = json.get("access_token")?.asString
+                val targetUserId = json.get("user_id")?.asString.orEmpty()
+                val targetEmail = json.get("email")?.asString.orEmpty()
+                val tgId = json.get("tg_id")?.asLong ?: 0L
+
+                if (!receivedToken.isNullOrBlank()) {
+                    accessToken = receivedToken
+                    prefs?.edit()?.putString(KEY_ACCESS_TOKEN, receivedToken)?.apply()
+                }
+
+                if (_currentUser.value == null && targetUserId.isNotBlank()) {
+                    val displayEmail = if (targetEmail.isNotBlank()) targetEmail else "Telegram: $tgId"
+                    val user = SupabaseUser(targetUserId, displayEmail)
+                    _currentUser.value = user
+                    prefs?.edit()
+                        ?.putString(KEY_USER_ID, targetUserId)
+                        ?.putString(KEY_USER_EMAIL, displayEmail)
+                        ?.apply()
+                    AppLogger.info(TAG, "Logged in via Telegram code: $targetUserId ($displayEmail)")
+                }
+
+                refreshSubscription()
+                Result.success(targetEmail.ifBlank { "Telegram: $tgId" })
+            } else {
+                val err = json?.get("error")?.asString ?: "Не удалось привязать Telegram"
+                Result.failure(IllegalStateException(err))
+            }
+        } catch (t: Throwable) {
+            AppLogger.w(TAG, "claimTelegramSync error: ${t.message}")
             Result.failure(t)
         }
     }

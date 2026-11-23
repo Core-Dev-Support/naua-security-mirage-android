@@ -50,6 +50,36 @@ function nameNlLink(rawLink: string): string {
   return `${rawLink.split("#")[0]}#${encodeURIComponent(label)}`;
 }
 
+async function verifyTelegramToken(token: string, secret: string): Promise<{ tgId: number } | null> {
+  if (!token || !token.startsWith("tgs_") || !secret) return null;
+  const parts = token.slice(4).split("_");
+  if (parts.length !== 3) return null;
+  const [tgIdStr, tsStr, sig] = parts;
+  const tgId = Number(tgIdStr);
+  const ts = Number(tsStr);
+  if (!Number.isFinite(tgId) || tgId <= 0 || !Number.isFinite(ts)) return null;
+  if (Date.now() - ts > 90 * 24 * 60 * 60 * 1000) return null;
+
+  try {
+    const key = await crypto.subtle.importKey(
+      "raw",
+      new TextEncoder().encode(secret),
+      { name: "HMAC", hash: "SHA-256" },
+      false,
+      ["sign"]
+    );
+    const data = new TextEncoder().encode(`${tgId}:${ts}`);
+    const sigBytes = await crypto.subtle.sign("HMAC", key, data);
+    const expectedSig = Array.from(new Uint8Array(sigBytes))
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
+    if (expectedSig !== sig) return null;
+    return { tgId };
+  } catch {
+    return null;
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   if (req.method !== "GET") return json({ error: "Method not allowed" }, 405);
@@ -69,7 +99,11 @@ serve(async (req) => {
     let userId: string;
     let email: string;
 
-    if (token === SUPABASE_SERVICE_ROLE_KEY && (url.searchParams.get("user_id") || url.searchParams.get("email"))) {
+    const tgSession = await verifyTelegramToken(token, SUPABASE_SERVICE_ROLE_KEY);
+    if (tgSession) {
+      userId = `tg_${tgSession.tgId}`;
+      email = `Telegram: ${tgSession.tgId}`;
+    } else if (token === SUPABASE_SERVICE_ROLE_KEY && (url.searchParams.get("user_id") || url.searchParams.get("email"))) {
       userId = url.searchParams.get("user_id") || "";
       email = url.searchParams.get("email") || "";
     } else {

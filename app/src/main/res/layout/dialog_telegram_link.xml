@@ -1,0 +1,145 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/dialogTelegramLinkRoot"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="?attr/mirageCardBg"
+    android:orientation="vertical"
+    android:padding="22dp">
+
+    <!-- Header Row -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <FrameLayout
+            android:layout_width="38dp"
+            android:layout_height="38dp"
+            android:background="?attr/miragePillBg"
+            android:backgroundTint="#1C2130">
+
+            <ImageView
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:layout_gravity="center"
+                android:contentDescription="@null"
+                android:src="@drawable/ic_telegram"
+                app:tint="#38BDF8" />
+        </FrameLayout>
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="12dp"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/tvTelegramLinkTitle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/telegram_link_title"
+                android:textColor="@color/ink"
+                android:textSize="17sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/tvTelegramLinkSubtitle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:text="@string/telegram_link_subtitle"
+                android:textColor="@color/ink_soft"
+                android:textSize="12sp" />
+        </LinearLayout>
+
+        <ImageView
+            android:id="@+id/btnTelegramLinkClose"
+            android:layout_width="28dp"
+            android:layout_height="28dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:clickable="true"
+            android:contentDescription="@null"
+            android:focusable="true"
+            android:padding="4dp"
+            android:src="@drawable/ic_close"
+            app:tint="@color/ink_muted" />
+    </LinearLayout>
+
+    <View
+        android:id="@+id/dividerTelegramLink"
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:layout_marginTop="14dp"
+        android:layout_marginBottom="14dp"
+        android:background="@color/card_stroke" />
+
+    <TextView
+        android:id="@+id/tvTelegramLinkHint"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:lineSpacingExtra="3dp"
+        android:text="@string/telegram_link_hint"
+        android:textColor="@color/ink_soft"
+        android:textSize="12sp" />
+
+    <!-- 6-digit Code Input Box -->
+    <LinearLayout
+        android:id="@+id/boxTelegramSyncCode"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="14dp"
+        android:background="?attr/mirageChipBg"
+        android:orientation="vertical"
+        android:padding="12dp">
+
+        <EditText
+            android:id="@+id/etTelegramSyncCode"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:background="@android:color/transparent"
+            android:gravity="center"
+            android:hint="@string/telegram_code_hint"
+            android:inputType="number"
+            android:letterSpacing="0.25"
+            android:maxLength="6"
+            android:textColor="@color/ink"
+            android:textColorHint="@color/ink_muted"
+            android:textSize="22sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+    <!-- Claim Button -->
+    <Button
+        android:id="@+id/btnClaimSyncCode"
+        android:layout_width="match_parent"
+        android:layout_height="46dp"
+        android:layout_marginTop="14dp"
+        android:backgroundTint="#38BDF8"
+        android:text="@string/telegram_btn_claim_code"
+        android:textAllCaps="false"
+        android:textColor="#FFFFFF"
+        android:textSize="14sp"
+        android:textStyle="bold"
+        app:cornerRadius="14dp" />
+
+    <!-- Or 1-Click Link Button -->
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnOpenTelegramBotSync"
+        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+        android:layout_width="match_parent"
+        android:layout_height="44dp"
+        android:layout_marginTop="8dp"
+        android:backgroundTint="@color/card"
+        android:text="@string/telegram_btn_open_bot"
+        android:textAllCaps="false"
+        android:textColor="@color/ink"
+        android:textSize="13sp"
+        app:cornerRadius="14dp"
+        app:strokeColor="@color/card_stroke"
+        app:strokeWidth="1dp" />
+
+</LinearLayout>

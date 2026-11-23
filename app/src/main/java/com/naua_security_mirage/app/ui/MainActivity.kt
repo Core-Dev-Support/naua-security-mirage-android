@@ -1335,8 +1335,8 @@ class MainActivity : AppCompatActivity() {
         binding.cardAccount.btnAccountLogin.setOnClickListener {
             showAuthDialog()
         }
-        binding.cardAccount.layoutAccountLoggedOut.setOnClickListener {
-            showAuthDialog()
+        binding.cardAccount.btnAccountLoginTelegram.setOnClickListener {
+            showTelegramSyncDialog()
         }
 
         binding.cardAccount.btnAccountEye.setOnClickListener {
@@ -1359,6 +1359,10 @@ class MainActivity : AppCompatActivity() {
 
         binding.cardAccount.btnAccountSubscribe.setOnClickListener {
             showSubscriptionDialog()
+        }
+
+        binding.cardAccount.btnAccountLinkTelegram.setOnClickListener {
+            showTelegramSyncDialog()
         }
 
         lifecycleScope.launch {
@@ -1541,6 +1545,9 @@ class MainActivity : AppCompatActivity() {
         dialogBinding.tvAuthBenefits.setTextColor(pal.subtitle)
         dialogBinding.btnAuthGoogle.backgroundTintList = ColorStateList.valueOf(pal.cardBg)
         dialogBinding.btnAuthGoogle.setTextColor(pal.title)
+        dialogBinding.btnAuthTelegram.backgroundTintList = ColorStateList.valueOf(pal.cardBg)
+        dialogBinding.btnAuthTelegram.setTextColor(pal.title)
+        dialogBinding.btnAuthContinueWithoutLogin.setTextColor(pal.subtitle)
 
         AnimationHelper.popIn(dialogBinding.root, durationMs = 240)
         AnimationHelper.attachPressAnimations(dialogBinding.root)
@@ -1562,6 +1569,15 @@ class MainActivity : AppCompatActivity() {
                     com.naua_security_mirage.app.push.MirageMessagingService.refresh()
                 }
             }
+        }
+
+        dialogBinding.btnAuthTelegram.setOnClickListener {
+            dialog.dismiss()
+            showTelegramSyncDialog()
+        }
+
+        dialogBinding.btnAuthContinueWithoutLogin.setOnClickListener {
+            dialog.dismiss()
         }
 
         dialogBinding.btnAuthCancel.setOnClickListener {
@@ -1839,6 +1855,85 @@ class MainActivity : AppCompatActivity() {
             dialog.dismiss()
         }
 
+        dialog.show()
+    }
+
+    private fun showTelegramSyncDialog() {
+        val manager = com.naua_security_mirage.app.data.supabase.SupabaseManager.instance
+
+        val dialog = Dialog(this)
+        val dialogBinding = com.naua_security_mirage.app.databinding.DialogTelegramLinkBinding.inflate(layoutInflater)
+        dialog.setContentView(dialogBinding.root)
+        dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+        dialog.window?.setLayout(
+            (resources.displayMetrics.widthPixels * 0.92f).toInt(),
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        )
+
+        val pal = dialogPalette()
+        dialogBinding.root.background = GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            cornerRadius = 24f * pal.density
+            setColor(pal.cardBg)
+            setStroke((1.2f * pal.density).toInt(), pal.stroke)
+        }
+        dialogBinding.tvTelegramLinkTitle.setTextColor(pal.title)
+        dialogBinding.tvTelegramLinkSubtitle.setTextColor(pal.subtitle)
+        dialogBinding.tvTelegramLinkHint.setTextColor(pal.subtitle)
+        dialogBinding.dividerTelegramLink.setBackgroundColor(pal.stroke)
+        dialogBinding.btnTelegramLinkClose.imageTintList = ColorStateList.valueOf(pal.subtitle)
+        dialogBinding.btnTelegramLinkClose.setOnClickListener { dialog.dismiss() }
+
+        dialogBinding.boxTelegramSyncCode.background = GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            cornerRadius = 14f * pal.density
+            setColor(pal.cardBg)
+            setStroke((1f * pal.density).toInt(), pal.stroke)
+        }
+        dialogBinding.etTelegramSyncCode.setTextColor(pal.title)
+        applySecondaryButtonStyle(dialogBinding.btnOpenTelegramBotSync, pal)
+
+        dialogBinding.btnClaimSyncCode.setOnClickListener {
+            val code = dialogBinding.etTelegramSyncCode.text?.toString()?.trim().orEmpty()
+            if (code.length != 6) {
+                Toast.makeText(this, R.string.telegram_code_empty, Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+            dialogBinding.btnClaimSyncCode.isEnabled = false
+            dialogBinding.btnClaimSyncCode.text = getString(R.string.sub_checking)
+
+            lifecycleScope.launch {
+                val res = manager.claimTelegramSync(code)
+                dialogBinding.btnClaimSyncCode.isEnabled = true
+                dialogBinding.btnClaimSyncCode.setText(R.string.telegram_btn_claim_code)
+                res.onSuccess {
+                    Toast.makeText(this@MainActivity, R.string.telegram_link_success, Toast.LENGTH_LONG).show()
+                    dialog.dismiss()
+                    updateAccountCardUI()
+                    updateServerPlanSelectorUI()
+                }.onFailure { err ->
+                    val msg = err.message ?: getString(R.string.auth_error_generic)
+                    Toast.makeText(this@MainActivity, msg, Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+
+        dialogBinding.btnOpenTelegramBotSync.setOnClickListener {
+            dialogBinding.btnOpenTelegramBotSync.isEnabled = false
+            lifecycleScope.launch {
+                val syncRes = manager.createTelegramSync()
+                dialogBinding.btnOpenTelegramBotSync.isEnabled = true
+                syncRes.onSuccess {
+                    dialog.dismiss()
+                    openExternalLink(it.botUrl)
+                }.onFailure { err ->
+                    Toast.makeText(this@MainActivity, err.message ?: "Ошибка", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+
+        AnimationHelper.popIn(dialogBinding.root, durationMs = 240)
+        AnimationHelper.attachPressAnimations(dialogBinding.root)
         dialog.show()
     }
 
@@ -7671,7 +7766,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun sectionSubViews(key: String): List<View> = when (key) {
-        "sub_subscribe" -> listOfNotNull(binding.cardAccount.btnAccountSubscribe)
+        "sub_subscribe" -> listOfNotNull(binding.cardAccount.btnAccountSubscribe, binding.cardAccount.btnAccountLinkTelegram)
         "sub_status" -> listOfNotNull(binding.rowStatusNotification)
         "sub_payment" -> listOfNotNull(rowPayment?.row)
         "sub_tile" -> listOfNotNull(binding.rowQuickSettingsTile)
@@ -8507,6 +8602,7 @@ class MainActivity : AppCompatActivity() {
             Triple(R.id.rowWayChannel, R.id.tvWayChannelTitle, R.id.tvWayChannelDesc),
             Triple(R.id.rowWaySupport, R.id.tvWaySupportTitle, R.id.tvWaySupportDesc),
             Triple(R.id.rowWayBot, R.id.tvWayBotTitle, R.id.tvWayBotDesc),
+            Triple(R.id.rowWaySyncBot, R.id.tvWaySyncBotTitle, R.id.tvWaySyncBotDesc),
         )
         val rows = donationRows + contactRows
 
@@ -8533,7 +8629,8 @@ class MainActivity : AppCompatActivity() {
             R.id.tvWayTributeWebGo,
             R.id.tvWayChannelGo,
             R.id.tvWaySupportGo,
-            R.id.tvWayBotGo
+            R.id.tvWayBotGo,
+            R.id.tvWaySyncBotGo
         ).forEach {
             dialog.findViewById<TextView>(it).background = goBg
         }
@@ -8551,6 +8648,10 @@ class MainActivity : AppCompatActivity() {
         open(R.id.rowWayChannel, getString(R.string.telegram_channel_url))
         open(R.id.rowWaySupport, getString(R.string.support_chat_url))
         open(R.id.rowWayBot, getString(R.string.support_bot_url))
+        dialog.findViewById<View>(R.id.rowWaySyncBot)?.setOnClickListener {
+            dialog.dismiss()
+            showTelegramSyncDialog()
+        }
 
         // В окне донатов показываем только способы поддержать разработчика,
         // в окне Telegram — только канал, поддержку и бота.
