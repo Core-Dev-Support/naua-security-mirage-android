@@ -30,6 +30,7 @@ import {
   getScreenId,
   getState,
   getSubscription,
+  getSubscriptionByTgId,
   getUser,
   invalidateContext,
   listBannedUsers,
@@ -670,7 +671,8 @@ async function profileKeyboard(
       { text: t(lang, "profile.payments.button"), callback_data: "profile_payments" },
     ],
   ];
-  if (!account) {
+  const isLinked = Boolean(account || ctx.subscription);
+  if (!isLinked) {
     keyboard.push([
       { text: lang === "en" ? "📱 Connect to App" : "📱 Связать с приложением", callback_data: "sync_app" },
     ]);
@@ -711,7 +713,7 @@ async function showSettings(
   ctx: BotContext,
 ): Promise<void> {
   const keyboard: InlineKeyboard = [];
-  if (ctx.account) {
+  if (ctx.account || ctx.subscription) {
     // Выход из Google-аккаунта — первым: он ищется чаще всего.
     keyboard.push([
       { text: t(lang, "profile.logout"), callback_data: "google_logout" },
@@ -2893,7 +2895,8 @@ async function handleCallback(callback: CallbackQuery): Promise<void> {
     }
     case data === "google_logout": {
       const account = await getAccount(chatId);
-      if (!account) {
+      const sub = await getSubscriptionByTgId(chatId);
+      if (!account && !sub) {
         await renderScreen(
           chatId,
           messageId,

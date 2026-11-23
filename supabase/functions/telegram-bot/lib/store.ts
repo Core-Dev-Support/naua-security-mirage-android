@@ -321,9 +321,21 @@ export async function unlinkAccount(tgId: number): Promise<string | null> {
     .limit(1);
   const row = (data && data[0]) as { user_id: string; email: string | null } | undefined;
 
+  let email = row?.email ?? null;
+  if (!email) {
+    const { data: subData } = await client
+      .from("subscriptions")
+      .select("email")
+      .eq("tg_id", tgId)
+      .limit(1);
+    if (subData && subData[0]) {
+      email = subData[0].email;
+    }
+  }
+
   await client.from("telegram_accounts").delete().eq("tg_id", tgId);
   await client.from("subscriptions").update({ tg_id: null }).eq("tg_id", tgId);
-  return row?.email ?? null;
+  return email;
 }
 
 export async function getSubscription(userId: string): Promise<{

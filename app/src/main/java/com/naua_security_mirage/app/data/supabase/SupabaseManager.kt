@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
 import android.net.Uri
+import androidx.credentials.ClearCredentialStateRequest
 import androidx.credentials.CredentialManager
 import androidx.credentials.CustomCredential
 import androidx.credentials.GetCredentialRequest
@@ -606,7 +607,7 @@ class SupabaseManager private constructor() {
 
             val oauthUrl = "${SupabaseConfig.SUPABASE_URL}/auth/v1/authorize?provider=google" +
                 "&redirect_to=$redirectUri&state=$state" +
-                "&flow_type=pkce&code_challenge=$challenge&code_challenge_method=S256"
+                "&flow_type=pkce&code_challenge=$challenge&code_challenge_method=S256&prompt=select_account"
             val intent = Intent(Intent.ACTION_VIEW, Uri.parse(oauthUrl)).apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
@@ -1043,6 +1044,20 @@ class SupabaseManager private constructor() {
             ?.remove(KEY_USER_EMAIL)
             ?.apply()
         clearSubscriptionPrefs()
+
+        appContext?.let { ctx ->
+            try {
+                CoroutineScope(Dispatchers.IO).launch {
+                    try {
+                        CredentialManager.create(ctx).clearCredentialState(ClearCredentialStateRequest())
+                    } catch (e: Throwable) {
+                        AppLogger.w(TAG, "clearCredentialState error: ${e.message}")
+                    }
+                }
+            } catch (e: Throwable) {
+                AppLogger.w(TAG, "clearCredentialState launch error: ${e.message}")
+            }
+        }
 
         AppLogger.info(TAG, "User signed out (email subscription caches preserved)")
     }

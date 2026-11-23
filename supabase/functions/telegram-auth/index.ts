@@ -338,6 +338,7 @@ serve(async (req) => {
       authorize.searchParams.set("flow_type", "pkce");
       authorize.searchParams.set("code_challenge", challenge);
       authorize.searchParams.set("code_challenge_method", "S256");
+      authorize.searchParams.set("prompt", "select_account");
 
       return json({
         url: authorize.toString(),
