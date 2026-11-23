@@ -76,12 +76,12 @@ const ru: Record<string, string> = {
   "profile.title": "👤 <b>Твой профиль{comma} {name}</b>",
   "profile.title.plain": "👤 <b>Твой профиль</b>",
   "profile.lead":
-    "<blockquote><b>Что это:</b> твой статус, привязка к приложению и срок подписки.</blockquote>",
+    "<blockquote><b>Что это:</b> твой статус, Google-аккаунт и срок подписки. Здесь же вход и выход.</blockquote>",
   "profile.status.none": "⚡️ Подписки нет 🔴\n\n🗓 Оформи подписку — и откроются узлы.",
   "profile.status.active":
     "⚡️ Подписка активна до <b>{date}</b> (UTC) 🟢\n\n⏳ Осталось: <b>{days}</b> дн.",
   "profile.status.expired": "⚡️ Подписка истекла 🔴\n\n🗓 Продли — и вернёшь узлы.",
-  "profile.account.linked": "📱 Аккаунт приложения: <b>{email}</b>",
+  "profile.account.linked": "🔐 Google-аккаунт: <b>{email}</b>",
   "profile.id": "🆔 Telegram ID: <code>{id}</code>",
   "profile.since": "📅 В боте с {date}",
   "profile.referrals": "🎁 Пригласил: {count} · заработано: {days} дн.",
@@ -103,9 +103,9 @@ const ru: Record<string, string> = {
     "и на экране входа: нажал не туда — вернись и выбери язык.</blockquote>",
   "settings.language": "🌐 Сменить язык",
   "profile.refresh": "🔄 Обновить",
-  "profile.account.unlinked": "📱 Приложение <b>не привязано</b>",
-  "profile.login": "📱 Связать с приложением",
-  "profile.logout": "🚪 Отвязать приложение",
+  "profile.account.unlinked": "🔐 Google-аккаунт: <b>не привязан</b>",
+  "profile.login": "🔐 Войти в Google-аккаунт",
+  "profile.logout": "🚪 Выйти из Google-аккаунта",
   "profile.language": "🌐 Язык",
   "profile.language.change": "🌐 Сменить язык",
 
@@ -394,12 +394,13 @@ const en: Record<string, string> = {
   "profile.title": "👤 <b>Your profile{comma} {name}</b>",
   "profile.title.plain": "👤 <b>Your profile</b>",
   "profile.lead":
-    "<blockquote><b>What is this:</b> your status, app link and subscription expiry.</blockquote>",
+    "<blockquote><b>What is this:</b> your status, Google account and the subscription expiry. " +
+    "Sign-in and sign-out live here too.</blockquote>",
   "profile.status.none": "⚡️ No subscription 🔴\n\n🗓 Get one and the nodes open up.",
   "profile.status.active":
     "⚡️ Subscription is active until <b>{date}</b> (UTC) 🟢\n\n⏳ Left: <b>{days}</b> days.",
   "profile.status.expired": "⚡️ Subscription expired 🔴\n\n🗓 Renew it and the nodes are back.",
-  "profile.account.linked": "📱 App account: <b>{email}</b>",
+  "profile.account.linked": "🔐 Google account: <b>{email}</b>",
   "profile.id": "🆔 Telegram ID: <code>{id}</code>",
   "profile.since": "📅 With us since {date}",
   "profile.referrals": "🎁 Invited: {count} · earned: {days} days",
@@ -422,9 +423,9 @@ const en: Record<string, string> = {
     "pick the language.</blockquote>",
   "settings.language": "🌐 Change language",
   "profile.refresh": "🔄 Refresh",
-  "profile.account.unlinked": "📱 App <b>not linked</b>",
-  "profile.login": "📱 Connect to App",
-  "profile.logout": "🚪 Unlink App",
+  "profile.account.unlinked": "🔐 Google account: <b>not linked</b>",
+  "profile.login": "🔐 Sign in with Google",
+  "profile.logout": "🚪 Sign out of Google account",
   "profile.language": "🌐 Language",
   "profile.language.change": "🌐 Change language",
 

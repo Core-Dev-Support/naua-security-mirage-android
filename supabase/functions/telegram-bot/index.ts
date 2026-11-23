@@ -1024,41 +1024,6 @@ async function showConnect(
   );
 }
 
-async function showSyncApp(
-  chatId: number,
-  msgId: number,
-  lang: Lang,
-): Promise<void> {
-  const syncRes = await createSyncCodeForBot(chatId);
-  const code = syncRes.ok && syncRes.code ? syncRes.code : (syncRes.error || "------");
-  const title = lang === "en" ? "📱 <b>Link with App</b>" : "📱 <b>Связь с приложением</b>";
-  const desc = lang === "en"
-    ? `You can sync your Telegram bot with the NAUA Security Mirage mobile app.\n\n` +
-      `<b>Method 1 (via App):</b>\n` +
-      `In the app, tap the Telegram menu ➔ «Link with Bot» and tap the button — pairing happens in 1 click!\n\n` +
-      `<b>Method 2 (by 6-digit code):</b>\n` +
-      `Enter this code in the app:\n` +
-      `<code>${code}</code>\n\n` +
-      `<i>Code is valid for 10 minutes.</i>`
-    : `Вы можете связать Telegram-бота с мобильным приложением NAUA Security Mirage.\n\n` +
-      `<b>Способ 1: через приложение</b>\n` +
-      `В приложении откройте меню Telegram ➔ «Связать с ботом» и нажмите кнопку — синхронизация произойдет мгновенно.\n\n` +
-      `<b>Способ 2: по 6-значному коду</b>\n` +
-      `Введите этот код в приложении:\n` +
-      `<code>${code}</code>\n\n` +
-      `<i>Код действует 10 минут.</i>`;
-
-  await renderScreen(
-    chatId,
-    msgId,
-    `${title}\n\n${desc}`,
-    [
-      [{ text: lang === "en" ? "🔄 Refresh Code" : "🔄 Обновить код", callback_data: "sync_app" }],
-      [{ text: t(lang, "common.back"), callback_data: "back" }],
-    ],
-  );
-}
-
 async function showServerStatus(
   chatId: number,
   msgId: number,
@@ -1845,31 +1810,6 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
   if (!hasConsent(user)) {
     await showConsent(chatId, 0, lang);
     return;
-  }
-
-  // Синхронизация по коду (/link XXXXXX или 6 цифр).
-  const syncMatch = text.match(/^\/link\s+([a-zA-Z0-9_-]+)$/i) || text.match(/^(\d{6})$/);
-  if (syncMatch) {
-    const code = syncMatch[1];
-    const claimRes = await claimSyncCodeOrToken(chatId, code);
-    invalidateContext(chatId);
-    const updatedCtx = await loadContext(chatId);
-    if (claimRes.ok) {
-      const msg = lang === "en"
-        ? `✅ <b>App linked successfully!</b>\nAccount: <code>${escapeHtml(claimRes.email ?? "")}</code>`
-        : `✅ <b>Приложение успешно привязано!</b>\nАккаунт: <code>${escapeHtml(claimRes.email ?? "")}</code>`;
-      await telegram.sendMessage(chatId, msg);
-      await showMainMenu(updatedCtx, chatId, name, isAdmin, lang);
-      return;
-    } else {
-      await telegram.sendMessage(
-        chatId,
-        lang === "en"
-          ? "❌ Invalid or expired code. Please generate a new code in the app."
-          : "❌ Неверный или устаревший код. Сгенерируйте новый код в приложении.",
-      );
-      return;
-    }
   }
 
   // Состояния диалогов.
