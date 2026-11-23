@@ -390,7 +390,7 @@ serve(async (req) => {
         error,
       };
     });
-    const { userId, days: requestedDays } = parsePaymentLabel(label);
+    let { userId, days: requestedDays } = parsePaymentLabel(label);
     if (!userId) {
       await recordArrival({ ...arrival, outcome: "missing_operation_id_or_label" });
       return new Response("operation_id and label are required", { status: 400 });
