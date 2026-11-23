@@ -51,9 +51,8 @@ const ru: Record<string, string> = {
     "<b>🇳🇱 Нидерланды и 🇹🇷 Турция в одной подписке. Протоколы XHTTP и Hysteria 2. Безлимитный трафик.\n" +
     "Одна подписка — и для бота, и для приложения.</b>",
   "welcome.hint":
-    "🔐 Войди через Google — это привяжет подписку к этому Telegram. " +
-    "Ссылку входа никому не пересылай.",
-  "welcome.login": "🔐 Войти в Google-аккаунт",
+    "📱 Используй кнопку «Связать с приложением» в меню для синхронизации подписки с приложением.",
+  "welcome.login": "📱 Связать с приложением",
 
   // --- главное меню ---
   "menu.greeting": "👋 <b>Привет{comma} {name}!</b> ✌️",
@@ -76,13 +75,12 @@ const ru: Record<string, string> = {
   "profile.title": "👤 <b>Твой профиль{comma} {name}</b>",
   "profile.title.plain": "👤 <b>Твой профиль</b>",
   "profile.lead":
-    "<blockquote><b>Что это:</b> твой статус, Google-аккаунт и срок подписки. " +
-    "Здесь же вход и выход.</blockquote>",
+    "<blockquote><b>Что это:</b> твой статус, привязка к приложению и срок подписки.</blockquote>",
   "profile.status.none": "⚡️ Подписки нет 🔴\n\n🗓 Оформи подписку — и откроются узлы.",
   "profile.status.active":
     "⚡️ Подписка активна до <b>{date}</b> (UTC) 🟢\n\n⏳ Осталось: <b>{days}</b> дн.",
   "profile.status.expired": "⚡️ Подписка истекла 🔴\n\n🗓 Продли — и вернёшь узлы.",
-  "profile.account.linked": "🔐 Google-аккаунт: <b>{email}</b>",
+  "profile.account.linked": "📱 Аккаунт приложения: <b>{email}</b>",
   "profile.id": "🆔 Telegram ID: <code>{id}</code>",
   "profile.since": "📅 В боте с {date}",
   "profile.referrals": "🎁 Пригласил: {count} · заработано: {days} дн.",
@@ -104,9 +102,9 @@ const ru: Record<string, string> = {
     "и на экране входа: нажал не туда — вернись и выбери язык.</blockquote>",
   "settings.language": "🌐 Сменить язык",
   "profile.refresh": "🔄 Обновить",
-  "profile.account.unlinked": "🔐 Google-аккаунт <b>не привязан</b>",
-  "profile.login": "🔐 Войти в Google-аккаунт",
-  "profile.logout": "🚪 Выйти из Google-аккаунта",
+  "profile.account.unlinked": "📱 Приложение <b>не привязано</b>",
+  "profile.login": "📱 Связать с приложением",
+  "profile.logout": "🚪 Отвязать приложение",
   "profile.language": "🌐 Язык",
   "profile.language.change": "🌐 Сменить язык",
 
@@ -370,9 +368,8 @@ const en: Record<string, string> = {
     "<b>🇳🇱 Netherlands and 🇹🇷 Turkey in one subscription. XHTTP and Hysteria 2 protocols. Unlimited traffic.\n" +
     "One subscription — for the bot and for the app.</b>",
   "welcome.hint":
-    "🔐 Sign in with Google — this links the subscription to this Telegram. " +
-    "Never forward the sign-in link.",
-  "welcome.login": "🔐 Sign in with Google",
+    "📱 Link your subscription with the app via «Connect to App» in the menu.",
+  "welcome.login": "📱 Connect to App",
 
   // --- main menu ---
   "menu.greeting": "👋 <b>Hi{comma} {name}!</b> ✌️",
@@ -395,13 +392,12 @@ const en: Record<string, string> = {
   "profile.title": "👤 <b>Your profile{comma} {name}</b>",
   "profile.title.plain": "👤 <b>Your profile</b>",
   "profile.lead":
-    "<blockquote><b>What is this:</b> your status, Google account and the subscription expiry. " +
-    "Sign-in and sign-out live here too.</blockquote>",
+    "<blockquote><b>What is this:</b> your status, app link and subscription expiry.</blockquote>",
   "profile.status.none": "⚡️ No subscription 🔴\n\n🗓 Get one and the nodes open up.",
   "profile.status.active":
     "⚡️ Subscription is active until <b>{date}</b> (UTC) 🟢\n\n⏳ Left: <b>{days}</b> days.",
   "profile.status.expired": "⚡️ Subscription expired 🔴\n\n🗓 Renew it and the nodes are back.",
-  "profile.account.linked": "🔐 Google account: <b>{email}</b>",
+  "profile.account.linked": "📱 App account: <b>{email}</b>",
   "profile.id": "🆔 Telegram ID: <code>{id}</code>",
   "profile.since": "📅 With us since {date}",
   "profile.referrals": "🎁 Invited: {count} · earned: {days} days",
@@ -424,9 +420,9 @@ const en: Record<string, string> = {
     "pick the language.</blockquote>",
   "settings.language": "🌐 Change language",
   "profile.refresh": "🔄 Refresh",
-  "profile.account.unlinked": "🔐 Google account <b>not linked</b>",
-  "profile.login": "🔐 Sign in with Google",
-  "profile.logout": "🚪 Sign out of Google account",
+  "profile.account.unlinked": "📱 App <b>not linked</b>",
+  "profile.login": "📱 Connect to App",
+  "profile.logout": "🚪 Unlink App",
   "profile.language": "🌐 Language",
   "profile.language.change": "🌐 Change language",
 

@@ -1,4 +1,4 @@
-# deploy-bot.ps1 — деплой Telegram-бота на Supabase Edge Functions.
+﻿# deploy-bot.ps1 — деплой Telegram-бота на Supabase Edge Functions.
 #
 # Бот живёт в проекте Supabase вместе с приложением NAUA Security Mirage,
 # поэтому подписка, Google-аккаунт и платные узлы общие.
@@ -138,17 +138,12 @@ $webhookUrl = "https://$ProjectRef.supabase.co/functions/v1/telegram-bot"
 if ($SkipWebhook) {
     Write-Host "skipped" -ForegroundColor Yellow
 } else {
-    # Метка вебхука: бот игнорирует апдейты без ?tag=. Без неё старый
-    # тестовый бот отвечал бы через новый токен. Не сбрасываем её.
-    $webhookTag = if ($fileSecrets.ContainsKey("WEBHOOK_TAG")) { $fileSecrets["WEBHOOK_TAG"] } else { [Environment]::GetEnvironmentVariable("WEBHOOK_TAG") }
     $botToken = if ($fileSecrets.ContainsKey("TELEGRAM_TOKEN")) { $fileSecrets["TELEGRAM_TOKEN"] } else { [Environment]::GetEnvironmentVariable("TELEGRAM_TOKEN") }
     $secretToken = if ($fileSecrets.ContainsKey("TELEGRAM_SECRET_TOKEN")) { $fileSecrets["TELEGRAM_SECRET_TOKEN"] } else { [Environment]::GetEnvironmentVariable("TELEGRAM_SECRET_TOKEN") }
-    if ([string]::IsNullOrWhiteSpace($webhookTag)) {
-        Write-Host "WEBHOOK_TAG не задан — вебхук не трогаю, иначе бот перестанет отвечать." -ForegroundColor Yellow
-    } elseif ([string]::IsNullOrWhiteSpace($botToken) -or [string]::IsNullOrWhiteSpace($secretToken)) {
+    if ([string]::IsNullOrWhiteSpace($botToken) -or [string]::IsNullOrWhiteSpace($secretToken)) {
         Write-Host "Нет токена/секрета — регистрацию пропускаю." -ForegroundColor Yellow
     } else {
-        $url = "https://api.telegram.org/bot$botToken/setWebhook?url=$webhookUrl%3Ftag%3D$webhookTag&secret_token=$secretToken&allowed_updates=%5B%22message%22,%22edited_message%22,%22callback_query%22%5D"
+        $url = "https://api.telegram.org/bot$botToken/setWebhook?url=$webhookUrl&secret_token=$secretToken&allowed_updates=%5B%22message%22,%22edited_message%22,%22callback_query%22%5D"
         try {
             $result = Invoke-RestMethod -Uri $url -TimeoutSec 30
             Write-Host ("setWebhook: {0} — {1}" -f $result.ok, $result.description) -ForegroundColor Green

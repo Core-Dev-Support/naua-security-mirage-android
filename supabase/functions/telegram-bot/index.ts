@@ -91,11 +91,6 @@ import { timingSafeEqual } from "../_shared/security.ts";
 
 const TELEGRAM_TOKEN = Deno.env.get("TELEGRAM_TOKEN") || "";
 const TELEGRAM_SECRET = Deno.env.get("TELEGRAM_SECRET_TOKEN") || "";
-// Метка вебхука: старый тестовый бот шлёт апдейты на тот же URL без метки.
-// Такие запросы игнорируем, чтобы он не отвечал через новый токен.
-const WEBHOOK_TAG = Deno.env.get("WEBHOOK_TAG") || "";
-// Версия документов. Меняется вместе с лицензией/политикой: если у
-// пользователя другая версия, бот попросит принять документы заново.
 const CONSENT_VERSION = "2026-10-22";
 // ADMIN_ID приходит из секретов Supabase. Если он не задан, админка
 // выключена: 0 не совпадает ни с одним Telegram ID.
@@ -248,24 +243,15 @@ async function showWelcome(
   name: string,
   msgId = 0,
 ): Promise<void> {
-  // Ссылка на вход сразу в кнопке — одного нажатия достаточно.
-  // Если экран уже существует (msgId > 0), его id известен и подставляется
-  // в ссылку: после входа функция перепишет ИМЕННО этот пузырь.
-  // msgId > 0 — экран уже на экране (смена языка): переписываем его.
-  // Иначе — /start: удаляем прежний экран и присылаем новый.
   let target = msgId;
   if (target <= 0) {
     target = await replaceScreen(chatId, welcomeText(lang), undefined);
     if (!target) return;
   }
 
-  const loginUrl = await googleLoginUrl(chatId, target);
-  const loginButton: InlineButton = loginUrl
-    ? { text: t(lang, "welcome.login"), url: loginUrl }
-    : { text: t(lang, "welcome.login"), callback_data: "google_login" };
-
   const keyboard: InlineKeyboard = [
-    [loginButton],
+    [{ text: lang === "en" ? "🚀 Open Menu" : "🚀 В главное меню", callback_data: "welcome_skip" }],
+    [{ text: lang === "en" ? "📱 Connect to App" : "📱 Связать с приложением", callback_data: "sync_app" }],
     [{ text: t(lang, "profile.language"), callback_data: "lang_menu|welcome" }],
     [{ text: t(lang, "menu.docs"), callback_data: "docs" }],
   ];
@@ -2690,23 +2676,6 @@ async function handleCallback(callback: CallbackQuery): Promise<void> {
     return;
   }
 
-  // Ворота: без привязанного Google-аккаунта доступны только вход и
-  // смена языка. Остальные разделы закрыты до входа.
-  const linkedAccount = ctx.account;
-  if (!linkedAccount && !consentAction &&
-      data !== "google_login" && data !== "welcome_back") {
-    await renderScreen(
-      chatId,
-      messageId,
-      welcomeText(lang),
-      [
-        [{ text: t(lang, "welcome.login"), callback_data: "google_login" }],
-        [{ text: t(lang, "profile.language"), callback_data: "lang_menu|welcome" }],
-        [{ text: t(lang, "menu.docs"), callback_data: "docs" }],
-      ],
-    );
-    return;
-  }
 
   switch (true) {
     // --- выбор языка ---
@@ -2724,11 +2693,6 @@ async function handleCallback(callback: CallbackQuery): Promise<void> {
         break;
       }
 
-      if (!ctx.account) {
-        // Без входа в Google доступно только приветствие и смена языка.
-        await showWelcome(chatId, picked, user?.name ?? "", messageId);
-        break;
-      }
       if (target === "profile") {
         await ensureReplyKeyboard(chatId, picked);
         await renderScreen(
@@ -2746,7 +2710,7 @@ async function handleCallback(callback: CallbackQuery): Promise<void> {
           chatId,
           messageId,
           mainMenuText(ctx, chatId, user?.name ?? "", picked),
-          await mainMenuButtons(chatId, isAdmin, true, picked),
+          await mainMenuButtons(chatId, isAdmin, Boolean(ctx.account), picked),
         );
       }
       break;
@@ -2774,11 +2738,7 @@ async function handleCallback(callback: CallbackQuery): Promise<void> {
       const freshLang = langOf(fresh.user) ?? lang;
       const freshName = fresh.user?.name ?? user?.name ?? "";
       await ensureReplyKeyboard(chatId, freshLang);
-      if (fresh.account) {
-        await showMainMenu(fresh, chatId, freshName, isAdmin, freshLang);
-      } else {
-        await showWelcome(chatId, freshLang, freshName, messageId);
-      }
+      await showMainMenu(fresh, chatId, freshName, isAdmin, freshLang);
       break;
     }
     case data === "consent_decline": {
@@ -2808,23 +2768,9 @@ async function handleCallback(callback: CallbackQuery): Promise<void> {
       await showConsent(chatId, messageId, lang);
       break;
     }
-    case data === "welcome_back": {
-      await showWelcome(chatId, lang, user?.name ?? "", messageId);
-      break;
-    }
+    case data === "welcome_back":
     case data === "welcome_skip": {
-      // Кнопки «Пока без входа» больше нет: без входа доступно только
-      // приветствие. На всякий случай возвращаем приветствие.
-      await renderScreen(
-        chatId,
-        messageId,
-        welcomeText(lang),
-        [
-          [{ text: t(lang, "welcome.login"), callback_data: "google_login" }],
-          [{ text: t(lang, "profile.language"), callback_data: "lang_menu|welcome" }],
-          [{ text: t(lang, "menu.docs"), callback_data: "docs" }],
-        ],
-      );
+      await showMainMenu(ctx, chatId, user?.name ?? "", isAdmin, lang);
       break;
     }
     case data === "profile":
@@ -2938,30 +2884,7 @@ async function handleCallback(callback: CallbackQuery): Promise<void> {
       await showReferral(ctx, chatId, messageId, lang, originOf(data));
       break;
     case data === "google_login": {
-      // Ссылка несёт id текущего сообщения: после входа функция перепишет
-      // именно его — в чате не появится лишних сообщений.
-      const url = await googleLoginUrl(chatId, messageId);
-      if (!url) {
-        await renderScreen(
-          chatId,
-          messageId,
-          "⚠️ Не удалось начать вход. Попробуй позже.",
-          backButton(lang),
-        );
-        break;
-      }
-      await renderScreen(
-        chatId,
-        messageId,
-        t(lang, "google.start"),
-        [
-          [{ text: t(lang, "google.continue"), url }],
-          [
-            { text: t(lang, "profile.language"), callback_data: "lang_menu|welcome" },
-            { text: t(lang, "common.back"), callback_data: "back" },
-          ],
-        ],
-      );
+      await showSyncApp(chatId, messageId, lang);
       break;
     }
     case data === "google_logout": {
@@ -2990,10 +2913,9 @@ async function handleCallback(callback: CallbackQuery): Promise<void> {
     }
     case data === "google_logout_confirm": {
       const email = await unlinkAccount(chatId);
-      // После выхода показываем то же приветствие, что и при первом входе:
-      // цитата + кнопка входа. Короткий экран «Готово» выглядел как
-      // отдельный, путающий сценарий.
-      await showWelcome(chatId, lang, user?.name ?? "", messageId);
+      invalidateContext(chatId);
+      const fresh = await loadContext(chatId, true);
+      await showMainMenu(fresh, chatId, user?.name ?? "", isAdmin, lang);
       void email;
       break;
     }
@@ -3271,12 +3193,6 @@ serve(async (req) => {
 
   if (req.method !== "POST") {
     return new Response("Method not allowed", { status: 405 });
-  }
-
-  // Старый бот и любые чужие запросы без метки — молча принимаем и
-  // игнорируем: иначе они обрабатывались бы новым токеном.
-  if (WEBHOOK_TAG && !timingSafeEqual(WEBHOOK_TAG, url.searchParams.get("tag") ?? "")) {
-    return new Response("ok", { status: 200 });
   }
 
   // Проверка секрета вебхука. Без настроенного секрета функция не должна
