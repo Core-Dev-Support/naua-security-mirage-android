@@ -3,6 +3,7 @@ package com.naua_security_mirage.app.ui
 import android.Manifest
 import android.app.Activity
 import android.content.ContentValues
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Typeface
@@ -48,6 +49,7 @@ import com.naua_security_mirage.app.data.config.AppConfig
 import com.naua_security_mirage.app.data.config.AppConfigRepository
 import com.naua_security_mirage.app.data.config.PaidNode
 import com.naua_security_mirage.app.data.config.SubscriptionPlan
+import com.naua_security_mirage.app.data.supabase.SupabaseManager
 import com.naua_security_mirage.app.data.repository.DeviceIdRepository
 import com.naua_security_mirage.app.data.repository.GeoRoutingRepository
 import com.naua_security_mirage.app.data.repository.PingRepository
@@ -5402,7 +5404,7 @@ class MainActivity : AppCompatActivity() {
                 text = code
                 textSize = 32f
                 letterSpacing = 0.2f
-                typeface = auroraFont(R.font.onest_700)
+                typeface = auroraFont(R.font.onest_600)
                 setTextColor(auroraColor(R.color.au_accent_text))
             }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
                 topMargin = gdp(8)

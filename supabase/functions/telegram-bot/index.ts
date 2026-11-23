@@ -979,23 +979,34 @@ async function showConnect(
   lang: Lang,
   origin: ScreenOrigin = "main",
 ): Promise<void> {
-  void ctx;
   const link = await subscriptionLink(chatId);
+  const state = subscriptionState(ctx);
+  const hasSub = state?.active || Boolean(ctx.subscription?.plan || ctx.subscription?.paid_until);
+
+  const buttons: InlineKeyboard = [];
+  if (!hasSub) {
+    buttons.push([
+      {
+        text: lang === "en" ? "🎁 Activate 1-day Trial" : "🎁 Активировать пробный день (1 день)",
+        callback_data: `activate_trial:${origin}`,
+      },
+    ]);
+  }
+  buttons.push([{ text: t(lang, "connect.open"), url: await connectPage(link, lang, chatId) }]);
+  buttons.push([{ text: t(lang, "connect.copy"), copy_text: { text: link } }]);
+  buttons.push([
+    { text: t(lang, "connect.qr"), callback_data: `connect_qr:${origin}` },
+    { text: t(lang, "connect.server_status"), callback_data: `server_status:${origin}` },
+  ]);
+  buttons.push([{ text: t(lang, "connect.setup_guide"), callback_data: `setup_guide:${origin}` }]);
+  buttons.push([{ text: t(lang, "sub.app"), url: APP_URL }]);
+  buttons.push([{ text: t(lang, "common.back"), callback_data: `back:${origin}` }]);
+
   await renderScreen(
     chatId,
     msgId,
     `${t(lang, "connect.title")}\n\n${t(lang, "connect.text")}\n\n${t(lang, "connect.hint")}`,
-    [
-      [{ text: t(lang, "connect.open"), url: await connectPage(link, lang, chatId) }],
-      [{ text: t(lang, "connect.copy"), copy_text: { text: link } }],
-      [
-        { text: t(lang, "connect.qr"), callback_data: `connect_qr:${origin}` },
-        { text: t(lang, "connect.server_status"), callback_data: `server_status:${origin}` },
-      ],
-      [{ text: t(lang, "connect.setup_guide"), callback_data: `setup_guide:${origin}` }],
-      [{ text: t(lang, "sub.app"), url: APP_URL }],
-      [{ text: t(lang, "common.back"), callback_data: `back:${origin}` }],
-    ],
+    buttons,
   );
 }
 
@@ -1183,6 +1194,15 @@ async function showSubscription(
   ];
 
   const keyboard: InlineKeyboard = [];
+  const hasSub = state?.active || Boolean(ctx.subscription?.plan || ctx.subscription?.paid_until);
+  if (!hasSub) {
+    keyboard.push([
+      {
+        text: lang === "en" ? "🎁 Activate 1-day Trial (Free)" : "🎁 Активировать пробный день (1 день)",
+        callback_data: `activate_trial:${origin}`,
+      },
+    ]);
+  }
   const plans = await activePlans();
   const best = bestSaving(plans);
   lines.push("", t(lang, "sub.choose"));
@@ -2816,6 +2836,28 @@ async function handleCallback(callback: CallbackQuery): Promise<void> {
     case data === "connect" || data.startsWith("connect:"):
       await showConnect(ctx, chatId, messageId, lang, originOf(data));
       break;
+    case data === "activate_trial" || data.startsWith("activate_trial:"): {
+      const hasPlan = Boolean(ctx.subscription?.plan || ctx.subscription?.paid_until);
+      if (hasPlan) {
+        await telegram.answerCallback(
+          callback.id,
+          lang === "en" ? "Trial already used" : "Пробный день уже был использован",
+          true,
+        );
+        break;
+      }
+      await grantSubscription(chatId, 1);
+      await supabase().from("subscriptions").update({ plan: "trial" }).eq("tg_id", chatId);
+      invalidateContext(chatId);
+      await telegram.answerCallback(
+        callback.id,
+        lang === "en" ? "🎉 1-day trial activated!" : "🎉 Пробный день на 1 день активирован!",
+        true,
+      );
+      const updatedCtx = await loadContext(chatId, true);
+      await showMainMenu(updatedCtx, chatId, user?.name ?? "", isAdmin, lang);
+      break;
+    }
     case data === "sync_app" || data.startsWith("sync_app:"):
       await showSyncApp(chatId, messageId, lang);
       break;
