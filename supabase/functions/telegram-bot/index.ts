@@ -1809,7 +1809,7 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
     const claimRes = await claimSyncCodeOrToken(chatId, code);
     invalidateContext(chatId);
     const updatedCtx = await loadContext(chatId);
-    if (claimRes.success) {
+    if (claimRes.ok) {
       const msg = lang === "en"
         ? `✅ <b>App linked successfully!</b>\nAccount: <code>${escapeHtml(claimRes.email ?? "")}</code>`
         : `✅ <b>Приложение успешно привязано!</b>\nАккаунт: <code>${escapeHtml(claimRes.email ?? "")}</code>`;
@@ -2464,7 +2464,7 @@ async function handleCommand(
       const claimRes = await claimSyncCodeOrToken(chatId, token);
       invalidateContext(chatId);
       const updatedCtx = await loadContext(chatId);
-      if (claimRes.success) {
+      if (claimRes.ok) {
         const text = [
           lang === "en"
             ? `✅ <b>Successfully linked!</b>\nAccount: <code>${escapeHtml(claimRes.email ?? "")}</code>`
