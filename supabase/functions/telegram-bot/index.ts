@@ -990,6 +990,10 @@ async function showConnect(
         text: lang === "en" ? "🎁 Activate 1-day Trial" : "🎁 Активировать пробный день (1 день)",
         callback_data: `activate_trial:${origin}`,
       },
+      {
+        text: t(lang, "sub.title_short"),
+        callback_data: `sub:${origin}`,
+      },
     ]);
   }
   buttons.push([{ text: t(lang, "connect.open"), url: await connectPage(link, lang, chatId) }]);
@@ -1365,6 +1369,14 @@ async function handleReferral(
     t(lang, "referral.joined", { name: name ? escapeHtml(name) : "" }),
   );
   await telegram.sendMessage(chatId, t(lang, "referral.joined.you"));
+
+  const hasPlan = Boolean(ctx.subscription?.plan || ctx.subscription?.paid_until);
+  if (!hasPlan) {
+    await grantSubscription(chatId, 1);
+    await supabase().from("subscriptions").update({ plan: "trial" }).eq("tg_id", chatId);
+    invalidateContext(chatId);
+  }
+
   await showMainMenu(ctx, chatId, name, chatId === ADMIN_ID, lang);
 }
 
