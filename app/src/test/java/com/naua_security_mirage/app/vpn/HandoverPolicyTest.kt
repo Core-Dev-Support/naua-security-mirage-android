@@ -10,13 +10,20 @@ class HandoverPolicyTest {
         hadPrevious: Boolean = true,
         sameObject: Boolean = false,
         previousUsable: Boolean = true,
-        connected: Boolean = true
+        connected: Boolean = true,
+        upgradeTransport: Boolean = false
     ) = HandoverPolicy.shouldRestartTunnel(
         hadPreviousNetwork = hadPrevious,
         sameNetworkObject = sameObject,
         previousStillUsable = previousUsable,
-        tunnelConnected = connected
+        tunnelConnected = connected,
+        upgradeTransport = upgradeTransport
     )
+
+    @Test
+    fun transportUpgradeRestartsTheTunnelEvenIfOldNetworkUsable() {
+        assertTrue(restart(hadPrevious = true, sameObject = false, previousUsable = true, upgradeTransport = true))
+    }
 
     @Test
     fun reAnnouncementOfTheSameLinkDoesNotRestartTheTunnel() {

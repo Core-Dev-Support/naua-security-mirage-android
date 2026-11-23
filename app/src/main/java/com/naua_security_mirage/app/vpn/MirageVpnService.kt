@@ -36,6 +36,8 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import java.net.Socket
@@ -59,6 +61,9 @@ class MirageVpnService : VpnService() {
     private var speedJob: Job? = null
     private var watchdogJob: Job? = null
     private var recoveryJob: Job? = null
+    private var handoverJob: Job? = null
+    private val handoverMutex = Mutex()
+    private val failedNodesCooldown = java.util.concurrent.ConcurrentHashMap<String, Long>()
     @Volatile
     private var autoDnsJob: Job? = null
     @Volatile
@@ -249,11 +254,12 @@ class MirageVpnService : VpnService() {
                     // Быстрый выбор узла: если есть закрепленный узел или кэшированный пинг,
                     // подключаемся немедленно (<50 мс), не замораживая старт VPN на 2.5-4 секунды.
                     val preferredKey = settingsRepository.preferredFreeNodeKey
+                    val now = System.currentTimeMillis()
                     val pinned = if (!preferredKey.isNullOrBlank()) {
-                        servers.firstOrNull { freeNodeKey(it) == preferredKey }
+                        servers.firstOrNull { freeNodeKey(it) == preferredKey && (failedNodesCooldown[freeNodeKey(it)] ?: 0L) < now }
                     } else null
 
-                    val hasRecentPing = servers.any { it.pingMs in 1..9998 }
+                    val hasRecentPing = servers.any { it.pingMs in 1..9998 && (failedNodesCooldown[freeNodeKey(it)] ?: 0L) < now }
                     val fastBest = when {
                         pinned != null -> pinned
                         hasRecentPing -> pickFreeServer(servers)
@@ -941,16 +947,24 @@ class MirageVpnService : VpnService() {
 
     private fun pickFreeServer(servers: List<VlessServer>): VlessServer? {
         if (servers.isEmpty()) return null
+        val now = System.currentTimeMillis()
         val preferred = settingsRepository.preferredFreeNodeKey
         if (!preferred.isNullOrBlank()) {
             val pinned = servers.firstOrNull { freeNodeKey(it) == preferred }
             if (pinned != null && pinned.pingMs in 1..9998) {
-                AppLogger.i(TAG, "Бесплатный узел: используется выбранный ${pinned.tag} (${pinned.pingMs} мс)")
-                return pinned
+                val expiry = failedNodesCooldown[freeNodeKey(pinned)] ?: 0L
+                if (now > expiry) {
+                    AppLogger.i(TAG, "Бесплатный узел: используется выбранный ${pinned.tag} (${pinned.pingMs} мс)")
+                    return pinned
+                } else {
+                    AppLogger.w(TAG, "Бесплатный узел: выбранный ${pinned.tag} на кулдауне после сбоя, ищем альтернативу")
+                }
             }
             AppLogger.w(TAG, "Бесплатный узел: выбранный узел недоступен, берём лучший автоматически")
         }
-        return pingRepository.selectBestServer(servers)
+        val available = servers.filter { (failedNodesCooldown[freeNodeKey(it)] ?: 0L) < now }
+        val pool = if (available.isNotEmpty()) available else servers
+        return pingRepository.selectBestServer(pool)
     }
 
     private class TunnelAttempt(val coreStarted: Boolean, val trafficFlows: Boolean)
@@ -1151,10 +1165,18 @@ class MirageVpnService : VpnService() {
         }
         val flows = if (fastTrack) {
             val quickCheck = waitForTrafficFast()
-            if (!quickCheck) {
-                AppLogger.i(TAG, "Узел ${server.tag}: быстрый запуск (фоновая проверка)")
+            if (quickCheck) {
+                true
+            } else {
+                val cellular = isCellularNetwork()
+                val retryBudget = if (cellular) 1400 else 1000
+                AppLogger.i(TAG, "Узел ${server.tag}: быстрое подтверждение не пришло за 800мс, контрольная проверка ${retryBudget}мс...")
+                val confirmed = xrayController?.verifyDataPlane(retryBudget) == true
+                if (!confirmed) {
+                    AppLogger.w(TAG, "Узел ${server.tag}: данные не подтверждены, переключение на следующий узел")
+                }
+                confirmed
             }
-            true
         } else {
             waitForTraffic()
         }
@@ -1218,25 +1240,36 @@ class MirageVpnService : VpnService() {
                 val startedAt = SystemClock.elapsedRealtime()
                 val waitingForFirst = pingSamples.isEmpty()
                 val target = _activeServer.value ?: server
-                val ping = pingRepository.measurePing(
-                    target,
-                    timeoutMs = if (waitingForFirst) FIRST_PING_TIMEOUT_MS else PING_TIMEOUT_MS,
-                    samples = if (waitingForFirst) FIRST_PING_SAMPLES else PING_SAMPLES_PER_MEASUREMENT,
-                    protectSocket = { socket ->
-                        try {
-                            protect(socket)
-                        } catch (t: Throwable) {
-                            Log.w(TAG, "protect(socket) failed: ${t.message}")
+
+                // Сессионный замер: опрашиваем реальный сквозной RTT через туннель Xray/SOCKS5.
+                // При недоступности или первой пробе используем прямой замер TCP.
+                val tunnelRtt = xrayController?.measureTunnelRtt(
+                    timeoutMs = if (waitingForFirst) 1500 else 2000
+                ) ?: -1L
+
+                val ping = if (tunnelRtt in 1..9998) {
+                    tunnelRtt
+                } else {
+                    pingRepository.measurePing(
+                        target,
+                        timeoutMs = if (waitingForFirst) FIRST_PING_TIMEOUT_MS else PING_TIMEOUT_MS,
+                        samples = if (waitingForFirst) FIRST_PING_SAMPLES else PING_SAMPLES_PER_MEASUREMENT,
+                        protectSocket = { socket ->
+                            try {
+                                protect(socket)
+                            } catch (t: Throwable) {
+                                Log.w(TAG, "protect(socket) failed: ${t.message}")
+                            }
+                        },
+                        protectDatagram = { socket ->
+                            try {
+                                protect(socket)
+                            } catch (t: Throwable) {
+                                Log.w(TAG, "protect(datagramSocket) failed: ${t.message}")
+                            }
                         }
-                    },
-                    protectDatagram = { socket ->
-                        try {
-                            protect(socket)
-                        } catch (t: Throwable) {
-                            Log.w(TAG, "protect(datagramSocket) failed: ${t.message}")
-                        }
-                    }
-                )
+                    )
+                }
                 if (ping in 1..9998) {
                     if (pingSamples.size >= PING_HISTORY) pingSamples.removeFirst()
                     pingSamples.addLast(ping)
@@ -1321,6 +1354,13 @@ class MirageVpnService : VpnService() {
             return
         }
 
+        // Помечаем упавший узел во временный кулдаун (60с), чтобы не циклиться на нем же
+        _activeServer.value?.let { failed ->
+            val key = freeNodeKey(failed)
+            failedNodesCooldown[key] = System.currentTimeMillis() + 60_000L
+            AppLogger.w(TAG, "Узел ${failed.tag} помечен на кулдаун 60с для выбора альтернативы")
+        }
+
         val backoffMs = (DROP_RECOVERY_BACKOFF_MS * dropRecoveryAttempts).coerceAtMost(MAX_DROP_RECOVERY_BACKOFF_MS)
         AppLogger.w(
             TAG,
@@ -1332,6 +1372,37 @@ class MirageVpnService : VpnService() {
         recoveryJob = serviceScope.launch {
             delay(backoffMs)
             if (!isActive || userStopped) return@launch
+
+            // Мягкий перезапуск ядра с ротацией на следующий рабочий узел без разрушения TUN (Zero-Drop)
+            val pfd = vpnInterface
+            if (pfd != null && !settingsRepository.isKillSwitchEnabled) {
+                val allServers = try { vlessKeyRepository.getVlessServers() } catch (_: Throwable) { emptyList() }
+                val now = System.currentTimeMillis()
+                val nextCandidate = allServers.firstOrNull { s ->
+                    val expiry = failedNodesCooldown[freeNodeKey(s)] ?: 0L
+                    now > expiry
+                } ?: allServers.firstOrNull()
+
+                if (nextCandidate != null) {
+                    AppLogger.i(TAG, "Сторож: мягкое переключение на альтернативный узел ${nextCandidate.tag}...")
+                    xrayController?.stopXray()
+                    delay(200)
+                    val (started, errorMsg) = xrayController?.startXray(nextCandidate, pfd.fd, currentTunMtu()) ?: Pair(false, "Unknown")
+                    if (started && xrayController?.verifyDataPlane(4000) == true) {
+                        _activeServer.value = nextCandidate
+                        _tunnelHealthy.value = true
+                        _vpnState.value = VpnState.CONNECTED
+                        dropRecoveryAttempts = 0
+                        startSessionTimer(_sessionSeconds.value)
+                        startSpeedMonitoring()
+                        startPeriodicPing(nextCandidate)
+                        startTunnelWatchdog(nextCandidate)
+                        AppLogger.i(TAG, "Сторож: туннель успешно самоисцелился на узле ${nextCandidate.tag}!")
+                        return@launch
+                    }
+                }
+            }
+
             stopVpn(cancelConnectionJob = false)
             delay(300)
             if (!isActive || userStopped) return@launch
@@ -1341,6 +1412,7 @@ class MirageVpnService : VpnService() {
 
     private fun startTunnelWatchdog(server: VlessServer) {
         watchdogJob?.cancel()
+        handoverJob?.cancel()
         watchdogJob = serviceScope.launch {
             var failures = 0
             while (isActive && _vpnState.value == VpnState.CONNECTED) {
@@ -1392,6 +1464,7 @@ class MirageVpnService : VpnService() {
         timerJob?.cancel()
         speedJob?.cancel()
         watchdogJob?.cancel()
+        handoverJob?.cancel()
 
         try {
             xrayController?.stopXray()
@@ -1614,11 +1687,13 @@ class MirageVpnService : VpnService() {
             return
         }
 
+        val isUpgrade = previous != null && transportRank(newCaps) > transportRank(previousCaps)
         val switched = HandoverPolicy.shouldRestartTunnel(
             hadPreviousNetwork = previous != null,
             sameNetworkObject = previous == network,
             previousStillUsable = previousUsable,
-            tunnelConnected = _vpnState.value == VpnState.CONNECTED
+            tunnelConnected = _vpnState.value == VpnState.CONNECTED,
+            upgradeTransport = isUpgrade
         )
         if (switched) {
             AppLogger.i(TAG, "Смена активной сети (Handover). Перезапуск туннеля...")
@@ -1691,43 +1766,51 @@ class MirageVpnService : VpnService() {
         lastKnownNetwork = null
     }
 
-    private fun handleNetworkHandover(newNetwork: Network) {        if (_vpnState.value != VpnState.CONNECTED && _vpnState.value != VpnState.CONNECTING) return
-        serviceScope.launch {
-            try {
-                if (settingsRepository.isKillSwitchEnabled) {
-                    AppLogger.i(TAG, "Kill Switch: переключение туннеля на новую сеть без разрыва интерфейса (Zero Leak)...")
-                }
+    private fun handleNetworkHandover(newNetwork: Network) {
+        if (_vpnState.value != VpnState.CONNECTED && _vpnState.value != VpnState.CONNECTING) return
+        handoverJob?.cancel()
+        handoverJob = serviceScope.launch {
+            delay(HANDOVER_DEBOUNCE_MS)
+            if (!isActive || (_vpnState.value != VpnState.CONNECTED && _vpnState.value != VpnState.CONNECTING)) return@launch
 
-                xrayController?.stopXray()
-                delay(200)
-
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP_MR1) {
-                    try {
-                        setUnderlyingNetworks(arrayOf(newNetwork))
-                    } catch (_: Throwable) {}
-                }
-
-                val pfd = vpnInterface
-                val server = _activeServer.value ?: vlessKeyRepository.getVlessServers().firstOrNull()
-                if (server != null && pfd != null && vpnInterface === pfd && _vpnState.value == VpnState.CONNECTED) {
-                    val (started, errorMsg) = xrayController?.startXray(server, pfd.fd, currentTunMtu()) ?: Pair(false, "Unknown")
-                    val trafficOk = started && xrayController?.verifyDataPlane(6000) == true
-                    if (trafficOk) {
-                        _tunnelHealthy.value = true
-                        _vpnState.value = VpnState.CONNECTED
-                        startSessionTimer(_sessionSeconds.value)
-                        startSpeedMonitoring()
-                        startPeriodicPing(server)
-                        AppLogger.i(TAG, "Туннель успешно переподключен на новой сети!")
-                    } else {
-                        AppLogger.e(TAG, "Ошибка переподключения туннеля или трафика на новой сети: $errorMsg")
-                        stopVpn()
+            handoverMutex.withLock {
+                try {
+                    if (settingsRepository.isKillSwitchEnabled) {
+                        AppLogger.i(TAG, "Kill Switch: переключение туннеля на новую сеть без разрыва интерфейса (Zero Leak)...")
                     }
-                }
-            } catch (e: Throwable) {
-                AppLogger.e(TAG, "Ошибка при смене сети: ${e.message}", e)
 
-                stopVpn()
+                    xrayController?.stopXray()
+                    delay(150)
+
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP_MR1) {
+                        try {
+                            setUnderlyingNetworks(arrayOf(newNetwork))
+                        } catch (_: Throwable) {}
+                    }
+
+                    val pfd = vpnInterface
+                    val server = _activeServer.value ?: vlessKeyRepository.getVlessServers().firstOrNull()
+                    if (server != null && pfd != null && vpnInterface === pfd && _vpnState.value == VpnState.CONNECTED) {
+                        val (started, errorMsg) = xrayController?.startXray(server, pfd.fd, currentTunMtu()) ?: Pair(false, "Unknown")
+                        val trafficOk = started && xrayController?.verifyDataPlane(5000) == true
+                        if (trafficOk) {
+                            _tunnelHealthy.value = true
+                            _vpnState.value = VpnState.CONNECTED
+                            startSessionTimer(_sessionSeconds.value)
+                            startSpeedMonitoring()
+                            startPeriodicPing(server)
+                            AppLogger.i(TAG, "Туннель успешно переподключен на новой сети!")
+                        } else {
+                            AppLogger.e(TAG, "Ошибка переподключения туннеля или трафика на новой сети: $errorMsg")
+                            stopVpn()
+                        }
+                    }
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    throw e
+                } catch (e: Throwable) {
+                    AppLogger.e(TAG, "Ошибка при смене сети: ${e.message}", e)
+                    stopVpn()
+                }
             }
         }
     }
@@ -1879,6 +1962,7 @@ class MirageVpnService : VpnService() {
         private const val WATCHDOG_INTERVAL_MS = 30_000L
         private const val WATCHDOG_PROBE_MS = 6000
         private const val WATCHDOG_MAX_FAILURES = 3
+        private const val HANDOVER_DEBOUNCE_MS = 350L
         private const val MAX_DROP_RECOVERIES = 3
         private const val DROP_RECOVERY_BACKOFF_MS = 5_000L
         private const val MAX_DROP_RECOVERY_BACKOFF_MS = 30_000L

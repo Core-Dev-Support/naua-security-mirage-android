@@ -1,6 +1,7 @@
 package com.naua_security_mirage.app.vpn
 
 import android.net.VpnService
+import android.os.SystemClock
 import android.util.Base64
 import android.util.Log
 import com.google.gson.JsonArray
@@ -39,7 +40,10 @@ class XrayVpnController(private val vpnService: VpnService) {
         try {
 
             try {
-                LibXray.xrayVersion()
+                val rawVersion = LibXray.xrayVersion()
+                val line = rawVersion?.lineSequence()?.firstOrNull()?.trim() ?: "unknown"
+                latestXrayCoreVersion = line
+                AppLogger.i(TAG, "Версия ядра Xray: $line")
             } catch (t: Throwable) {
                 val reason = "Нативное ядро Xray недоступно (${t.javaClass.simpleName}: ${t.message})"
                 AppLogger.e(TAG, reason)
@@ -342,6 +346,33 @@ class XrayVpnController(private val vpnService: VpnService) {
         }
         AppLogger.w(TAG, "Проверка трафика не пройдена за ${elapsed}мс: туннель поднят, но данные не идут")
         return false
+    }
+
+    /**
+     * Замер реального RTT сквозь туннель Xray через локальный SOCKS5-прокси (in-tunnel RTT).
+     * Возвращает миллисекунды полного цикла (запрос-ответ) или -1 при недоступности.
+     */
+    fun measureTunnelRtt(timeoutMs: Int = 2000): Long {
+        val start = SystemClock.elapsedRealtime()
+        var socket: java.net.Socket? = null
+        return try {
+            val target = PROBE_TARGETS.firstOrNull() ?: ("1.1.1.1" to 80)
+            socket = Socks5Client.connect(target.first, target.second, timeoutMs)
+            socket.soTimeout = timeoutMs
+            val output = socket.getOutputStream()
+            val input = socket.getInputStream()
+            output.write("HEAD / HTTP/1.0\r\nHost: one.one.one.one\r\nConnection: close\r\n\r\n".toByteArray(StandardCharsets.US_ASCII))
+            output.flush()
+            val buffer = ByteArray(16)
+            val read = input.read(buffer)
+            if (read > 0) {
+                (SystemClock.elapsedRealtime() - start).coerceAtLeast(1L)
+            } else -1L
+        } catch (_: Throwable) {
+            -1L
+        } finally {
+            try { socket?.close() } catch (_: Throwable) {}
+        }
     }
 
     private fun probeOnce(host: String, port: Int, timeoutMs: Int): Boolean {
@@ -710,6 +741,22 @@ class XrayVpnController(private val vpnService: VpnService) {
                     })
                 }
 
+                // Локальные домены разрешаем напрямую (direct), чтобы FakeDNS не подменял локальные устройства
+                val localDns = JsonObject().apply {
+                    addProperty("address", "77.88.8.8")
+                    addProperty("port", 53)
+                    val domains = JsonArray().apply {
+                        add("domain:local")
+                        add("domain:lan")
+                        add("domain:home")
+                        add("domain:internal")
+                        add("domain:router")
+                    }
+                    add("domains", domains)
+                    addProperty("skipFallback", true)
+                }
+                add(localDns)
+
                 // FakeDNS: instant 0-RTT DNS resolution for all proxy-bound domains
                 val fakeDns = JsonObject().apply {
                     addProperty("address", "fakedns")
@@ -866,7 +913,18 @@ class XrayVpnController(private val vpnService: VpnService) {
                         }
                         addProperty("mode", xhttpMode)
                         addProperty("path", server.path.ifEmpty { "/widgetComponent.js" })
-                        addProperty("scMaxBufferedPosts", 60)
+                        val extra = JsonObject().apply {
+                            addProperty("scMaxBufferedPosts", 60)
+                            addProperty("scMaxEachPostBytes", "1000000")
+                            val xmux = JsonObject().apply {
+                                addProperty("maxConcurrency", 16)
+                                addProperty("maxConnections", 0)
+                                addProperty("cMaxReuseTimes", 0)
+                                addProperty("hKeepAlivePeriod", 60)
+                            }
+                            add("xmux", xmux)
+                        }
+                        add("extra", extra)
                     }
                     add("xhttpSettings", xhttpSettings)
                 }
@@ -960,8 +1018,22 @@ class XrayVpnController(private val vpnService: VpnService) {
                                     xhttp.addProperty("mode", "auto")
                                 }
                                 xhttp.remove("scMinPostsIntervalMs")
-                                if (!xhttp.has("scMaxBufferedPosts")) {
-                                    xhttp.addProperty("scMaxBufferedPosts", 60)
+                                xhttp.remove("scMaxBufferedPosts")
+                                val extra = if (xhttp.has("extra") && xhttp.get("extra").isJsonObject) {
+                                    xhttp.getAsJsonObject("extra")
+                                } else {
+                                    JsonObject().also { xhttp.add("extra", it) }
+                                }
+                                extra.addProperty("scMaxBufferedPosts", 60)
+                                extra.addProperty("scMaxEachPostBytes", "1000000")
+                                if (!extra.has("xmux")) {
+                                    val xmux = JsonObject().apply {
+                                        addProperty("maxConcurrency", 16)
+                                        addProperty("maxConnections", 0)
+                                        addProperty("cMaxReuseTimes", 0)
+                                        addProperty("hKeepAlivePeriod", 60)
+                                    }
+                                    extra.add("xmux", xmux)
                                 }
                             }
                         } catch (_: Throwable) {}
@@ -1168,6 +1240,31 @@ class XrayVpnController(private val vpnService: VpnService) {
                 rules.add(serverDirectRule)
             }
 
+            // Безусловный прямой доступ к локальной сети и mDNS/локальным ресурсам (RFC 1918, Link-local, LAN)
+            val privateLanRule = JsonObject().apply {
+                addProperty("type", "field")
+                addProperty("outboundTag", "direct")
+                val ips = JsonArray().apply {
+                    add("10.0.0.0/8")
+                    add("172.16.0.0/12")
+                    add("192.168.0.0/16")
+                    add("127.0.0.0/8")
+                    add("100.64.0.0/10")
+                    add("169.254.0.0/16")
+                    add("geoip:private")
+                }
+                add("ip", ips)
+                val domains = JsonArray().apply {
+                    add("domain:local")
+                    add("domain:lan")
+                    add("domain:home")
+                    add("domain:internal")
+                    add("domain:router")
+                }
+                add("domain", domains)
+            }
+            rules.add(privateLanRule)
+
             if (customBypassedDomains.isNotEmpty()) {
                 val customDomainRule = JsonObject().apply {
                     addProperty("type", "field")
@@ -1318,6 +1415,10 @@ class XrayVpnController(private val vpnService: VpnService) {
 
     companion object {
         private const val TAG = "XrayVpnController"
+
+        @Volatile
+        var latestXrayCoreVersion: String = "unknown"
+            private set
 
         private const val YOUTUBE_PROBE_HOST = "www.youtube.com"
         private const val YOUTUBE_PROBE_PORT = 443
