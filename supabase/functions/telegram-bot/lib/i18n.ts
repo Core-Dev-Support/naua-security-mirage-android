@@ -51,8 +51,9 @@ const ru: Record<string, string> = {
     "<b>🇳🇱 Нидерланды и 🇹🇷 Турция в одной подписке. Протоколы XHTTP и Hysteria 2. Безлимитный трафик.\n" +
     "Одна подписка — и для бота, и для приложения.</b>",
   "welcome.hint":
-    "📱 Используй кнопку «Связать с приложением» в меню для синхронизации подписки с приложением.",
-  "welcome.login": "📱 Связать с приложением",
+    "🔐 Войди через Google — это привяжет подписку к этому Telegram. " +
+    "Или нажми «Продолжить без входа», чтобы сначала ознакомиться с возможностями сервиса.",
+  "welcome.login": "🔐 Войти в Google-аккаунт",
 
   // --- главное меню ---
   "menu.greeting": "👋 <b>Привет{comma} {name}!</b> ✌️",
@@ -368,8 +369,9 @@ const en: Record<string, string> = {
     "<b>🇳🇱 Netherlands and 🇹🇷 Turkey in one subscription. XHTTP and Hysteria 2 protocols. Unlimited traffic.\n" +
     "One subscription — for the bot and for the app.</b>",
   "welcome.hint":
-    "📱 Link your subscription with the app via «Connect to App» in the menu.",
-  "welcome.login": "📱 Connect to App",
+    "🔐 Sign in with Google to link your subscription to this Telegram account. " +
+    "Or click «Continue without sign-in» to explore the bot first.",
+  "welcome.login": "🔐 Sign in with Google",
 
   // --- main menu ---
   "menu.greeting": "👋 <b>Hi{comma} {name}!</b> ✌️",

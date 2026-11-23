@@ -250,9 +250,14 @@ async function showWelcome(
     if (!target) return;
   }
 
+  const loginUrl = await googleLoginUrl(chatId, target);
+  const loginButton: InlineButton = loginUrl
+    ? { text: t(lang, "welcome.login"), url: loginUrl }
+    : { text: t(lang, "welcome.login"), callback_data: "google_login" };
+
   const keyboard: InlineKeyboard = [
-    [{ text: lang === "en" ? "🚀 Open Menu" : "🚀 В главное меню", callback_data: "welcome_skip" }],
-    [{ text: lang === "en" ? "📱 Connect to App" : "📱 Связать с приложением", callback_data: "sync_app" }],
+    [loginButton],
+    [{ text: lang === "en" ? "➡️ Continue without sign-in" : "➡️ Продолжить без входа", callback_data: "welcome_skip" }],
     [{ text: t(lang, "profile.language"), callback_data: "lang_menu|welcome" }],
     [{ text: t(lang, "menu.docs"), callback_data: "docs" }],
   ];
@@ -369,8 +374,11 @@ async function mainMenuButtons(
     ],
   ];
   if (!linked) {
+    const loginUrl = await googleLoginUrl(tgId);
     buttons.push([
-      { text: lang === "en" ? "📱 Connect to App" : "📱 Связать с приложением", callback_data: "sync_app" },
+      loginUrl
+        ? { text: t(lang, "profile.login"), url: loginUrl }
+        : { text: t(lang, "profile.login"), callback_data: "google_login" },
     ]);
   }
   if (isAdmin) {
@@ -671,10 +679,12 @@ async function profileKeyboard(
       { text: t(lang, "profile.payments.button"), callback_data: "profile_payments" },
     ],
   ];
-  const isLinked = Boolean(account || ctx.subscription);
-  if (!isLinked) {
+  if (!account) {
+    const loginUrl = await googleLoginUrl(chatId);
     keyboard.push([
-      { text: lang === "en" ? "📱 Connect to App" : "📱 Связать с приложением", callback_data: "sync_app" },
+      loginUrl
+        ? { text: t(lang, "profile.login"), url: loginUrl }
+        : { text: t(lang, "profile.login"), callback_data: "google_login" },
     ]);
   } else {
     keyboard.push([
@@ -1236,8 +1246,11 @@ async function showSubscription(
     { text: t(lang, "sub.check"), callback_data: "sub_check" },
   ]);
   if (!account) {
+    const loginUrl = await googleLoginUrl(chatId, msgId);
     keyboard.push([
-      { text: lang === "en" ? "📱 Link with App" : "📱 Связать с приложением", callback_data: "sync_app" },
+      loginUrl
+        ? { text: t(lang, "profile.login"), url: loginUrl }
+        : { text: t(lang, "profile.login"), callback_data: "google_login" },
     ]);
   }
   keyboard.push([
@@ -2516,6 +2529,10 @@ async function handleCommand(
         );
       }
     }
+    if (!ctx.account) {
+      await showWelcome(chatId, lang, name);
+      return;
+    }
     await showMainMenu(ctx, chatId, name, chatId === ADMIN_ID, lang, true);
     return;
   }
@@ -2742,6 +2759,9 @@ async function handleCallback(callback: CallbackQuery): Promise<void> {
       } else if (target === "settings") {
         await ensureReplyKeyboard(chatId, picked);
         await showSettings(chatId, messageId, picked, ctx);
+      } else if (target === "welcome" || (!ctx.account && target !== "menu")) {
+        await ensureReplyKeyboard(chatId, picked);
+        await showWelcome(chatId, picked, user?.name ?? "", messageId);
       } else {
         await ensureReplyKeyboard(chatId, picked);
         await renderScreen(
@@ -2776,7 +2796,11 @@ async function handleCallback(callback: CallbackQuery): Promise<void> {
       const freshLang = langOf(fresh.user) ?? lang;
       const freshName = fresh.user?.name ?? user?.name ?? "";
       await ensureReplyKeyboard(chatId, freshLang);
-      await showMainMenu(fresh, chatId, freshName, isAdmin, freshLang);
+      if (fresh.account) {
+        await showMainMenu(fresh, chatId, freshName, isAdmin, freshLang);
+      } else {
+        await showWelcome(chatId, freshLang, freshName, messageId);
+      }
       break;
     }
     case data === "consent_decline": {
@@ -2870,9 +2894,26 @@ async function handleCallback(callback: CallbackQuery): Promise<void> {
       await showMainMenu(updatedCtx, chatId, user?.name ?? "", isAdmin, lang);
       break;
     }
-    case data === "sync_app" || data.startsWith("sync_app:"):
-      await showSyncApp(chatId, messageId, lang);
+    case data === "sync_app" || data.startsWith("sync_app:"): {
+      const url = await googleLoginUrl(chatId, messageId);
+      if (url) {
+        await renderScreen(
+          chatId,
+          messageId,
+          t(lang, "google.start"),
+          [
+            [{ text: t(lang, "google.continue"), url }],
+            [
+              { text: t(lang, "profile.language"), callback_data: "lang_menu|welcome" },
+              { text: t(lang, "common.back"), callback_data: "back" },
+            ],
+          ],
+        );
+      } else {
+        await showWelcome(chatId, lang, user?.name ?? "", messageId);
+      }
       break;
+    }
     case data === "server_status" || data.startsWith("server_status:"):
       await showServerStatus(chatId, messageId, lang, originOf(data));
       break;
@@ -2944,7 +2985,28 @@ async function handleCallback(callback: CallbackQuery): Promise<void> {
       await showReferral(ctx, chatId, messageId, lang, originOf(data));
       break;
     case data === "google_login": {
-      await showSyncApp(chatId, messageId, lang);
+      const url = await googleLoginUrl(chatId, messageId);
+      if (!url) {
+        await renderScreen(
+          chatId,
+          messageId,
+          "⚠️ Не удалось начать вход. Попробуй позже.",
+          backButton(lang),
+        );
+        break;
+      }
+      await renderScreen(
+        chatId,
+        messageId,
+        t(lang, "google.start"),
+        [
+          [{ text: t(lang, "google.continue"), url }],
+          [
+            { text: t(lang, "profile.language"), callback_data: "lang_menu|welcome" },
+            { text: t(lang, "common.back"), callback_data: "back" },
+          ],
+        ],
+      );
       break;
     }
     case data === "google_logout": {

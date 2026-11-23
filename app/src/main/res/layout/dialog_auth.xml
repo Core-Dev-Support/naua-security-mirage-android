@@ -107,28 +107,6 @@
         app:strokeColor="#E8A33D"
         app:strokeWidth="1.5dp" />
 
-    <!-- Telegram Code Sign In Button -->
-    <Button
-        android:id="@+id/btnAuthTelegram"
-        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-        android:layout_width="match_parent"
-        android:layout_height="50dp"
-        android:layout_marginTop="10dp"
-        android:backgroundTint="@color/card"
-        android:text="@string/auth_telegram_btn"
-        android:textAllCaps="false"
-        android:textColor="@color/ink"
-        android:textSize="14.5sp"
-        android:textStyle="bold"
-        app:cornerRadius="14dp"
-        app:icon="@drawable/ic_telegram"
-        app:iconGravity="textStart"
-        app:iconPadding="12dp"
-        app:iconSize="20dp"
-        app:iconTint="#38BDF8"
-        app:strokeColor="#38BDF8"
-        app:strokeWidth="1.5dp" />
-
     <!-- Continue without Google account Button -->
     <TextView
         android:id="@+id/btnAuthContinueWithoutLogin"
