@@ -414,16 +414,37 @@ serve(async (req) => {
       return new Response("Invalid amount", { status: 400 });
     }
 
-    const { data: userData, error: userError } = await supabase.auth.admin.getUserById(userId);
-    if (userError || !userData.user?.email) {
-      await recordArrival({ ...arrival, outcome: "unknown_payer" });
-      return new Response("Unknown payer account", { status: 400 });
+    let email = "";
+    let targetTgId: number | null = null;
+    const isTgPayer = userId.startsWith("tg_") || /^\d{5,15}$/.test(userId);
+
+    if (isTgPayer) {
+      targetTgId = Number(userId.replace(/^tg_/, ""));
+      // Проверяем, есть ли уже привязка в telegram_accounts
+      const { data: tgAcc } = await supabase
+        .from("telegram_accounts")
+        .select("user_id,email")
+        .eq("tg_id", targetTgId)
+        .limit(1);
+      if (tgAcc && tgAcc[0]) {
+        userId = tgAcc[0].user_id;
+        email = tgAcc[0].email || `tg_${targetTgId}@mirage.internal`;
+      } else {
+        userId = `tg_${targetTgId}`;
+        email = `tg_${targetTgId}@mirage.internal`;
+      }
+    } else {
+      const { data: userData, error: userError } = await supabase.auth.admin.getUserById(userId);
+      if (userError || !userData.user?.email) {
+        await recordArrival({ ...arrival, outcome: "unknown_payer" });
+        return new Response("Unknown payer account", { status: 400 });
+      }
+      email = userData.user.email;
     }
-    const email = userData.user.email;
 
     const { data: existingRows, error: existingError } = await supabase
       .from("subscriptions")
-      .select("user_id,email,is_active,plan,paid_until,vless_key,client_uuid,flow,operation_id")
+      .select("user_id,email,is_active,plan,paid_until,vless_key,client_uuid,flow,operation_id,tg_id")
       .eq("user_id", userId)
       .limit(1);
     if (existingError) throw new Error(`Subscription lookup failed: ${existingError.message}`);
@@ -460,6 +481,7 @@ serve(async (req) => {
         .upsert({
           user_id: userId,
           email,
+          tg_id: targetTgId ?? (existing as { tg_id?: number | null } | null)?.tg_id ?? null,
           is_active: true,
           plan: "premium",
           paid_until: paidUntil,

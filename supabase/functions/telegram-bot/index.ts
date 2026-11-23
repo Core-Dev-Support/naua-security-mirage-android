@@ -47,6 +47,8 @@ import {
   unlinkAccount,
   updateUser,
   upsertUser,
+  claimSyncCodeOrToken,
+  createSyncCodeForBot,
 } from "./lib/store.ts";
 import { h1EnsureNode } from "../_shared/h1panel.ts";
 import { subscriptionSignature } from "./lib/subscription.ts";
@@ -380,13 +382,8 @@ async function mainMenuButtons(
     ],
   ];
   if (!linked) {
-    // Вход через Google даёт доступ к платным узлам и к общей подписке с
-    // приложением — поэтому кнопка стоит сразу в главном меню.
-    const loginUrl = await googleLoginUrl(tgId);
     buttons.push([
-      loginUrl
-        ? { text: t(lang, "profile.login"), url: loginUrl }
-        : { text: t(lang, "profile.login"), callback_data: "google_login" },
+      { text: lang === "en" ? "📱 Connect to App" : "📱 Связать с приложением", callback_data: "sync_app" },
     ]);
   }
   if (isAdmin) {
@@ -688,11 +685,8 @@ async function profileKeyboard(
     ],
   ];
   if (!account) {
-    const loginUrl = await googleLoginUrl(chatId);
     keyboard.push([
-      loginUrl
-        ? { text: t(lang, "profile.login"), url: loginUrl }
-        : { text: t(lang, "profile.login"), callback_data: "google_login" },
+      { text: lang === "en" ? "📱 Connect to App" : "📱 Связать с приложением", callback_data: "sync_app" },
     ]);
   } else {
     keyboard.push([
@@ -997,21 +991,7 @@ async function showConnect(
   lang: Lang,
   origin: ScreenOrigin = "main",
 ): Promise<void> {
-  const account = ctx.account;
-  if (!account) {
-    await renderScreen(
-      chatId,
-      msgId,
-      `${t(lang, "connect.title")}\n\n${t(lang, "connect.need_login")}`,
-      [
-        [{ text: t(lang, "profile.login"), callback_data: "google_login" }],
-        [{ text: t(lang, "connect.server_status"), callback_data: `server_status:${origin}` }],
-        [{ text: t(lang, "connect.setup_guide"), callback_data: `setup_guide:${origin}` }],
-        [{ text: t(lang, "common.back"), callback_data: `back:${origin}` }],
-      ],
-    );
-    return;
-  }
+  void ctx;
   const link = await subscriptionLink(chatId);
   await renderScreen(
     chatId,
@@ -1028,6 +1008,37 @@ async function showConnect(
       [{ text: t(lang, "sub.app"), url: APP_URL }],
       [{ text: t(lang, "common.back"), callback_data: `back:${origin}` }],
     ],
+  );
+}
+
+async function showSyncApp(
+  chatId: number,
+  msgId: number,
+  lang: Lang,
+): Promise<void> {
+  const code = await createSyncCodeForBot(chatId);
+  const title = lang === "en" ? "📱 <b>Link with App</b>" : "📱 <b>Связь с приложением</b>";
+  const desc = lang === "en"
+    ? `You can sync your Telegram bot with the NAUA Security Mirage mobile app.\n\n` +
+      `<b>Method 1 (via App):</b>\n` +
+      `In the app, tap the Telegram menu ➔ «Link with Bot» and tap the button — pairing happens in 1 click!\n\n` +
+      `<b>Method 2 (by 6-digit code):</b>\n` +
+      `Enter this code in the app:\n` +
+      `<code>${code}</code>\n\n` +
+      `<i>Code is valid for 10 minutes.</i>`
+    : `Вы можете связать Telegram-бота с мобильным приложением NAUA Security Mirage.\n\n` +
+      `<b>Способ 1: через приложение</b>\n` +
+      `В приложении откройте меню Telegram ➔ «Связать с ботом» и нажмите кнопку — синхронизация произойдет мгновенно.\n\n` +
+      `<b>Способ 2: по 6-значному коду</b>\n` +
+      `Введите этот код в приложении:\n` +
+      `<code>${code}</code>\n\n` +
+      `<i>Код действует 10 минут.</i>`;
+
+  await renderScreen(
+    chatId,
+    msgId,
+    `${title}\n\n${desc}`,
+    [[{ text: t(lang, "common.back"), callback_data: "back" }]],
   );
 }
 
@@ -1099,8 +1110,8 @@ type SubscriptionState = {
 
 // Считается из уже загруженного контекста: отдельный запрос в базу не нужен.
 function subscriptionState(ctx: BotContext): SubscriptionState | null {
-  if (!ctx.account) return null;
   const subscription = ctx.subscription;
+  if (!subscription) return null;
   if (!subscription?.is_active || !subscription.paid_until) {
     return { active: false, expiry: 0, days: 0 };
   }
@@ -1118,8 +1129,7 @@ function subscriptionStatusLine(
   state: SubscriptionState | null,
   lang: Lang,
 ): string {
-  if (!state) return t(lang, "sub.need_login");
-  if (!state.active) return t(lang, "sub.status.expired");
+  if (!state || !state.active) return t(lang, "sub.status.expired");
   return t(lang, "sub.status.active", {
     date: new Date(state.expiry).toISOString().slice(0, 16).replace("T", " "),
     days: state.days,
@@ -1181,42 +1191,37 @@ async function showSubscription(
   ];
 
   const keyboard: InlineKeyboard = [];
-  if (!account) {
-    // Без Google-аккаунта платить нечем: к аккаунту привязывается подписка.
+  const plans = await activePlans();
+  const best = bestSaving(plans);
+  lines.push("", t(lang, "sub.choose"));
+  if (best > 0) {
+    lines.push(t(lang, "sub.choose.hint", { saving: best }));
+  }
+  lines.push("", t(lang, "sub.pay.hint"));
+  for (const plan of plans) {
+    const period = lang === "en" ? plan.labelEn : plan.labelRu;
+    const saving = savingPercent(plan, plans);
+    const badge = saving <= 0
+      ? ""
+      : saving === best
+      ? " " + t(lang, "sub.badge", { saving })
+      : " (" + t(lang, "sub.saving", { saving }) + ")";
+    const price = state?.active
+      ? t(lang, "sub.renewFor", { amount: plan.amountRub, period })
+      : t(lang, "sub.pay", { amount: plan.amountRub, period });
     keyboard.push([
-      { text: t(lang, "profile.login"), callback_data: "google_login" },
+      {
+        text: price + badge,
+        callback_data: `plan:${plan.amountRub}:${origin}`,
+      },
     ]);
-  } else {
-    // Подсказка — часть текста, а не кнопка: Telegram не принимает кнопки
-    // без callback_data/url и отвергает всю клавиатуру целиком.
-    const plans = await activePlans();
-    const best = bestSaving(plans);
-    lines.push("", t(lang, "sub.choose"));
-    if (best > 0) {
-      lines.push(t(lang, "sub.choose.hint", { saving: best }));
-    }
-    lines.push("", t(lang, "sub.pay.hint"));
-    for (const plan of plans) {
-      const period = lang === "en" ? plan.labelEn : plan.labelRu;
-      const saving = savingPercent(plan, plans);
-      // Выгода показывается у каждого тарифа, лучший помечается огоньком.
-      const badge = saving <= 0
-        ? ""
-        : saving === best
-        ? " " + t(lang, "sub.badge", { saving })
-        : " (" + t(lang, "sub.saving", { saving }) + ")";
-      const price = state?.active
-        ? t(lang, "sub.renewFor", { amount: plan.amountRub, period })
-        : t(lang, "sub.pay", { amount: plan.amountRub, period });
-      keyboard.push([
-        {
-          text: price + badge,
-          callback_data: `plan:${plan.amountRub}:${origin}`,
-        },
-      ]);
-    }
+  }
+  keyboard.push([
+    { text: t(lang, "sub.check"), callback_data: "sub_check" },
+  ]);
+  if (!account) {
     keyboard.push([
-      { text: t(lang, "sub.check"), callback_data: "sub_check" },
+      { text: lang === "en" ? "📱 Link with App" : "📱 Связать с приложением", callback_data: "sync_app" },
     ]);
   }
   keyboard.push([
@@ -1237,15 +1242,6 @@ async function showPayment(
   origin: ScreenOrigin = "main",
 ): Promise<void> {
   const account = ctx.account;
-  if (!account) {
-    await renderScreen(
-      chatId,
-      msgId,
-      t(lang, "sub.need_login"),
-      [[{ text: t(lang, "profile.login"), callback_data: "google_login" }]],
-    );
-    return;
-  }
   const plan = (await activePlans()).find((item) => item.amountRub === amountRub);
   if (!plan) {
     // The price changed while this message was on screen. Re-render the
@@ -1268,9 +1264,10 @@ async function showPayment(
   }
 
   const period = lang === "en" ? plan.labelEn : plan.labelRu;
+  const payerId = account?.user_id ?? `tg_${chatId}`;
   const url = buildPaymentUrl(
     plan,
-    account.user_id,
+    payerId,
     lang === "en" ? "NAUA VPN subscription" : "NAUA VPN Подписка",
   );
 
@@ -1301,17 +1298,10 @@ async function checkSubscription(
   lang: Lang,
   origin: ScreenOrigin = "main",
 ): Promise<void> {
-  const state = subscriptionState(ctx);
-  if (!state) {
-    await renderScreen(
-      chatId,
-      msgId,
-      t(lang, "sub.need_login"),
-      [[{ text: t(lang, "profile.login"), callback_data: "google_login" }]],
-    );
-    return;
-  }
-  if (state.active) {
+  invalidateContext(chatId);
+  const refreshedCtx = await loadContext(chatId, true);
+  const state = subscriptionState(refreshedCtx);
+  if (state?.active) {
     const link = await subscriptionLink(chatId);
     await renderScreen(
       chatId,
@@ -1820,12 +1810,29 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
     return;
   }
 
-  // Ворота: пока Google-аккаунт не привязан, доступно только приветствие
-  // (вход + смена языка). Меню и разделы закрыты — для всех, включая админа.
-  const account = ctx.account;
-  if (!account) {
-    await showWelcome(chatId, lang, name);
-    return;
+  // Синхронизация по коду (/link XXXXXX или 6 цифр).
+  const syncMatch = text.match(/^\/link\s+([a-zA-Z0-9_-]+)$/i) || text.match(/^(\d{6})$/);
+  if (syncMatch) {
+    const code = syncMatch[1];
+    const claimRes = await claimSyncCodeOrToken(chatId, code);
+    invalidateContext(chatId);
+    const updatedCtx = await loadContext(chatId);
+    if (claimRes.success) {
+      const msg = lang === "en"
+        ? `✅ <b>App linked successfully!</b>\nAccount: <code>${escapeHtml(claimRes.email ?? "")}</code>`
+        : `✅ <b>Приложение успешно привязано!</b>\nАккаунт: <code>${escapeHtml(claimRes.email ?? "")}</code>`;
+      await telegram.sendMessage(chatId, msg);
+      await showMainMenu(updatedCtx, chatId, name, isAdmin, lang);
+      return;
+    } else {
+      await telegram.sendMessage(
+        chatId,
+        lang === "en"
+          ? "❌ Invalid or expired code. Please generate a new code in the app."
+          : "❌ Неверный или устаревший код. Сгенерируйте новый код в приложении.",
+      );
+      return;
+    }
   }
 
   // Состояния диалогов.
@@ -2459,9 +2466,31 @@ async function handleCommand(
       await showSignInError(chatId, lang, failMatch[1] ?? "");
       return;
     }
-    if (!ctx.account) {
-      await showWelcome(chatId, lang, name);
-      return;
+    const linkMatch = argument.match(/^link_([a-zA-Z0-9_-]+)$/);
+    if (linkMatch) {
+      const token = linkMatch[1];
+      const claimRes = await claimSyncCodeOrToken(chatId, token);
+      invalidateContext(chatId);
+      const updatedCtx = await loadContext(chatId);
+      if (claimRes.success) {
+        const text = [
+          lang === "en"
+            ? `✅ <b>Successfully linked!</b>\nAccount: <code>${escapeHtml(claimRes.email ?? "")}</code>`
+            : `✅ <b>Успешно связано!</b>\nАккаунт: <code>${escapeHtml(claimRes.email ?? "")}</code>`,
+          "",
+          mainMenuText(updatedCtx, chatId, name, lang),
+        ].join("\n");
+        const keyboard = await mainMenuButtons(chatId, chatId === ADMIN_ID, true, lang);
+        await showScreen(chatId, text, keyboard, 0, true);
+        return;
+      } else {
+        await telegram.sendMessage(
+          chatId,
+          lang === "en"
+            ? "❌ Link expired or invalid. Please generate a new one in the app."
+            : "❌ Ссылка устарела или недействительна. Сгенерируйте новую в приложении.",
+        );
+      }
     }
     await showMainMenu(ctx, chatId, name, chatId === ADMIN_ID, lang, true);
     return;
@@ -2834,6 +2863,9 @@ async function handleCallback(callback: CallbackQuery): Promise<void> {
       break;
     case data === "connect" || data.startsWith("connect:"):
       await showConnect(ctx, chatId, messageId, lang, originOf(data));
+      break;
+    case data === "sync_app" || data.startsWith("sync_app:"):
+      await showSyncApp(chatId, messageId, lang);
       break;
     case data === "server_status" || data.startsWith("server_status:"):
       await showServerStatus(chatId, messageId, lang, originOf(data));

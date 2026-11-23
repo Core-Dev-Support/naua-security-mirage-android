@@ -344,6 +344,24 @@ export async function getSubscription(userId: string): Promise<{
   } | undefined) ?? null;
 }
 
+export async function getSubscriptionByTgId(tgId: number): Promise<{
+  is_active: boolean;
+  plan: string;
+  paid_until: string | null;
+} | null> {
+  const { data, error } = await db()
+    .from("subscriptions")
+    .select("is_active,plan,paid_until")
+    .eq("tg_id", tgId)
+    .limit(1);
+  if (error) return null;
+  return ((data && data[0]) as {
+    is_active: boolean;
+    plan: string;
+    paid_until: string | null;
+  } | undefined) ?? null;
+}
+
 // ---------- Контекст бота одним запросом ----------
 
 // SubscriptionRow — строка подписки в общей таблице.
@@ -429,7 +447,10 @@ async function fetchContext(tgId: number): Promise<BotContext> {
   if (error || !data || typeof data !== "object") {
     // RPC недоступен (миграция не применена) — читаем по частям: бот работает.
     const [user, account] = await Promise.all([getUser(tgId), getAccount(tgId)]);
-    const subscription = account ? await getSubscription(account.user_id) : null;
+    let subscription = account ? await getSubscription(account.user_id) : null;
+    if (!subscription) {
+      subscription = await getSubscriptionByTgId(tgId);
+    }
     return {
       user,
       account,
@@ -442,10 +463,14 @@ async function fetchContext(tgId: number): Promise<BotContext> {
     };
   }
   const row = data as Record<string, unknown>;
+  let sub = (row.subscription as SubscriptionRow | null) ?? null;
+  if (!sub) {
+    sub = await getSubscriptionByTgId(tgId);
+  }
   return {
     user: (row.user as BotUserRow | null) ?? null,
     account: (row.account as AccountRow | null) ?? null,
-    subscription: (row.subscription as SubscriptionRow | null) ?? null,
+    subscription: sub,
     referrals: Number(row.referrals ?? 0) || 0,
     referrals_list: Array.isArray(row.referrals_list)
       ? (row.referrals_list as ReferralRow[])
@@ -570,4 +595,51 @@ async function readRawQueue(): Promise<BroadcastQueue | null> {
     .limit(1);
   const row = (data && data[0]) as { data: BroadcastQueue | null } | undefined;
   return row?.data ?? null;
+}
+
+// ---------- Синхронизация с приложением (код / deep link) ----------
+
+export async function claimSyncCodeOrToken(
+  tgId: number,
+  codeOrToken: string,
+): Promise<{ ok: boolean; email?: string; error?: string }> {
+  try {
+    const authUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/telegram-auth?action=claim_sync&tg_id=${tgId}&code=${encodeURIComponent(codeOrToken)}`;
+    const res = await fetch(authUrl, {
+      headers: {
+        "x-bot-secret": (Deno.env.get("BOT_INTERNAL_SECRET") || "").trim(),
+        "apikey": Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "",
+        "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || ""}`,
+      },
+    });
+    const data = await res.json();
+    if (!res.ok || !data.ok) {
+      return { ok: false, error: data.error || "Не удалось привязать аккаунт" };
+    }
+    return { ok: true, email: data.email };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Ошибка сети" };
+  }
+}
+
+export async function createSyncCodeForBot(
+  tgId: number,
+): Promise<{ ok: boolean; code?: string; expires_in_minutes?: number; error?: string }> {
+  try {
+    const authUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/telegram-auth?action=create_sync&tg_id=${tgId}`;
+    const res = await fetch(authUrl, {
+      headers: {
+        "x-bot-secret": (Deno.env.get("BOT_INTERNAL_SECRET") || "").trim(),
+        "apikey": Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "",
+        "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || ""}`,
+      },
+    });
+    const data = await res.json();
+    if (!res.ok || !data.ok) {
+      return { ok: false, error: data.error || "Не удалось создать код" };
+    }
+    return { ok: true, code: data.code, expires_in_minutes: data.expires_in_minutes || 10 };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Ошибка сети" };
+  }
 }

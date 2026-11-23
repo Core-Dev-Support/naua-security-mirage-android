@@ -5367,12 +5367,79 @@ class MainActivity : AppCompatActivity() {
                 getString(R.string.way_tribute_web_title), getString(R.string.way_tribute_web_desc),
                 getString(R.string.tribute_web_url)
             )
+        } else if (kind == "sync") {
+            val (code, botUrl) = syncData ?: Pair("", "")
+            val isRu = java.util.Locale.getDefault().language == "ru"
+            content.addView(auroraSheetHead(
+                if (isRu) "Связь с Telegram" else "Telegram Sync",
+                if (isRu) "Синхронизация аккаунта" else "Account Synchronization",
+                if (isRu) "Синхронизирует подписку с Telegram-ботом и клиентами Happ/Hiddify." else "Syncs subscription with Telegram bot and Happ/Hiddify."
+            ))
+            auroraSheetActionItem(
+                content,
+                R.drawable.au_bot, R.color.au_cool,
+                if (isRu) "Открыть бота в Telegram" else "Open Bot in Telegram",
+                if (isRu) "Синхронизация в 1 клик через ссылку" else "1-tap synchronization via link",
+                actionText = if (isRu) "Открыть" else "Open"
+            ) {
+                dismissAuroraSheet()
+                openExternalLink(botUrl)
+            }
+
+            val codeCard = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                gravity = Gravity.CENTER_HORIZONTAL
+                background = auroraGlassBg(24)
+                setPaddingRelative(gdp(16), gdp(16), gdp(16), gdp(16))
+            }
+            codeCard.addView(TextView(this).apply {
+                text = if (isRu) "Или отправьте этот 6-значный код боту:" else "Or send this 6-digit code to bot:"
+                textSize = 13f
+                typeface = auroraFont(R.font.onest_400)
+                setTextColor(auroraColor(R.color.au_fg_2))
+            })
+            codeCard.addView(TextView(this).apply {
+                text = code
+                textSize = 32f
+                letterSpacing = 0.2f
+                typeface = auroraFont(R.font.onest_700)
+                setTextColor(auroraColor(R.color.au_accent_text))
+            }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+                topMargin = gdp(8)
+            })
+            codeCard.addView(TextView(this).apply {
+                text = if (isRu) "Код действителен 10 минут (нажмите для копирования)" else "Code valid for 10 minutes (tap to copy)"
+                textSize = 12f
+                typeface = auroraFont(R.font.onest_400)
+                setTextColor(auroraColor(R.color.au_fg_2))
+            }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+                topMargin = gdp(6)
+            })
+            codeCard.setOnClickListener {
+                val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as? android.content.ClipboardManager
+                clipboard?.setPrimaryClip(android.content.ClipData.newPlainText("Telegram Sync Code", code))
+                Toast.makeText(this@MainActivity, if (isRu) "Код скопирован" else "Code copied", Toast.LENGTH_SHORT).show()
+            }
+            content.addView(codeCard, LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply { topMargin = gdp(10) })
         } else {
             content.addView(auroraSheetHead(
                 getString(R.string.glass_telegram_title),
                 getString(R.string.au_tg_sub),
                 getString(R.string.support_menu_hint)
             ))
+            val isRu = java.util.Locale.getDefault().language == "ru"
+            auroraSheetActionItem(
+                content,
+                R.drawable.au_bot, R.color.au_accent_text,
+                if (isRu) "🔗 Связать с Telegram-ботом" else "🔗 Link with Telegram Bot",
+                if (isRu) "Синхронизация подписки в 1 клик или по коду" else "Sync subscription in 1 click or by code",
+                actionText = if (isRu) "Связать" else "Link"
+            ) {
+                showTelegramSync()
+            }
             auroraSheetItem(
                 content,
                 R.drawable.au_send, R.color.au_cool,
@@ -5520,6 +5587,106 @@ class MainActivity : AppCompatActivity() {
             ViewGroup.LayoutParams.MATCH_PARENT,
             ViewGroup.LayoutParams.WRAP_CONTENT
         ).apply { topMargin = gdp(10) })
+    }
+
+    private fun auroraSheetActionItem(
+        content: LinearLayout,
+        iconRes: Int,
+        tint: Int,
+        title: String,
+        desc: String,
+        actionText: String = getString(R.string.action_go),
+        onClick: () -> Unit
+    ) {
+        val item = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            minimumHeight = gdp(68)
+            background = auroraGlassBg(24)
+            clipToOutline = true
+            setPaddingRelative(gdp(14), gdp(14), gdp(14), gdp(14))
+        }
+        val tile = auroraTileFrame()
+        auroraTileChild(tile, iconRes, tint)
+        item.addView(tile)
+
+        val col = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        col.addView(TextView(this).apply {
+            text = title
+            textSize = 15f
+            typeface = auroraFont(R.font.onest_600)
+            setTextColor(auroraColor(R.color.au_fg))
+        })
+        col.addView(TextView(this).apply {
+            text = desc
+            textSize = 13f
+            typeface = auroraFont(R.font.onest_400)
+            setTextColor(auroraColor(R.color.au_fg_2))
+        }, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        ).apply { topMargin = gdp(3) })
+        item.addView(col, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
+            marginStart = gdp(14)
+        })
+
+        val go = TextView(this).apply {
+            text = actionText
+            textSize = 14f
+            typeface = auroraFont(R.font.onest_600)
+            setTextColor(auroraColor(R.color.au_accent_text))
+            background = ContextCompat.getDrawable(context, R.drawable.bg_au_btn_ghost)
+            setPaddingRelative(gdp(15), gdp(9), gdp(15), gdp(9))
+        }
+        go.setOnClickListener {
+            AnimationHelper.bounceClick(go, minScale = 0.93f, durationMs = 130)
+            onClick()
+        }
+        item.setOnClickListener {
+            AnimationHelper.bounceClick(item, minScale = 0.97f, durationMs = 130)
+            onClick()
+        }
+        content.addView(item, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        ).apply { topMargin = gdp(10) })
+    }
+
+    private var syncData: Pair<String, String>? = null
+
+    private fun showTelegramSync() {
+        val user = SupabaseManager.instance.currentUser.value
+        val isRu = java.util.Locale.getDefault().language == "ru"
+        if (user == null) {
+            Toast.makeText(
+                this@MainActivity,
+                if (isRu) "Сначала войдите в Google-аккаунт в приложении" else "Please sign in to Google first",
+                Toast.LENGTH_SHORT
+            ).show()
+            lifecycleScope.launch {
+                SupabaseManager.instance.signInWithGoogle(this@MainActivity)
+            }
+            return
+        }
+
+        lifecycleScope.launch {
+            Toast.makeText(
+                this@MainActivity,
+                if (isRu) "Генерация кода синхронизации..." else "Generating sync code...",
+                Toast.LENGTH_SHORT
+            ).show()
+            val result = SupabaseManager.instance.createTelegramSync()
+            result.onSuccess { sync ->
+                syncData = Pair(sync.code, sync.botUrl)
+                showAuroraSheet("sync")
+            }.onFailure { err ->
+                Toast.makeText(
+                    this@MainActivity,
+                    err.message ?: if (isRu) "Ошибка связи с ботом" else "Failed to link with bot",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+        }
     }
 
     private fun dismissAuroraSheet() {

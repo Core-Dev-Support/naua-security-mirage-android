@@ -249,9 +249,9 @@ async function linkAccount(
     tg_id: tgId,
     user_id: userId,
     email,
-    access_token: accessToken,
-    refresh_token: refreshToken,
-    access_expires_at: new Date(Date.now() + 50 * 60 * 1000).toISOString(),
+    access_token: accessToken || null,
+    refresh_token: refreshToken || null,
+    access_expires_at: accessToken ? new Date(Date.now() + 50 * 60 * 1000).toISOString() : null,
     linked_at: now,
     screen_message_id: screenMessageId,
     updated_at: now,
@@ -285,7 +285,7 @@ async function linkAccount(
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
-  if (req.method !== "GET") return json({ error: "method not allowed" }, 405);
+  if (req.method !== "GET" && req.method !== "POST") return json({ error: "method not allowed" }, 405);
 
   try {
     if (!SUPABASE_URL || !SUPABASE_ANON_KEY || !SUPABASE_SERVICE_ROLE_KEY) {
@@ -367,6 +367,134 @@ serve(async (req) => {
         user_id: row?.user_id ?? null,
         email: row?.email ?? null,
         linked_at: row?.linked_at ?? null,
+      });
+    }
+
+    // ---- Создать код/ссылку синхронизации (из приложения или бота) ---------
+    if (action === "create_sync") {
+      let userId = "";
+      let email = "";
+
+      const authHeader = req.headers.get("Authorization") || "";
+      const jwt = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
+      if (jwt) {
+        const { data: userData, error: userErr } = await service().auth.getUser(jwt);
+        if (!userErr && userData?.user) {
+          userId = userData.user.id;
+          email = userData.user.email || "";
+        }
+      }
+
+      if (!userId && botAuthorized(req)) {
+        const tgId = Number(url.searchParams.get("tg_id"));
+        if (Number.isFinite(tgId) && tgId > 0) {
+          const { data } = await service()
+            .from("telegram_accounts")
+            .select("user_id,email")
+            .eq("tg_id", tgId)
+            .limit(1);
+          if (data && data[0]) {
+            userId = data[0].user_id;
+            email = data[0].email || "";
+          } else {
+            userId = `tg_${tgId}`;
+          }
+        }
+      }
+
+      if (!userId) {
+        return json({ error: "unauthorized" }, 401);
+      }
+
+      await dropExpiredAttempts();
+      const syncCode = Math.floor(100000 + Math.random() * 900000).toString();
+      const syncToken = randomToken(32);
+      const expiresAt = Date.now() + ATTEMPT_TTL_MS;
+      const verifier = JSON.stringify({ userId, email, code: syncCode, token: syncToken, expiresAt });
+
+      const { error: insertErr } = await service()
+        .from("telegram_oauth_attempts")
+        .insert([
+          {
+            state: `sync_${syncCode}`,
+            tg_id: 0,
+            code_verifier: verifier,
+            created_at: new Date().toISOString(),
+          },
+          {
+            state: `token_${syncToken}`,
+            tg_id: 0,
+            code_verifier: verifier,
+            created_at: new Date().toISOString(),
+          },
+        ]);
+
+      if (insertErr) {
+        throw new Error(`Не удалось создать код синхронизации: ${insertErr.message}`);
+      }
+
+      const botUrl = `https://t.me/${BOT_USERNAME}?start=link_${syncToken}`;
+      return json({
+        ok: true,
+        code: syncCode,
+        token: syncToken,
+        bot_url: botUrl,
+        expires_in_minutes: 10,
+      });
+    }
+
+    // ---- Привязать по коду или ссылке --------------------------------------
+    if (action === "claim_sync") {
+      const tgId = Number(url.searchParams.get("tg_id"));
+      const rawTarget = url.searchParams.get("code") || url.searchParams.get("token") || "";
+      const cleaned = rawTarget.trim().replace(/^link_/, "");
+
+      if (!Number.isFinite(tgId) || tgId <= 0 || !cleaned) {
+        return json({ error: "Некорректные параметры" }, 400);
+      }
+
+      const candidateKeys = [`sync_${cleaned}`, `token_${cleaned}`, cleaned];
+      const { data: attempts, error: readErr } = await service()
+        .from("telegram_oauth_attempts")
+        .select("state, code_verifier, created_at")
+        .in("state", candidateKeys)
+        .limit(1);
+
+      if (readErr || !attempts || attempts.length === 0) {
+        return json({ ok: false, error: "Код или ссылка не найдены или устарели" }, 404);
+      }
+
+      const attempt = attempts[0];
+      let payload: { userId?: string; email?: string; code?: string; token?: string; expiresAt?: number };
+      try {
+        payload = JSON.parse(attempt.code_verifier);
+      } catch {
+        return json({ ok: false, error: "Некорректный формат попытки" }, 400);
+      }
+
+      if (payload.expiresAt && Date.now() > payload.expiresAt) {
+        await service().from("telegram_oauth_attempts").delete().eq("state", attempt.state);
+        return json({ ok: false, error: "Срок действия кода истёк (10 минут)" }, 410);
+      }
+
+      const targetUserId = payload.userId;
+      const targetEmail = payload.email || "";
+
+      if (!targetUserId) {
+        return json({ ok: false, error: "Не указан пользователь" }, 400);
+      }
+
+      await linkAccount(tgId, targetUserId, targetEmail, "", "", null);
+
+      const deleteKeys = [attempt.state];
+      if (payload.code) deleteKeys.push(`sync_${payload.code}`);
+      if (payload.token) deleteKeys.push(`token_${payload.token}`);
+      await service().from("telegram_oauth_attempts").delete().in("state", deleteKeys);
+
+      return json({
+        ok: true,
+        user_id: targetUserId,
+        email: targetEmail,
       });
     }
 

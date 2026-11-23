@@ -1983,4 +1983,44 @@ class SupabaseManager private constructor() {
     private fun markConfirmedAt(now: Long = System.currentTimeMillis()) {
         prefs?.edit()?.putLong(KEY_SUB_CONFIRMED_AT, now)?.apply()
     }
+
+    data class TelegramSyncResult(
+        val code: String,
+        val botUrl: String
+    )
+
+    suspend fun createTelegramSync(): Result<TelegramSyncResult> = withContext(Dispatchers.IO) {
+        val token = accessToken
+        if (token.isNullOrBlank()) {
+            return@withContext Result.failure(IllegalStateException("Требуется вход в аккаунт Google"))
+        }
+        try {
+            val url = "${SupabaseConfig.SUPABASE_URL}/functions/v1/telegram-auth?action=create_sync"
+            val request = Request.Builder()
+                .url(url)
+                .header("apikey", SupabaseConfig.getAnonKey())
+                .header("Authorization", "Bearer $token")
+                .get()
+                .build()
+
+            val response = httpClient.newCall(request).execute()
+            val body = response.body?.string().orEmpty()
+            if (!response.isSuccessful) {
+                AppLogger.w(TAG, "create_sync failed: HTTP ${response.code} $body")
+                return@withContext Result.failure(IllegalStateException(httpError(response.code)))
+            }
+
+            val json = gson.fromJson(body, JsonObject::class.java)
+            val code = json.get("code")?.asString.orEmpty()
+            val botUrl = json.get("bot_url")?.asString.orEmpty()
+            if (code.isNotEmpty() && botUrl.isNotEmpty()) {
+                Result.success(TelegramSyncResult(code, botUrl))
+            } else {
+                Result.failure(IllegalStateException("Некорректный ответ сервера"))
+            }
+        } catch (t: Throwable) {
+            AppLogger.w(TAG, "createTelegramSync error: ${t.message}")
+            Result.failure(t)
+        }
+    }
 }
