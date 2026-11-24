@@ -561,6 +561,7 @@ async function googleLoginUrl(
           Authorization: `Bearer ${Deno.env.get("SUPABASE_ANON_KEY") || ""}`,
           "x-bot-secret": Deno.env.get("BOT_INTERNAL_SECRET") || "",
         },
+        signal: AbortSignal.timeout(3000),
       },
     );
     if (!response.ok) return null;
