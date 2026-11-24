@@ -46,27 +46,29 @@ private val fallbackAddresses: List<InetAddress> by lazy {
 
 private val dohClient: OkHttpClient by lazy {
     OkHttpClient.Builder()
-        .connectTimeout(5, TimeUnit.SECONDS)
-        .readTimeout(5, TimeUnit.SECONDS)
+        .connectTimeout(2, TimeUnit.SECONDS)
+        .readTimeout(2, TimeUnit.SECONDS)
         .build()
 }
 
 private val dohProviders: List<Dns> by lazy {
     listOf(
-        DnsOverHttps.Builder()
-            .client(dohClient)
-            .url("https://cloudflare-dns.com/dns-query".toHttpUrl())
-            .bootstrapDnsHosts(
-                InetAddress.getByName("1.1.1.1"),
-                InetAddress.getByName("1.0.0.1")
-            )
-            .build(),
+        // Google DoH первым: Cloudflare DoH блокируется ТСПУ на домашних Wi-Fi в РФ,
+        // что приводило к 5-секундному зависанию до фоллбэка на Google.
         DnsOverHttps.Builder()
             .client(dohClient)
             .url("https://dns.google/dns-query".toHttpUrl())
             .bootstrapDnsHosts(
                 InetAddress.getByName("8.8.8.8"),
                 InetAddress.getByName("8.8.4.4")
+            )
+            .build(),
+        DnsOverHttps.Builder()
+            .client(dohClient)
+            .url("https://cloudflare-dns.com/dns-query".toHttpUrl())
+            .bootstrapDnsHosts(
+                InetAddress.getByName("1.1.1.1"),
+                InetAddress.getByName("1.0.0.1")
             )
             .build()
     )
@@ -86,13 +88,17 @@ private val supabaseDns: Dns by lazy {
             }
             try {
                 val system = Dns.SYSTEM.lookup(hostname)
-                if (system.isNotEmpty()) return system
+                if (system.isNotEmpty()) {
+                    return system.sortedBy { if (it is java.net.Inet4Address) 0 else 1 }
+                }
             } catch (_: Exception) {
             }
             for (provider in dohProviders) {
                 try {
                     val addresses = provider.lookup(hostname)
-                    if (addresses.isNotEmpty()) return addresses
+                    if (addresses.isNotEmpty()) {
+                        return addresses.sortedBy { if (it is java.net.Inet4Address) 0 else 1 }
+                    }
                 } catch (_: Exception) {
                 }
             }
@@ -127,7 +133,9 @@ object SupabaseConfig {
         for (provider in dohProviders) {
             try {
                 val addresses = provider.lookup(host)
-                if (addresses.isNotEmpty()) return addresses
+                if (addresses.isNotEmpty()) {
+                    return addresses.sortedBy { if (it is java.net.Inet4Address) 0 else 1 }
+                }
             } catch (_: Exception) {
             }
         }

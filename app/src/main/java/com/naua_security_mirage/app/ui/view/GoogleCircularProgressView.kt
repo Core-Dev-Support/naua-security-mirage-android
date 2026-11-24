@@ -4,15 +4,16 @@ import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.RectF
+import android.os.SystemClock
 import android.util.AttributeSet
 import android.view.View
 
 /**
  * Material Design Indeterminate Circular Progress Indicator (Google Play style).
  *
- * Implemented with direct canvas drawing and Handler frame scheduling, ensuring
- * it continues to rotate and smoothly expand/contract even on devices where system
- * animations are disabled in Accessibility or Developer Options.
+ * Implemented with time-based delta rendering and hardware VSYNC scheduling via
+ * postInvalidateOnAnimation(), ensuring silky-smooth 60-120fps rotation without any
+ * hitching, stuttering, or frame drop slowdowns even under heavy system load.
  */
 class GoogleCircularProgressView @JvmOverloads constructor(
     context: Context,
@@ -27,6 +28,7 @@ class GoogleCircularProgressView @JvmOverloads constructor(
     private var startAngle = 0f
     private var sweepAngle = 40f
     private var isGrowing = true
+    private var lastFrameTime = 0L
 
     private val trackPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
@@ -52,12 +54,14 @@ class GoogleCircularProgressView @JvmOverloads constructor(
     fun start() {
         if (running && visibility == VISIBLE) return
         running = true
+        lastFrameTime = SystemClock.uptimeMillis()
         visibility = VISIBLE
-        postInvalidateDelayed(16)
+        postInvalidateOnAnimation()
     }
 
     fun stop() {
         running = false
+        lastFrameTime = 0L
         visibility = GONE
         invalidate()
     }
@@ -67,10 +71,12 @@ class GoogleCircularProgressView @JvmOverloads constructor(
         if (visibility == VISIBLE) {
             if (!running) {
                 running = true
-                postInvalidateDelayed(16)
+                lastFrameTime = SystemClock.uptimeMillis()
+                postInvalidateOnAnimation()
             }
         } else {
             running = false
+            lastFrameTime = 0L
         }
     }
 
@@ -78,13 +84,15 @@ class GoogleCircularProgressView @JvmOverloads constructor(
         super.onAttachedToWindow()
         if (visibility == VISIBLE) {
             running = true
-            postInvalidateDelayed(16)
+            lastFrameTime = SystemClock.uptimeMillis()
+            postInvalidateOnAnimation()
         }
     }
 
     override fun onDetachedFromWindow() {
         super.onDetachedFromWindow()
         running = false
+        lastFrameTime = 0L
     }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
@@ -104,6 +112,31 @@ class GoogleCircularProgressView @JvmOverloads constructor(
         super.onDraw(canvas)
         if (visibility != VISIBLE) return
 
+        val now = SystemClock.uptimeMillis()
+        if (running) {
+            val deltaMs = if (lastFrameTime > 0L) (now - lastFrameTime).coerceIn(1L, 100L) else 16L
+            lastFrameTime = now
+
+            // 360 градусов за ~1000 мс (~0.36 град/мс)
+            startAngle = (startAngle + deltaMs * 0.36f) % 360f
+
+            // Плавное расширение/сжатие дуги по реальному прошедшему времени
+            val sweepDelta = deltaMs * 0.18f
+            if (isGrowing) {
+                sweepAngle += sweepDelta
+                if (sweepAngle >= 250f) {
+                    sweepAngle = 250f
+                    isGrowing = false
+                }
+            } else {
+                sweepAngle -= sweepDelta
+                if (sweepAngle <= 35f) {
+                    sweepAngle = 35f
+                    isGrowing = true
+                }
+            }
+        }
+
         // 1. Static faint background circular track
         canvas.drawOval(arcRect, trackPaint)
 
@@ -111,15 +144,7 @@ class GoogleCircularProgressView @JvmOverloads constructor(
         canvas.drawArc(arcRect, startAngle, sweepAngle, false, indicatorPaint)
 
         if (running) {
-            startAngle = (startAngle + 5.5f) % 360f
-            if (isGrowing) {
-                sweepAngle += 3f
-                if (sweepAngle >= 250f) isGrowing = false
-            } else {
-                sweepAngle -= 3f
-                if (sweepAngle <= 35f) isGrowing = true
-            }
-            postInvalidateDelayed(16)
+            postInvalidateOnAnimation()
         }
     }
 }

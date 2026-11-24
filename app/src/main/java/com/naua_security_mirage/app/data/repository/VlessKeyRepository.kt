@@ -12,11 +12,14 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import okhttp3.ConnectionSpec
+import okhttp3.Dns
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.File
+import java.net.Inet4Address
+import java.net.InetAddress
 import java.security.MessageDigest
 import java.util.concurrent.TimeUnit
 
@@ -26,9 +29,24 @@ class VlessKeyRepository(
 ) {
 
     private val httpClient = OkHttpClient.Builder()
+        .dns(object : Dns {
+            override fun lookup(hostname: String): List<InetAddress> {
+                val system = try {
+                    Dns.SYSTEM.lookup(hostname)
+                } catch (_: Throwable) {
+                    emptyList()
+                }
+                if (system.isNotEmpty()) {
+                    // На Wi-Fi ставим IPv4 первыми: исключает задержку 3-5с при падении зарубежного IPv6
+                    return system.sortedBy { if (it is Inet4Address) 0 else 1 }
+                }
+                return com.naua_security_mirage.app.data.supabase.SupabaseConfig.resolveHostDoh(hostname)
+                    .sortedBy { if (it is Inet4Address) 0 else 1 }
+            }
+        })
         .connectionSpecs(listOf(ConnectionSpec.MODERN_TLS, ConnectionSpec.COMPATIBLE_TLS))
-        .connectTimeout(3, TimeUnit.SECONDS)
-        .readTimeout(4, TimeUnit.SECONDS)
+        .connectTimeout(2500, TimeUnit.MILLISECONDS)
+        .readTimeout(3500, TimeUnit.MILLISECONDS)
         .build()
 
     @Volatile
@@ -105,7 +123,7 @@ class VlessKeyRepository(
         var definitiveEmpty = false
         repeat(2) { attempt ->
             if (servers.isNotEmpty() || definitiveEmpty) return@repeat
-            kotlinx.coroutines.withTimeoutOrNull(9000) {
+            kotlinx.coroutines.withTimeoutOrNull(4500L) {
             try {
                 val apiHost = try {
                     java.net.URI(apiUrl).host
@@ -158,7 +176,7 @@ class VlessKeyRepository(
             }
             if (servers.isEmpty() && !definitiveEmpty && attempt == 0) {
                 Log.w(TAG, "Повторный запрос списка узлов после паузы")
-                delay(800)
+                delay(300)
             }
         }
 

@@ -2310,10 +2310,8 @@ class MainActivity : AppCompatActivity() {
         refreshCheckmarkJob?.cancel()
         isRefreshing = false
         binding.pbRefreshSpinner.stop()
-        val density = resources.displayMetrics.density
-        binding.ivRefreshIcon.layoutParams.width = (19 * density).toInt()
-        binding.ivRefreshIcon.layoutParams.height = (19 * density).toInt()
-        binding.ivRefreshIcon.requestLayout()
+        binding.ivRefreshIcon.scaleX = 1.0f
+        binding.ivRefreshIcon.scaleY = 1.0f
         binding.ivRefreshIcon.setImageResource(R.drawable.ic_refresh)
         binding.ivRefreshIcon.rotation = 0f
         if (MirageVpnService.vpnState.value == VpnState.DISCONNECTED) {
@@ -2326,10 +2324,8 @@ class MainActivity : AppCompatActivity() {
         refreshJob = null
         refreshAnimationJob?.cancel()
         binding.pbRefreshSpinner.stop()
-        val density = resources.displayMetrics.density
-        binding.ivRefreshIcon.layoutParams.width = (19 * density).toInt()
-        binding.ivRefreshIcon.layoutParams.height = (19 * density).toInt()
-        binding.ivRefreshIcon.requestLayout()
+        binding.ivRefreshIcon.scaleX = 1.0f
+        binding.ivRefreshIcon.scaleY = 1.0f
         binding.ivRefreshIcon.setImageResource(R.drawable.ic_check)
         binding.ivRefreshIcon.rotation = 0f
         refreshNodeStatus()
@@ -2347,10 +2343,8 @@ class MainActivity : AppCompatActivity() {
         refreshJob = null
         refreshAnimationJob?.cancel()
         binding.pbRefreshSpinner.stop()
-        val density = resources.displayMetrics.density
-        binding.ivRefreshIcon.layoutParams.width = (19 * density).toInt()
-        binding.ivRefreshIcon.layoutParams.height = (19 * density).toInt()
-        binding.ivRefreshIcon.requestLayout()
+        binding.ivRefreshIcon.scaleX = 1.0f
+        binding.ivRefreshIcon.scaleY = 1.0f
         binding.ivRefreshIcon.setImageResource(R.drawable.ic_refresh)
         binding.ivRefreshIcon.rotation = 0f
     }
@@ -2362,10 +2356,8 @@ class MainActivity : AppCompatActivity() {
 
         // Google Play style: Material Design Indeterminate Circular Progress Indicator around cancel cross
         binding.pbRefreshSpinner.start()
-        val density = resources.displayMetrics.density
-        binding.ivRefreshIcon.layoutParams.width = (14 * density).toInt()
-        binding.ivRefreshIcon.layoutParams.height = (14 * density).toInt()
-        binding.ivRefreshIcon.requestLayout()
+        binding.ivRefreshIcon.scaleX = 0.74f
+        binding.ivRefreshIcon.scaleY = 0.74f
         binding.ivRefreshIcon.setImageResource(R.drawable.ic_close)
         binding.ivRefreshIcon.rotation = 0f
 
@@ -2447,7 +2439,7 @@ class MainActivity : AppCompatActivity() {
                                                 .getFranceServer(uuid, manager.getActiveClientFlow(uuid))
                                         }
                                         val p = try {
-                                            pingRepository.measurePing(server, timeoutMs = 2500, protectSocket = { socket ->
+                                            pingRepository.measurePing(server, timeoutMs = 1200, protectSocket = { socket ->
                                                 MirageVpnService.protectSocket(socket)
                                             })
                                         } catch (t: Throwable) {
@@ -2472,7 +2464,7 @@ class MainActivity : AppCompatActivity() {
                                             if (server == null) {
                                                 getString(R.string.refresh_paid_no_key)
                                             } else {
-                                                val p = pingRepository.measurePing(server, timeoutMs = 2500)
+                                                val p = pingRepository.measurePing(server, timeoutMs = 1200)
                                                 if (p in 1..9998) "$p ms" else getString(R.string.ping_timeout)
                                             }
                                         }
@@ -2483,10 +2475,10 @@ class MainActivity : AppCompatActivity() {
                     } else {
                         null
                     }
-                    val servers = vlessKeyRepository.getVlessServers()
-                    AppLogger.d("DataRefresh", "Получено конфигураций: ${servers.size}. Измерение пинга...")
+                    val servers = vlessKeyRepository.getVlessServers(forceRefresh = true)
+                    AppLogger.d("DataRefresh", "Получено конфигураций: ${servers.size}. Быстрый замер задержки...")
                     val measured = if (servers.isNotEmpty()) {
-                        pingRepository.measureAllPings(servers, probeTimeoutMs = 2500, totalBudgetMs = 8000L)
+                        pingRepository.measureAllPings(servers, probeTimeoutMs = 800, totalBudgetMs = 2500L, samples = 1)
                     } else {
                         emptyList()
                     }
@@ -2544,7 +2536,7 @@ class MainActivity : AppCompatActivity() {
                     val servers = vlessKeyRepository.getVlessServers()
                     val target = active ?: servers.firstOrNull()
                     if (target != null) {
-                        val pingRes = pingRepository.measurePing(target, timeoutMs = 2000)
+                        val pingRes = pingRepository.measurePing(target, timeoutMs = 1200)
                         val pingStr = if (pingRes in 1..9998) "$pingRes ms" else getString(R.string.ping_timeout)
                         AppLogger.i("DataRefresh", "Замер активного узла ${target.tag} завершен: $pingStr")
                     }

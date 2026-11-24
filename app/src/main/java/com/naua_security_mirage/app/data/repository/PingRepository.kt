@@ -46,8 +46,8 @@ class PingRepository {
         protectDatagram: ((java.net.DatagramSocket) -> Unit)? = null,
         protectSocket: ((Socket) -> Unit)? = null,
         probeTimeoutMs: Int = QUALITY_PROBE_TIMEOUT_MS,
-        totalBudgetMs: Long = 6000L,
-        samples: Int = QUALITY_SAMPLES
+        totalBudgetMs: Long = 3000L,
+        samples: Int = 1
     ): List<VlessServer> = coroutineScope {
         kotlinx.coroutines.withTimeoutOrNull(totalBudgetMs) {
             servers.map { server ->
@@ -171,10 +171,14 @@ class PingRepository {
         }
         val resolved = try {
             try {
-                InetAddress.getByName(key)
+                val all = InetAddress.getAllByName(key)
+                // На Wi-Fi часто включён IPv6, но маршруты к зарубежным серверам дропаются ТСПУ/РКН.
+                // Приоритет IPv4 полностью устраняет 3-5 секундные зависания сокета на Wi-Fi.
+                all.firstOrNull { it is java.net.Inet4Address } ?: all.firstOrNull()
             } catch (_: Exception) {
                 com.naua_security_mirage.app.data.supabase.SupabaseConfig
-                    .resolveHostDoh(key).firstOrNull()
+                    .resolveHostDoh(key).firstOrNull { it is java.net.Inet4Address }
+                    ?: com.naua_security_mirage.app.data.supabase.SupabaseConfig.resolveHostDoh(key).firstOrNull()
             }
         } catch (_: Exception) {
             null
