@@ -2010,6 +2010,19 @@ class MirageVpnService : VpnService() {
 
         private var serviceInstance: MirageVpnService? = null
 
+        /**
+         * Быстрый замер задержки через активный прокси-туннель (via proxy GET),
+         * аналогично механизму в Happ.
+         */
+        fun measureActiveTunnelLatency(timeoutMs: Int = 1000): Long {
+            val service = serviceInstance ?: return -1L
+            val rtt = service.xrayController?.measureTunnelRtt(timeoutMs) ?: -1L
+            if (rtt in 1..9998) {
+                _activePing.value = rtt
+            }
+            return rtt
+        }
+
         fun protectSocket(socket: java.net.Socket): Boolean {
             val service = serviceInstance ?: return false
             return try {

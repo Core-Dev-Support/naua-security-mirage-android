@@ -1417,6 +1417,7 @@ class MainActivity : AppCompatActivity() {
         if (user == null) {
             binding.cardAccount.layoutAccountLoggedOut.visibility = View.VISIBLE
             binding.cardAccount.layoutAccountLoggedIn.visibility = View.GONE
+            binding.tvBrandSub.text = getString(R.string.brand_sub)
         } else {
             binding.cardAccount.layoutAccountLoggedOut.visibility = View.GONE
             binding.cardAccount.layoutAccountLoggedIn.visibility = View.VISIBLE
@@ -1427,6 +1428,14 @@ class MainActivity : AppCompatActivity() {
             )
 
             if (isActive) {
+                binding.cardAccount.containerAccountVipBadge.visibility = View.VISIBLE
+                binding.cardAccount.btnAccountExportKeys.visibility = View.VISIBLE
+                binding.cardAccount.btnAccountExportKeys.setOnClickListener {
+                    AnimationHelper.bounceClick(binding.cardAccount.btnAccountExportKeys, minScale = 0.96f, durationMs = 160)
+                    showExportSubscriptionDialog()
+                }
+                binding.tvBrandSub.text = "⚡ VIP · Reality / Hysteria 2"
+
                 val untilStr = sub?.paidUntil?.take(10).orEmpty()
                 val text = if (untilStr.isNotEmpty()) {
                     getString(R.string.sub_active_status, formatExpiry(untilStr))
@@ -1450,6 +1459,10 @@ class MainActivity : AppCompatActivity() {
                     }
                 }
             } else {
+                binding.cardAccount.containerAccountVipBadge.visibility = View.GONE
+                binding.cardAccount.btnAccountExportKeys.visibility = View.GONE
+                binding.tvBrandSub.text = getString(R.string.brand_sub)
+
                 val expiredStr = sub?.paidUntil?.take(10).orEmpty()
                 binding.cardAccount.tvAccountSubscriptionStatus.text = if (expiredStr.isNotEmpty()) {
                     getString(R.string.sub_expired_status, formatExpiry(expiredStr))
@@ -1767,10 +1780,22 @@ class MainActivity : AppCompatActivity() {
         fun renderPlanSummary(config: AppConfig) {
             val minPlan = config.plans.minByOrNull { it.days } ?: config.plans.firstOrNull()
             if (minPlan != null) {
+                val bestDaily = config.plans.minByOrNull { it.priceRub.toDouble() / it.days }
+                val perDay = bestDaily?.let { String.format(java.util.Locale.US, "%.1f", it.priceRub.toDouble() / it.days) } ?: "1.1"
                 dialogBinding.tvSubPrice.text =
                     getString(R.string.sub_price_from_fmt, config.minPriceRub)
                 dialogBinding.tvSubPlanPeriod.text =
-                    getString(R.string.sub_plan_days_fmt, minPlan.days)
+                    getString(R.string.sub_per_day_prefix, perDay)
+            }
+            val dynamicNodes = config.paidNodes
+            if (dynamicNodes.isNotEmpty()) {
+                dialogBinding.tvSubDynamicServers.visibility = View.VISIBLE
+                dialogBinding.tvSubDynamicServers.text = getString(
+                    R.string.sub_dynamic_servers_fmt,
+                    dynamicNodes.joinToString(", ") { it.label() }
+                )
+            } else {
+                dialogBinding.tvSubDynamicServers.visibility = View.GONE
             }
         }
         renderPlanSummary(AppConfigRepository.config.value)
@@ -1787,6 +1812,17 @@ class MainActivity : AppCompatActivity() {
                 dialogBinding.tvSubDesc.text = getString(R.string.sub_active_until, formatExpiry(until))
                 dialogBinding.btnSubPay.text = getString(R.string.sub_renew_button)
             }
+            dialogBinding.btnSubExport.visibility = View.VISIBLE
+            dialogBinding.btnSubExport.backgroundTintList = ColorStateList.valueOf(pal.cardBg)
+            dialogBinding.btnSubExport.strokeColor = ColorStateList.valueOf(accentColor)
+            dialogBinding.btnSubExport.setTextColor(accentColor)
+            dialogBinding.btnSubExport.setOnClickListener {
+                AnimationHelper.bounceClick(dialogBinding.btnSubExport, minScale = 0.96f, durationMs = 160)
+                dialog.dismiss()
+                showExportSubscriptionDialog()
+            }
+        } else {
+            dialogBinding.btnSubExport.visibility = View.GONE
         }
 
         // Пробный день доступен только тем, у кого подписки ещё не было.
@@ -1844,6 +1880,164 @@ class MainActivity : AppCompatActivity() {
             dialog.dismiss()
         }
 
+        dialog.show()
+    }
+
+    private fun showExportSubscriptionDialog() {
+        val user = com.naua_security_mirage.app.data.supabase.SupabaseManager.instance.currentUser.value
+        if (user == null) {
+            showAuthDialog { showExportSubscriptionDialog() }
+            return
+        }
+
+        val dialog = Dialog(this)
+        val exportBinding = com.naua_security_mirage.app.databinding.DialogExportSubscriptionBinding
+            .inflate(layoutInflater)
+        dialog.setContentView(exportBinding.root)
+        dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+        dialog.window?.setLayout(
+            (resources.displayMetrics.widthPixels * 0.92f).toInt(),
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        )
+
+        val pal = dialogPalette()
+        exportBinding.root.background = GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            cornerRadius = 24f * pal.density
+            setColor(pal.cardBg)
+            setStroke((1.2f * pal.density).toInt(), pal.stroke)
+        }
+        exportBinding.tvExportTitle.setTextColor(pal.title)
+        exportBinding.tvExportSubtitle.setTextColor(pal.subtitle)
+        exportBinding.tvExportKeyInfo.setTextColor(pal.subtitle)
+        exportBinding.tvExportHint.setTextColor(pal.subtitle)
+        exportBinding.btnExportClose.imageTintList = ColorStateList.valueOf(pal.subtitle)
+        exportBinding.btnExportClose.setOnClickListener { dialog.dismiss() }
+        exportBinding.dividerExportHeader.setBackgroundColor(pal.stroke)
+        applySecondaryButtonStyle(exportBinding.btnExportShare, pal)
+
+        class ExportTarget(val id: String, val label: String, val fetchKey: suspend () -> String?)
+
+        val manager = com.naua_security_mirage.app.data.supabase.SupabaseManager.instance
+        val config = AppConfigRepository.config.value
+        val targets = mutableListOf<ExportTarget>()
+
+        // 1. Единая подписка (все узлы) через публичный эндпоинт telegram-subscription
+        val subUrl = "${com.naua_security_mirage.app.data.supabase.SupabaseConfig.SUPABASE_URL}/functions/v1/telegram-subscription"
+        targets.add(ExportTarget("all", getString(R.string.export_chip_all_nodes)) { subUrl })
+
+        // 2. Все оплаченные узлы из каталога (Нидерланды, Турция, и любые будущие серверы)
+        for (node in config.paidNodes) {
+            targets.add(ExportTarget(node.id, node.label()) {
+                when (node.kind) {
+                    PaidNode.Kind.FRANCE -> manager.getActiveVlessKey() ?: manager.ensureFranceVlessKey()
+                    PaidNode.Kind.BELARUS, PaidNode.Kind.TURKEY -> manager.getActiveBelarusVlessKey() ?: manager.ensureBelarusVlessKey()
+                    PaidNode.Kind.VLESS -> manager.getNodeVlessKey(node.id) ?: manager.ensureNodeVlessKey(node)
+                }
+            })
+        }
+
+        var currentSelectedKey: String = subUrl
+        var qrJob: kotlinx.coroutines.Job? = null
+
+        fun renderQr(target: ExportTarget) {
+            qrJob?.cancel()
+            exportBinding.pbExportLoading.visibility = View.VISIBLE
+            exportBinding.ivExportQr.setImageDrawable(null)
+            exportBinding.tvExportKeyInfo.text = "${target.label} · " + getString(R.string.export_key_hint)
+
+            qrJob = lifecycleScope.launch {
+                val key = target.fetchKey() ?: subUrl
+                currentSelectedKey = key
+                val qrBitmap = withContext(Dispatchers.Default) {
+                    com.naua_security_mirage.app.ui.util.QrCodeGenerator.generateQrBitmap(key, sizePx = 512)
+                }
+                exportBinding.pbExportLoading.visibility = View.GONE
+                if (qrBitmap != null) {
+                    exportBinding.ivExportQr.setImageBitmap(qrBitmap)
+                }
+            }
+        }
+
+        fun populateChips() {
+            exportBinding.containerExportChips.removeAllViews()
+            targets.forEachIndexed { index, target ->
+                val chip = TextView(this).apply {
+                    text = target.label
+                    textSize = 12f
+                    setTypeface(typeface, android.graphics.Typeface.BOLD)
+                    setPadding(
+                        (14 * pal.density).toInt(),
+                        (6 * pal.density).toInt(),
+                        (14 * pal.density).toInt(),
+                        (6 * pal.density).toInt()
+                    )
+                    val lp = LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.WRAP_CONTENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT
+                    ).apply {
+                        marginEnd = (6 * pal.density).toInt()
+                    }
+                    layoutParams = lp
+                    val isFirst = index == 0
+                    isSelected = isFirst
+                    setTextColor(if (isFirst) Color.WHITE else pal.subtitle)
+                    background = if (isFirst) {
+                        ContextCompat.getDrawable(this@MainActivity, R.drawable.bg_pill_active)
+                    } else {
+                        GradientDrawable().apply {
+                            shape = GradientDrawable.RECTANGLE
+                            cornerRadius = 14f * pal.density
+                            setColor(pal.cardBg)
+                            setStroke((1f * pal.density).toInt(), pal.stroke)
+                        }
+                    }
+                    setOnClickListener {
+                        AnimationHelper.bounceClick(this, minScale = 0.94f, durationMs = 150)
+                        for (i in 0 until exportBinding.containerExportChips.childCount) {
+                            val c = exportBinding.containerExportChips.getChildAt(i) as? TextView ?: continue
+                            c.isSelected = false
+                            c.setTextColor(pal.subtitle)
+                            c.background = GradientDrawable().apply {
+                                shape = GradientDrawable.RECTANGLE
+                                cornerRadius = 14f * pal.density
+                                setColor(pal.cardBg)
+                                setStroke((1f * pal.density).toInt(), pal.stroke)
+                            }
+                        }
+                        isSelected = true
+                        setTextColor(Color.WHITE)
+                        background = ContextCompat.getDrawable(this@MainActivity, R.drawable.bg_pill_active)
+                        renderQr(target)
+                    }
+                }
+                exportBinding.containerExportChips.addView(chip)
+            }
+        }
+
+        populateChips()
+        targets.firstOrNull()?.let { renderQr(it) }
+
+        exportBinding.btnExportCopy.setOnClickListener {
+            AnimationHelper.bounceClick(exportBinding.btnExportCopy, minScale = 0.95f, durationMs = 150)
+            val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as? android.content.ClipboardManager
+            val clip = android.content.ClipData.newPlainText("VLESS / Subscription Key", currentSelectedKey)
+            clipboard?.setPrimaryClip(clip)
+            Toast.makeText(this, R.string.toast_key_copied, Toast.LENGTH_SHORT).show()
+        }
+
+        exportBinding.btnExportShare.setOnClickListener {
+            AnimationHelper.bounceClick(exportBinding.btnExportShare, minScale = 0.95f, durationMs = 150)
+            val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                type = "text/plain"
+                putExtra(Intent.EXTRA_SUBJECT, "NAUA Security Mirage VPN Key")
+                putExtra(Intent.EXTRA_TEXT, currentSelectedKey)
+            }
+            startActivity(Intent.createChooser(shareIntent, getString(R.string.action_share_key)))
+        }
+
+        dialog.setOnDismissListener { qrJob?.cancel() }
+        AnimationHelper.popIn(exportBinding.root, durationMs = 240)
         dialog.show()
     }
 
@@ -2415,7 +2609,7 @@ class MainActivity : AppCompatActivity() {
                                     PaidNode.Kind.BELARUS, PaidNode.Kind.TURKEY -> {
                                         val probe = BelarusNodeMonitor.probe(
                                             this@MainActivity,
-                                            forceRefresh = true
+                                            forceRefresh = false
                                         )
                                         when {
                                             probe.reason == "no_session" ->
@@ -2529,19 +2723,17 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         } else if (currentState == VpnState.CONNECTED) {
-            AppLogger.i("DataRefresh", "Режим с активным подключением. Измерение задержки активного туннеля...")
+            AppLogger.i("DataRefresh", "Режим с активным подключением. Измерение задержки активного туннеля (via proxy GET)...")
             refreshJob = lifecycleScope.launch(Dispatchers.IO) {
                 try {
-                    val active = MirageVpnService.activeServer.value
-                    val servers = vlessKeyRepository.getVlessServers()
-                    val target = active ?: servers.firstOrNull()
-                    if (target != null) {
-                        val pingRes = pingRepository.measurePing(target, timeoutMs = 1200)
-                        val pingStr = if (pingRes in 1..9998) "$pingRes ms" else getString(R.string.ping_timeout)
-                        AppLogger.i("DataRefresh", "Замер активного узла ${target.tag} завершен: $pingStr")
-                    }
+                    val tunnelRtt = MirageVpnService.measureActiveTunnelLatency(timeoutMs = 800)
+                    val pingStr = if (tunnelRtt in 1..9998) "$tunnelRtt ms" else getString(R.string.ping_timeout)
+                    AppLogger.i("DataRefresh", "Замер активного узла (via proxy GET) завершен: $pingStr")
                     withContext(Dispatchers.Main) {
                         showRefreshSuccess()
+                        if (MirageVpnService.vpnState.value == VpnState.CONNECTED) {
+                            binding.tvStatusSub.text = if (tunnelRtt in 1..9998) "$tunnelRtt ms" else getString(R.string.ping_timeout)
+                        }
                     }
                 } catch (e: java.util.concurrent.CancellationException) {
                     AppLogger.i("DataRefresh", "Обновление отменено (CancellationException)")

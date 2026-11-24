@@ -70,7 +70,7 @@ class PingRepository {
         timeoutMs: Int,
         protectSocket: ((Socket) -> Unit)?,
         protectDatagram: ((java.net.DatagramSocket) -> Unit)? = null
-    ): Long? = kotlinx.coroutines.withTimeoutOrNull(timeoutMs.toLong() + 1500L) {
+    ): Long? = kotlinx.coroutines.withTimeoutOrNull(timeoutMs.toLong() + 200L) {
         val target = resolveAddress(server.address) ?: return@withTimeoutOrNull null
 
         val socketProtector: (Socket) -> Unit = protectSocket ?: { s ->

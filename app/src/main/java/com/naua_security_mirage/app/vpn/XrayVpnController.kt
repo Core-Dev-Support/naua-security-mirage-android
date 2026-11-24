@@ -358,12 +358,12 @@ class XrayVpnController(private val vpnService: VpnService) {
         return try {
             val target = PROBE_TARGETS.firstOrNull() ?: ("1.1.1.1" to 80)
             socket = Socks5Client.connect(target.first, target.second, timeoutMs)
-            socket.soTimeout = timeoutMs
+            socket.soTimeout = timeoutMs.coerceAtLeast(400)
             val output = socket.getOutputStream()
             val input = socket.getInputStream()
-            output.write("HEAD / HTTP/1.0\r\nHost: one.one.one.one\r\nConnection: close\r\n\r\n".toByteArray(StandardCharsets.US_ASCII))
+            output.write("HEAD /generate_204 HTTP/1.1\r\nHost: cp.cloudflare.com\r\nUser-Agent: curl/7.88.1\r\nConnection: close\r\n\r\n".toByteArray(StandardCharsets.US_ASCII))
             output.flush()
-            val buffer = ByteArray(16)
+            val buffer = ByteArray(32)
             val read = input.read(buffer)
             if (read > 0) {
                 (SystemClock.elapsedRealtime() - start).coerceAtLeast(1L)
@@ -379,15 +379,16 @@ class XrayVpnController(private val vpnService: VpnService) {
         var socket: java.net.Socket? = null
         return try {
             socket = Socks5Client.connect(host, port, timeoutMs)
+            socket.soTimeout = timeoutMs.coerceAtLeast(400)
             val output = socket.getOutputStream()
             val input = socket.getInputStream()
 
-            output.write("GET / HTTP/1.0\r\nHost: one.one.one.one\r\nConnection: close\r\n\r\n".toByteArray())
+            output.write("GET /generate_204 HTTP/1.1\r\nHost: $host\r\nConnection: close\r\n\r\n".toByteArray(StandardCharsets.US_ASCII))
             output.flush()
 
             val buffer = ByteArray(16)
             val read = input.read(buffer)
-            read > 0 && String(buffer, 0, read).startsWith("HTTP")
+            read > 0 && String(buffer, 0, read, StandardCharsets.US_ASCII).startsWith("HTTP")
         } catch (t: Throwable) {
             Log.d(TAG, "Probe to $host:$port failed: ${t.message}")
             AppLogger.w(TAG, "TCP probe $host:$port failed: ${t.javaClass.simpleName}: ${t.message}")
@@ -1438,7 +1439,8 @@ class XrayVpnController(private val vpnService: VpnService) {
         private const val XHTTP_POSTS_INTERVAL_MS = 20
 
         private val PROBE_TARGETS = listOf(
-            "1.1.1.1" to 80
+            "1.1.1.1" to 80,
+            "cp.cloudflare.com" to 80
         )
 
     }

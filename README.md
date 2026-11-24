@@ -32,6 +32,8 @@
   &nbsp;&nbsp;
   <a href="https://t.me/News_And_Updates_Apps"><img src="https://img.shields.io/badge/%F0%9F%93%A3_Telegram-2AABEE?style=for-the-badge&logo=telegram&logoColor=white" alt="Telegram" /></a>
   &nbsp;&nbsp;
+  <a href="https://t.me/NAUA_Security_Mirage_Bot"><img src="https://img.shields.io/badge/%F0%9F%A4%96_Telegram_Bot-2AABEE?style=for-the-badge&logo=telegram&logoColor=white" alt="Telegram Bot" /></a>
+  &nbsp;&nbsp;
   <a href="README_EN.md"><img src="https://img.shields.io/badge/English-0F172A?style=for-the-badge" alt="English" /></a>
 </p>
 
@@ -58,6 +60,12 @@
 **📴 Защита экрана.** `FLAG_SECURE`, плюс диалог с объяснением риска, если снять скриншот всё же нужно.
 
 **🧩 Своя панель настроек.** Темы, 5 стилей кнопки, анимации, скрытие и перестановка разделов, русский и английский.
+
+**🤖 Telegram-бот и кроссплатформенная подписка:**
+- 🤖 **Официальный бот**: [@NAUA_Security_Mirage_Bot](https://t.me/NAUA_Security_Mirage_Bot) — быстрое управление подпиской и привязка аккаунтов.
+- 🎁 **Бесплатная проба без привязки карты**: активируйте 24 часа бесплатного доступа ко всем VIP-узлам в один тап прямо в приложении или в боте (без ввода данных банковской карты и скрытых автосписаний).
+- 📺 **1 подписка на все устройства**: экспорт персональных VLESS-ключей и QR-кодов прямо из приложения для использования на ПК (Happ, v2rayN, Nekoray), iPhone/iPad (Happ, Shadowrocket, Streisand) и Smart TV.
+- ⚡ **Без автопродлений**: оплата только за выбранный срок (от 1.1 ₽ в день), никаких внезапных списаний.
 
 ---
 

@@ -20,7 +20,7 @@ import kotlinx.coroutines.withContext
 object BelarusNodeMonitor {
 
     private const val TAG = "BelarusNode"
-    private const val PING_TIMEOUT_MS = 3_000
+    private const val PING_TIMEOUT_MS = 1_200
     const val TIMEOUT_PING = 9999L
 
     data class Probe(
@@ -44,10 +44,15 @@ object BelarusNodeMonitor {
             return Probe(null, TIMEOUT_PING, "no_subscription")
         }
 
-        val key = runCatching { manager.ensureBelarusVlessKey(force = forceRefresh) }
-            .getOrNull()
-            ?.takeIf { it.isNotBlank() }
-            ?: manager.getActiveBelarusVlessKey()?.takeIf { it.isNotBlank() }
+        val cached = manager.getActiveBelarusVlessKey()?.takeIf { it.isNotBlank() }
+        val key = if (cached != null && !forceRefresh) {
+            cached
+        } else {
+            runCatching { manager.ensureBelarusVlessKey(force = forceRefresh) }
+                .getOrNull()
+                ?.takeIf { it.isNotBlank() }
+                ?: cached
+        }
         if (key == null) {
             val reason = if (manager.currentUser.value == null) "no_session" else "no_key"
             record(context, NodeEventStore.STATE_DOWN, reason)

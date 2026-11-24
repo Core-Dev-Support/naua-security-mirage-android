@@ -388,6 +388,18 @@ serve(async (req) => {
       });
     }
 
+    // ---- Шаг 2b: отвязать аккаунт ------------------------------------------
+    if (action === "unlink") {
+      if (!botAuthorized(req)) return json({ error: "forbidden" }, 403);
+      const tgId = Number(url.searchParams.get("tg_id"));
+      if (!Number.isFinite(tgId) || tgId <= 0) {
+        return json({ error: "Некорректный tg_id" }, 400);
+      }
+      await service().from("telegram_accounts").delete().eq("tg_id", tgId);
+      await service().from("subscriptions").update({ tg_id: null }).eq("tg_id", tgId);
+      return json({ ok: true });
+    }
+
     // ---- Создать код/ссылку синхронизации (из приложения или бота) ---------
     if (action === "create_sync") {
       let userId = "";

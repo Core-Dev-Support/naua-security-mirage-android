@@ -32,6 +32,8 @@
   &nbsp;&nbsp;
   <a href="https://t.me/News_And_Updates_Apps"><img src="https://img.shields.io/badge/%F0%9F%93%A3_Telegram-2AABEE?style=for-the-badge&logo=telegram&logoColor=white" alt="Telegram" /></a>
   &nbsp;&nbsp;
+  <a href="https://t.me/NAUA_Security_Mirage_Bot"><img src="https://img.shields.io/badge/%F0%9F%A4%96_Telegram_Bot-2AABEE?style=for-the-badge&logo=telegram&logoColor=white" alt="Telegram Bot" /></a>
+  &nbsp;&nbsp;
   <a href="README.md"><img src="https://img.shields.io/badge/%D0%A0%D1%83%D1%81%D1%81%D0%BA%D0%B8%D0%B9-0F172A?style=for-the-badge" alt="Russian" /></a>
 </p>
 
@@ -58,6 +60,12 @@ One big button, and the tunnel is up. There is no location to pick: the client m
 **📴 Screen protection.** `FLAG_SECURE`, plus a dialog explaining the risk if you really need to capture the screen.
 
 **🧩 Your own panel.** Themes, 5 button styles, animation controls, hide and reorder sections, Russian and English.
+
+**🤖 Telegram Bot & Cross-Platform Subscription:**
+- 🤖 **Official Bot**: [@NAUA_Security_Mirage_Bot](https://t.me/NAUA_Security_Mirage_Bot) — fast subscription management and account linking.
+- 🎁 **Free Trial Without Card Binding**: activate 24 hours of free access to all VIP nodes in one click in the app or bot (no credit card required, no recurring billing traps).
+- 📺 **1 Subscription for All Devices**: export personal VLESS keys and QR codes directly from the app for use on PC (Happ, v2rayN, Nekoray), iPhone/iPad (Happ, Shadowrocket, Streisand), and Smart TV.
+- ⚡ **No Auto-Renewal**: pay only for the chosen duration (from 1.1 ₽ / day), zero unexpected charges.
 
 ---
 

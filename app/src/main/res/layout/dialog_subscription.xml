@@ -136,6 +136,16 @@
         android:textColor="@color/ink_soft"
         android:textSize="12.5sp" />
 
+    <TextView
+        android:id="@+id/tvSubDynamicServers"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:textColor="#E8A33D"
+        android:textSize="12sp"
+        android:textStyle="bold"
+        android:visibility="gone" />
+
     <!-- Pay Button -->
     <Button
         android:id="@+id/btnSubPay"
@@ -149,6 +159,23 @@
         android:textSize="14sp"
         android:textStyle="bold"
         app:cornerRadius="14dp" />
+
+    <!-- Export Key / QR Button (for other devices when subscribed) -->
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnSubExport"
+        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+        android:layout_width="match_parent"
+        android:layout_height="44dp"
+        android:layout_marginTop="8dp"
+        android:backgroundTint="@color/card"
+        android:text="@string/sub_export_button"
+        android:textAllCaps="false"
+        android:textColor="#E8A33D"
+        android:textSize="13sp"
+        android:visibility="gone"
+        app:cornerRadius="14dp"
+        app:strokeColor="#E8A33D"
+        app:strokeWidth="1dp" />
 
     <!-- Check Status Button -->
     <com.google.android.material.button.MaterialButton
