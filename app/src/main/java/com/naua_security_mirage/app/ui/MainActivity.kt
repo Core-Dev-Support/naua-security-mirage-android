@@ -1479,27 +1479,32 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun updateHeaderVipFrame(hasActive: Boolean) {
-        val density = resources.displayMetrics.density
+        binding.headerBrand.background = null
+        binding.headerBrand.setPadding(0, 0, 0, 0)
+        binding.tvBrandName.text = getString(R.string.brand_name)
+
+        val baseSub = getString(R.string.brand_sub)
         if (hasActive) {
-            binding.headerBrand.background = GradientDrawable().apply {
-                shape = GradientDrawable.RECTANGLE
-                cornerRadius = 14f * density
-                setColor(Color.parseColor("#14E8A33D"))
-                setStroke((1.4f * density).toInt(), Color.parseColor("#E8A33D"))
+            val fullText = "$baseSub · VIP"
+            val spannable = android.text.SpannableString(fullText)
+            val vipStart = fullText.indexOf("VIP")
+            if (vipStart >= 0) {
+                spannable.setSpan(
+                    android.text.style.ForegroundColorSpan(Color.parseColor("#E8A33D")),
+                    vipStart,
+                    fullText.length,
+                    android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+                )
+                spannable.setSpan(
+                    android.text.style.StyleSpan(android.graphics.Typeface.BOLD),
+                    vipStart,
+                    fullText.length,
+                    android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+                )
             }
-            binding.headerBrand.setPadding(
-                (12 * density).toInt(),
-                (6 * density).toInt(),
-                (12 * density).toInt(),
-                (6 * density).toInt()
-            )
-            binding.tvBrandName.text = "NAUA Security Mirage  👑 VIP"
-            binding.tvBrandSub.text = getString(R.string.brand_sub)
+            binding.tvBrandSub.text = spannable
         } else {
-            binding.headerBrand.background = null
-            binding.headerBrand.setPadding(0, 0, 0, 0)
-            binding.tvBrandName.text = getString(R.string.brand_name)
-            binding.tvBrandSub.text = getString(R.string.brand_sub)
+            binding.tvBrandSub.text = baseSub
         }
     }
 
@@ -1936,24 +1941,27 @@ class MainActivity : AppCompatActivity() {
         val config = AppConfigRepository.config.value
         val targets = mutableListOf<ExportTarget>()
 
-        // 1. Единая подписка (все узлы) через публичный эндпоинт telegram-subscription
-        val token = manager.getAccessToken().orEmpty()
-        val uuid = manager.getActiveClientUuid() ?: user.id
-        val subUrl = when {
-            token.isNotBlank() -> "${com.naua_security_mirage.app.data.supabase.SupabaseConfig.SUPABASE_URL}/functions/v1/telegram-subscription?token=$token"
-            uuid.isNotBlank() -> "${com.naua_security_mirage.app.data.supabase.SupabaseConfig.SUPABASE_URL}/functions/v1/telegram-subscription?uid=$uuid"
-            else -> "${com.naua_security_mirage.app.data.supabase.SupabaseConfig.SUPABASE_URL}/functions/v1/telegram-subscription"
+        fun hasBothProtocols(links: List<String>): Boolean =
+            links.any { it.startsWith("hysteria2://", true) || it.startsWith("hy2://", true) } &&
+                links.any { it.startsWith("vless://", true) }
+
+        fun joinLinks(links: List<String>, fallbackSingle: String?): String? {
+            val clean = links.map { it.trim() }.filter { it.isNotBlank() }.distinct()
+            return when {
+                clean.isNotEmpty() -> clean.joinToString("\n")
+                !fallbackSingle.isNullOrBlank() -> fallbackSingle.trim()
+                else -> null
+            }
         }
-        targets.add(ExportTarget("all", getString(R.string.export_chip_all_nodes)) { subUrl })
 
         suspend fun loadFranceLinks(): List<String> {
             var links = manager.getFranceLinks()
-            if (links.isEmpty()) {
-                manager.ensureFranceVlessKey()
+            if (!hasBothProtocols(links)) {
+                manager.ensureFranceVlessKey(force = true)
                 links = manager.getFranceLinks()
             }
             if (links.isEmpty()) {
-                val single = manager.getActiveVlessKey()
+                val single = manager.getActiveVlessKey() ?: manager.ensureFranceVlessKey()
                 if (!single.isNullOrBlank()) links = listOf(single)
             }
             return links
@@ -1961,45 +1969,76 @@ class MainActivity : AppCompatActivity() {
 
         suspend fun loadBelarusLinks(): List<String> {
             var links = manager.getBelarusLinks()
-            if (links.isEmpty()) {
-                manager.ensureBelarusVlessKey()
+            if (!hasBothProtocols(links)) {
+                manager.ensureBelarusVlessKey(force = true)
                 links = manager.getBelarusLinks()
             }
             if (links.isEmpty()) {
-                val single = manager.getActiveBelarusVlessKey()
+                val single = manager.getActiveBelarusVlessKey() ?: manager.ensureBelarusVlessKey()
                 if (!single.isNullOrBlank()) links = listOf(single)
             }
             return links
         }
 
-        fun findHy2Key(links: List<String>): String? =
-            links.firstOrNull { it.startsWith("hysteria2://", true) || it.startsWith("hy2://", true) }
+        suspend fun buildAllNodesFallback(): String? = withContext(Dispatchers.IO) {
+            val allLinks = mutableListOf<String>()
+            for (node in config.paidNodes) {
+                when (node.kind) {
+                    PaidNode.Kind.FRANCE -> allLinks.addAll(loadFranceLinks())
+                    PaidNode.Kind.BELARUS, PaidNode.Kind.TURKEY -> allLinks.addAll(loadBelarusLinks())
+                    PaidNode.Kind.VLESS -> {
+                        val k = manager.getNodeVlessKey(node.id) ?: manager.ensureNodeVlessKey(node)
+                        if (!k.isNullOrBlank()) allLinks.add(k)
+                    }
+                }
+            }
+            joinLinks(allLinks, null)
+        }
 
-        fun findXhttpKey(links: List<String>): String? =
-            links.firstOrNull { it.contains("type=xhttp", true) || it.contains("xhttp", true) }
-                ?: links.firstOrNull { it.startsWith("vless://", true) }
+        suspend fun isSubscriptionUrlWorking(url: String): Boolean = withContext(Dispatchers.IO) {
+            try {
+                val client = okhttp3.OkHttpClient.Builder()
+                    .connectTimeout(2500, java.util.concurrent.TimeUnit.MILLISECONDS)
+                    .readTimeout(2500, java.util.concurrent.TimeUnit.MILLISECONDS)
+                    .build()
+                val req = okhttp3.Request.Builder().url(url).get().build()
+                client.newCall(req).execute().use { resp ->
+                    resp.isSuccessful && !resp.body?.string().isNullOrBlank()
+                }
+            } catch (_: Throwable) {
+                false
+            }
+        }
 
-        // 2. Все оплаченные узлы из каталога (Нидерланды XHTTP & Hy2, Турция XHTTP & Hy2, и любые будущие серверы)
+        // 1. Единая подписка (все узлы) через публичный эндпоинт telegram-subscription
+        // Короткий ?uid=<user.id> не протухает через час и даёт компактный QR;
+        // если серверная функция ещё не обновлена (отвечает 400), автоматически отдаём все ключи списком.
+        val uid = user.id.ifBlank { manager.getActiveClientUuid().orEmpty() }
+        val token = manager.getAccessToken().orEmpty()
+        val candidateSubUrl = when {
+            uid.isNotBlank() -> "${com.naua_security_mirage.app.data.supabase.SupabaseConfig.SUPABASE_URL}/functions/v1/telegram-subscription?uid=$uid"
+            token.isNotBlank() -> "${com.naua_security_mirage.app.data.supabase.SupabaseConfig.SUPABASE_URL}/functions/v1/telegram-subscription?token=$token"
+            else -> "${com.naua_security_mirage.app.data.supabase.SupabaseConfig.SUPABASE_URL}/functions/v1/telegram-subscription"
+        }
+        targets.add(ExportTarget("all", getString(R.string.export_chip_all_nodes)) {
+            if ((uid.isNotBlank() || token.isNotBlank()) && isSubscriptionUrlWorking(candidateSubUrl)) {
+                candidateSubUrl
+            } else {
+                buildAllNodesFallback() ?: candidateSubUrl
+            }
+        })
+
+        // 2. Отдельные узлы из каталога — каждый отдаёт все свои протоколы (XHTTP + Hysteria 2)
         for (node in config.paidNodes) {
             when (node.kind) {
                 PaidNode.Kind.FRANCE -> {
-                    targets.add(ExportTarget("${node.id}_xhttp", "${node.label()} (XHTTP)") {
-                        val links = loadFranceLinks()
-                        findXhttpKey(links) ?: manager.getActiveVlessKey() ?: manager.ensureFranceVlessKey()
-                    })
-                    targets.add(ExportTarget("${node.id}_hy2", "${node.label()} (Hysteria 2)") {
-                        val links = loadFranceLinks()
-                        findHy2Key(links) ?: findXhttpKey(links)
+                    targets.add(ExportTarget(node.id, node.label()) {
+                        joinLinks(loadFranceLinks(), manager.getActiveVlessKey())
                     })
                 }
                 PaidNode.Kind.BELARUS, PaidNode.Kind.TURKEY -> {
-                    targets.add(ExportTarget("${node.id}_xhttp", "${node.label()} (XHTTP)") {
-                        val links = loadBelarusLinks()
-                        findXhttpKey(links) ?: manager.getActiveBelarusVlessKey() ?: manager.ensureBelarusVlessKey()
-                    })
-                    targets.add(ExportTarget("${node.id}_hy2", "${node.label()} (Hysteria 2)") {
-                        val links = loadBelarusLinks()
-                        findHy2Key(links) ?: findXhttpKey(links)
+                    targets.add(ExportTarget(node.id, node.label()) {
+                        joinLinks(loadBelarusLinks(), manager.getActiveBelarusVlessKey())
                     })
                 }
                 PaidNode.Kind.VLESS -> {
@@ -2010,20 +2049,27 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        var currentSelectedKey: String = subUrl
+        var currentSelectedKey: String = candidateSubUrl
         var qrJob: kotlinx.coroutines.Job? = null
 
         fun renderQr(target: ExportTarget) {
             qrJob?.cancel()
             exportBinding.pbExportLoading.visibility = View.VISIBLE
             exportBinding.ivExportQr.setImageDrawable(null)
-            exportBinding.tvExportKeyInfo.text = "${target.label} · " + getString(R.string.export_key_hint)
+            val labelPrefix = if (target.id == "all") target.label else "${target.label} (XHTTP + Hysteria 2)"
+            exportBinding.tvExportKeyInfo.text = "$labelPrefix\n" + getString(R.string.export_key_hint)
+            exportBinding.btnExportCopy.setText(
+                if (target.id == "all") R.string.action_copy_link else R.string.action_copy_keys
+            )
 
             qrJob = lifecycleScope.launch {
-                val key = target.fetchKey() ?: subUrl
+                val key = target.fetchKey() ?: candidateSubUrl
                 currentSelectedKey = key
+                exportBinding.btnExportCopy.setText(
+                    if (key.startsWith("http", ignoreCase = true)) R.string.action_copy_link else R.string.action_copy_keys
+                )
                 val qrBitmap = withContext(Dispatchers.Default) {
-                    com.naua_security_mirage.app.ui.util.QrCodeGenerator.generateQrBitmap(key, sizePx = 512)
+                    com.naua_security_mirage.app.ui.util.QrCodeGenerator.generateQrBitmap(key, sizePx = 640)
                 }
                 exportBinding.pbExportLoading.visibility = View.GONE
                 if (qrBitmap != null) {
@@ -2654,27 +2700,31 @@ class MainActivity : AppCompatActivity() {
                         val preferredProto = settingsRepository.getProtocolForNode(paidNode.id)
                         AppLogger.i("DataRefresh", "Точечное обновление выбранного платного узла ${paidNode.id} (протокол: $preferredProto)")
 
+                        fun hasBothProto(list: List<String>): Boolean =
+                            list.any { it.startsWith("hysteria2://", true) || it.startsWith("hy2://", true) } &&
+                                list.any { it.startsWith("vless://", true) }
+
                         val links = when (paidNode.kind) {
                             PaidNode.Kind.FRANCE -> {
                                 var l = manager.getFranceLinks()
-                                if (l.isEmpty()) {
-                                    manager.ensureFranceVlessKey()
+                                if (!hasBothProto(l)) {
+                                    manager.ensureFranceVlessKey(force = true)
                                     l = manager.getFranceLinks()
                                 }
                                 if (l.isEmpty()) {
-                                    val k = manager.getActiveVlessKey()
+                                    val k = manager.getActiveVlessKey() ?: manager.ensureFranceVlessKey()
                                     if (!k.isNullOrBlank()) l = listOf(k)
                                 }
                                 l
                             }
                             PaidNode.Kind.BELARUS, PaidNode.Kind.TURKEY -> {
                                 var l = manager.getBelarusLinks()
-                                if (l.isEmpty()) {
-                                    manager.ensureBelarusVlessKey()
+                                if (!hasBothProto(l)) {
+                                    manager.ensureBelarusVlessKey(force = true)
                                     l = manager.getBelarusLinks()
                                 }
                                 if (l.isEmpty()) {
-                                    val k = manager.getActiveBelarusVlessKey()
+                                    val k = manager.getActiveBelarusVlessKey() ?: manager.ensureBelarusVlessKey()
                                     if (!k.isNullOrBlank()) l = listOf(k)
                                 }
                                 l
@@ -2689,7 +2739,7 @@ class MainActivity : AppCompatActivity() {
                         val xhttpLink = links.firstOrNull { it.contains("type=xhttp", true) || it.contains("xhttp", true) }
                             ?: links.firstOrNull { it.startsWith("vless://", true) }
 
-                        val hy2Server = hy2Link?.let { com.naua_security_mirage.app.data.model.VlessServer.fromUri(it, "${paidNode.label()} (Hy2)") }
+                        val hy2Server = hy2Link?.let { com.naua_security_mirage.app.data.model.VlessServer.fromUri(it, "${paidNode.label()} (Hysteria 2)") }
                         val xhttpServer = xhttpLink?.let { com.naua_security_mirage.app.data.model.VlessServer.fromUri(it, "${paidNode.label()} (XHTTP)") }
 
                         when (preferredProto) {
@@ -2699,7 +2749,8 @@ class MainActivity : AppCompatActivity() {
                                     getString(R.string.refresh_paid_no_key)
                                 } else {
                                     val p = pingRepository.measurePing(s, timeoutMs = 1200)
-                                    if (p in 1..9998) "$p ms (Hy2)" else getString(R.string.ping_timeout)
+                                    val label = if (s.isHysteria2) "Hysteria 2" else "XHTTP"
+                                    if (p in 1..9998) "$p ms ($label)" else getString(R.string.ping_timeout)
                                 }
                             }
                             SettingsRepository.PROTOCOL_XHTTP -> {
@@ -2708,7 +2759,8 @@ class MainActivity : AppCompatActivity() {
                                     getString(R.string.refresh_paid_no_key)
                                 } else {
                                     val p = pingRepository.measurePing(s, timeoutMs = 1200)
-                                    if (p in 1..9998) "$p ms (XHTTP)" else getString(R.string.ping_timeout)
+                                    val label = if (s.isHysteria2) "Hysteria 2" else "XHTTP"
+                                    if (p in 1..9998) "$p ms ($label)" else getString(R.string.ping_timeout)
                                 }
                             }
                             else -> {
@@ -2716,7 +2768,7 @@ class MainActivity : AppCompatActivity() {
                                 val hy2Deferred = hy2Server?.let { s ->
                                     async {
                                         val p = pingRepository.measurePing(s, timeoutMs = 1200)
-                                        if (p in 1..9998) Pair(p, "Hy2") else null
+                                        if (p in 1..9998) Pair(p, "Hysteria 2") else null
                                     }
                                 }
                                 val xhttpDeferred = xhttpServer?.let { s ->

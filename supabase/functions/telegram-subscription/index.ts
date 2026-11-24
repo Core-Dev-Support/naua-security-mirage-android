@@ -510,6 +510,7 @@ serve(async (req) => {
     let account: AccountRow | null = null;
     let subjectId: string | null = null;
     let tgId: number | null = null;
+    let authedJwt = "";
 
     if (rawUser) {
       const userTgId = parseSignedUser(rawUser);
@@ -543,6 +544,7 @@ serve(async (req) => {
 
       if (authedUserId) {
         subjectId = authedUserId;
+        authedJwt = bearer;
         const { data: rows } = await service()
           .from("telegram_accounts")
           .select("tg_id,user_id,email,access_token,refresh_token,access_expires_at")
@@ -580,7 +582,7 @@ serve(async (req) => {
     }
 
     // Сессия Google могла протухнуть — обновляем.
-    let userToken = account?.access_token || "";
+    let userToken = account?.access_token || authedJwt;
     if (account) {
       const expiresAt = account.access_expires_at
         ? Date.parse(account.access_expires_at)
