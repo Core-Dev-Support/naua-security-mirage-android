@@ -628,6 +628,14 @@ serve(async (req) => {
       return json({ error: "Нет активной подписки" }, 402);
     }
 
+    let resolvedEmail = subscription?.email || account?.email || "";
+    if (!resolvedEmail && subjectId) {
+      try {
+        const { data: userData } = await service().auth.admin.getUserById(subjectId);
+        resolvedEmail = userData?.user?.email || "";
+      } catch (_) {}
+    }
+
     // Каталог платных узлов серверный: Швейцария и Турция — значения
     // по умолчанию. Новая Финляндия появляется в подписке без пересборки.
     const paidNodeConfigs = await loadPaidNodes();
@@ -635,9 +643,9 @@ serve(async (req) => {
       paidNodeConfigs.map(async (node) => {
         // Для Нидерландов зовём панель H1 напрямую: панель сразу отдаёт все активные
         // инбаунды клиента (VLESS XHTTP Reality и Hysteria 2).
-        if (node.configFunction === "france-config" && subscription?.email && hasPaid) {
+        if (node.configFunction === "france-config" && resolvedEmail && hasPaid) {
           try {
-            const ensured = await h1EnsureNode(subscription.email, subscription.paid_until);
+            const ensured = await h1EnsureNode(resolvedEmail, subscription?.paid_until ?? null);
             return {
               node,
               result: { link: ensured.link, links: ensured.links, uuid: ensured.uuid },
@@ -648,9 +656,9 @@ serve(async (req) => {
         }
 
         // Для Турции зовём edge-функцию с сервисным ключом (надежно, не зависит от сессии Google)
-        if (node.configFunction === "belarus-config" && subscription?.email && hasPaid) {
+        if (node.configFunction === "belarus-config" && resolvedEmail && hasPaid) {
           try {
-            const res = await fetchNodeWithService("belarus-config", subjectId || subscription.user_id, subscription.email);
+            const res = await fetchNodeWithService("belarus-config", subjectId || subscription?.user_id || "", resolvedEmail);
             if (res) return { node, result: res };
           } catch (e) {
             console.warn("belarus-config service call failed, fallback to userToken/stored", e);
@@ -671,9 +679,9 @@ serve(async (req) => {
     const nodes: Record<string, unknown>[] = [];
     for (const { node, result } of paidNodes) {
       let resolved = result ?? storedNodeLink(node.id, subscription);
-      if (!resolved && subscription && hasPaid && node.configFunction === "france-config" && subscription.email) {
+      if (!resolved && subscription && hasPaid && node.configFunction === "france-config" && resolvedEmail) {
         try {
-          const ensured = await h1EnsureNode(subscription.email, subscription.paid_until);
+          const ensured = await h1EnsureNode(resolvedEmail, subscription.paid_until);
           resolved = { link: ensured.link, links: ensured.links, uuid: ensured.uuid };
         } catch (error) {
           console.warn(

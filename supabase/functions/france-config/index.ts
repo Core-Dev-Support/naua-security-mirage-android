@@ -44,6 +44,16 @@ function detectProtocolTag(link: string): string {
   return "";
 }
 
+function isAllowedProtocol(link: string): boolean {
+  if (link.startsWith("hysteria2://") || link.startsWith("hy2://")) return true;
+  if (link.startsWith("vless://")) {
+    const lower = link.toLowerCase();
+    // Оставляем только XHTTP, исключая лишний legacy TCP VLESS инбаунд
+    return lower.includes("type=xhttp") || lower.includes("network=xhttp") || lower.includes("xhttp");
+  }
+  return false;
+}
+
 function nameNlLink(rawLink: string): string {
   const proto = detectProtocolTag(rawLink);
   const label = proto ? `🇳🇱 Нидерланды (${proto})` : "🇳🇱 Нидерланды (XHTTP)";
@@ -147,7 +157,9 @@ serve(async (req) => {
     const node = await h1EnsureNode(email, row.paid_until);
     const trafficSeen = node.trafficSeen;
 
-    const namedLinks = (node.links && node.links.length > 0 ? node.links : [node.link])
+    const rawLinks = node.links && node.links.length > 0 ? node.links : [node.link];
+    const allowedLinks = rawLinks.filter(isAllowedProtocol);
+    const namedLinks = (allowedLinks.length > 0 ? allowedLinks : rawLinks)
       .map(nameNlLink);
 
     let chosenKey = namedLinks[0] || nameNlLink(node.link);

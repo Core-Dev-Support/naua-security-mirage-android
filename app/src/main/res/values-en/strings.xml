@@ -133,10 +133,9 @@
     <string name="action_reset_default">Reset to defaults</string>
     <string name="reset_confirm">Appearance has been reset</string>
 
-    <string name="setting_updates">Update source</string>
-    <string name="setting_updates_desc">GitHub Releases (default)</string>
-    <string name="setting_updates_source_github">GitHub Releases (default)</string>
-    <string name="setting_updates_source_uptodown">Uptodown App Store (under moderation)</string>
+    <string name="setting_updates">App updates</string>
+    <string name="setting_updates_desc">GitHub Releases · check and download APK</string>
+    <string name="setting_updates_source_github">GitHub Releases</string>
     <string name="btn_check_updates_now">Check for updates</string>
     <string name="app_version">Mirage %1$s</string>
     <string name="sub_renew_button">Renew subscription</string>
@@ -260,7 +259,10 @@
     <string name="update_download_complete_title">Update downloaded</string>
     <string name="update_download_complete_body">Tap to install %1$s</string>
     <string name="update_install_permission_hint">Allow installs from this source to finish the update</string>
-    <string name="update_uptodown_status">The app is under moderation in the Uptodown App Store. No new versions yet.</string>
+    <string name="update_checking_title">Checking for updates</string>
+    <string name="update_checking_status">Looking for a new release on GitHub Releases…</string>
+    <string name="update_recheck_btn">Check again</string>
+    <string name="update_current_version_fmt">Version %1$s (%2$d) · GitHub Releases</string>
     <string name="update_github_rate_limit">Temporary GitHub request limit (60 per hour). Try again in a few minutes or download via the browser.</string>
 
     <string name="action_disconnect">Disconnect</string>
@@ -395,7 +397,7 @@
     <string name="sub_dynamic_servers_fmt">VIP servers: %1$s</string>
     <string name="export_dialog_title">Key for other devices</string>
     <string name="export_dialog_subtitle">Use on PC, TV or iPhone/iPad</string>
-    <string name="export_qr_content_desc">QR code for VLESS key / subscription</string>
+    <string name="export_qr_content_desc">QR code for subscription and keys</string>
     <string name="export_key_hint">Scan QR code in Happ or v2rayN (also works in Shadowrocket)</string>
     <string name="action_copy_key">Copy key</string>
     <string name="action_copy_link">Copy link</string>
@@ -403,18 +405,14 @@
     <string name="action_share_key">Share</string>
     <string name="export_multi_device_info">1 subscription works across all your devices at no extra cost</string>
     <string name="action_export_keys_title">Subscription on other devices</string>
-    <string name="action_export_keys_desc">Export VLESS/Hysteria 2 keys &amp; QR for PC, iOS and Smart TV</string>
+    <string name="action_export_keys_desc">Export XHTTP / Hysteria 2 keys &amp; QR for PC, iOS and Smart TV</string>
     <string name="toast_key_copied">Copied to clipboard</string>
     <string name="export_chip_all_nodes">All Nodes (Single link)</string>
     <string name="update_badge_sample">Version 1.5.0</string>
     <string name="changelog_label">What\'s new:</string>
     <string name="changelog_full_link">Full changelog</string>
-    <string name="source_title">Update source</string>
-    <string name="source_subtitle">Pick a platform to check versions</string>
     <string name="badge_recommended">Recommended</string>
     <string name="source_github_desc">Direct updates and new APK releases</string>
-    <string name="badge_moderation">Under moderation</string>
-    <string name="source_uptodown_desc">International app catalog</string>
     <string name="site_direct">Direct connection</string>
     <string name="site_via_tunnel">Via tunnel (default)</string>
     <string name="plan_free">⚡ Free</string>

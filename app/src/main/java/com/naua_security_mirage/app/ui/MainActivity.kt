@@ -557,13 +557,7 @@ class MainActivity : AppCompatActivity() {
 
         binding.btnHeaderUpdate.setOnClickListener {
             AnimationHelper.bounceClick(binding.btnHeaderUpdate, minScale = 0.88f, durationMs = 180) {
-                if (AppUpdateManager.hasUpdate()) {
-                    AppUpdateManager.latestUpdate?.let { info ->
-                        AppUpdateManager.showUpdateAvailableDialog(this, info, settingsRepository)
-                    } ?: showUpdateSourceDialog()
-                } else {
-                    showUpdateSourceDialog()
-                }
+                AppUpdateManager.openUpdateCenterDialog(this, settingsRepository)
             }
         }
 
@@ -736,7 +730,7 @@ class MainActivity : AppCompatActivity() {
 
         binding.cardCheckUpdates.setOnClickListener {
             AnimationHelper.bounceClick(binding.cardCheckUpdates, minScale = 0.97f, durationMs = 180) {
-                showUpdateSourceDialog()
+                AppUpdateManager.openUpdateCenterDialog(this, settingsRepository)
             }
         }
 
@@ -1254,10 +1248,6 @@ class MainActivity : AppCompatActivity() {
             AnimationHelper.bounceClick(it, minScale = 0.92f, durationMs = 150)
             selectProtocol(SettingsRepository.PROTOCOL_XHTTP)
         }
-        binding.containerProtocolSelector.btnProtoVless.setOnClickListener {
-            AnimationHelper.bounceClick(it, minScale = 0.92f, durationMs = 150)
-            selectProtocol(SettingsRepository.PROTOCOL_VLESS)
-        }
         updateProtocolSelectorUI()
     }
 
@@ -1322,10 +1312,6 @@ class MainActivity : AppCompatActivity() {
         applyButton(
             binding.containerProtocolSelector.btnProtoXhttp,
             selectedProto == SettingsRepository.PROTOCOL_XHTTP
-        )
-        applyButton(
-            binding.containerProtocolSelector.btnProtoVless,
-            selectedProto == SettingsRepository.PROTOCOL_VLESS
         )
     }
 
@@ -1584,7 +1570,6 @@ class MainActivity : AppCompatActivity() {
         dialogBinding.tvAuthBenefits.setTextColor(pal.subtitle)
         dialogBinding.btnAuthGoogle.backgroundTintList = ColorStateList.valueOf(pal.cardBg)
         dialogBinding.btnAuthGoogle.setTextColor(pal.title)
-        dialogBinding.btnAuthContinueWithoutLogin.setTextColor(pal.subtitle)
 
         AnimationHelper.popIn(dialogBinding.root, durationMs = 240)
         AnimationHelper.attachPressAnimations(dialogBinding.root)
@@ -1606,10 +1591,6 @@ class MainActivity : AppCompatActivity() {
                     com.naua_security_mirage.app.push.MirageMessagingService.refresh()
                 }
             }
-        }
-
-        dialogBinding.btnAuthContinueWithoutLogin.setOnClickListener {
-            dialog.dismiss()
         }
 
         dialogBinding.btnAuthCancel.setOnClickListener {
@@ -1941,14 +1922,26 @@ class MainActivity : AppCompatActivity() {
         val config = AppConfigRepository.config.value
         val targets = mutableListOf<ExportTarget>()
 
+        fun isAllowedExportProtocol(link: String): Boolean {
+            if (link.startsWith("hysteria2://", true) || link.startsWith("hy2://", true)) return true
+            if (link.startsWith("vless://", true)) {
+                return link.contains("type=xhttp", true) ||
+                    link.contains("network=xhttp", true) ||
+                    link.contains("xhttp", true)
+            }
+            return false
+        }
+
         fun hasBothProtocols(links: List<String>): Boolean =
             links.any { it.startsWith("hysteria2://", true) || it.startsWith("hy2://", true) } &&
-                links.any { it.startsWith("vless://", true) }
+                links.any { it.startsWith("vless://", true) && isAllowedExportProtocol(it) }
 
         fun joinLinks(links: List<String>, fallbackSingle: String?): String? {
             val clean = links.map { it.trim() }.filter { it.isNotBlank() }.distinct()
+            val allowed = clean.filter { isAllowedExportProtocol(it) }
+            val result = if (allowed.isNotEmpty()) allowed else clean
             return when {
-                clean.isNotEmpty() -> clean.joinToString("\n")
+                result.isNotEmpty() -> result.joinToString("\n")
                 !fallbackSingle.isNullOrBlank() -> fallbackSingle.trim()
                 else -> null
             }
@@ -3889,7 +3882,6 @@ class MainActivity : AppCompatActivity() {
     private var auroraSpeedDesc: TextView? = null
     private var auroraPingDesc: TextView? = null
     private var auroraLogsDesc: TextView? = null
-    private val auroraSourceRows = mutableMapOf<String, ViewGroup>()
     private val auroraMenuRows = mutableListOf<ViewGroup>()
 
     private fun setupGlassShell() {
@@ -4012,10 +4004,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun auroraSourceName(): String = when (settingsRepository.updateSource) {
-        SettingsRepository.UPDATE_SOURCE_UPTODOWN -> getString(R.string.setting_updates_source_uptodown)
-        else -> getString(R.string.setting_updates_source_github)
-    }
+    private fun auroraSourceName(): String = getString(R.string.setting_updates_source_github)
 
     private fun selectGlassTab(tab: Int, animate: Boolean = true) {
         val shell = binding.auroraShell
@@ -4369,11 +4358,14 @@ class MainActivity : AppCompatActivity() {
                 textSize = 15f
                 typeface = auroraFont(R.font.onest_600)
                 setTextColor(auroraColor(R.color.au_fg))
+                maxLines = 1
                 layoutParams = LinearLayout.LayoutParams(
-                    0,
                     ViewGroup.LayoutParams.WRAP_CONTENT,
-                    1f
-                ).apply { marginStart = gdp(4) }
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+                ).apply {
+                    marginStart = gdp(4)
+                    marginEnd = gdp(14)
+                }
             }
             val check = ImageView(this).apply {
                 setImageResource(R.drawable.au_check)
@@ -5411,7 +5403,7 @@ class MainActivity : AppCompatActivity() {
             ViewGroup.LayoutParams.WRAP_CONTENT
         ).apply { topMargin = gdp(8) })
 
-        // update sources
+        // updates check
         content.addView(TextView(this).apply {
             text = getString(R.string.setting_updates).uppercase()
             textSize = 12f
@@ -5423,34 +5415,6 @@ class MainActivity : AppCompatActivity() {
             ViewGroup.LayoutParams.MATCH_PARENT,
             ViewGroup.LayoutParams.WRAP_CONTENT
         ).apply { setMargins(0, gdp(20), 0, 0) })
-
-        val srcGroup = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            background = auroraGlassBg(28)
-            clipToOutline = true
-        }
-        content.addView(srcGroup, LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT,
-            ViewGroup.LayoutParams.WRAP_CONTENT
-        ).apply { topMargin = gdp(14) })
-
-        auroraSourceRows[SettingsRepository.UPDATE_SOURCE_GITHUB] = auroraAddSourceRow(
-            srcGroup,
-            SettingsRepository.UPDATE_SOURCE_GITHUB,
-            R.drawable.ic_globe,
-            getString(R.string.setting_updates_source_github),
-            getString(R.string.badge_recommended),
-            getString(R.string.source_github_desc)
-        )
-        auroraSourceRows[SettingsRepository.UPDATE_SOURCE_UPTODOWN] = auroraAddSourceRow(
-            srcGroup,
-            SettingsRepository.UPDATE_SOURCE_UPTODOWN,
-            R.drawable.ic_download,
-            getString(R.string.setting_updates_source_uptodown),
-            getString(R.string.badge_moderation),
-            getString(R.string.source_uptodown_desc)
-        )
-        syncAuroraSourceRadios()
 
         val check = TextView(this).apply {
             text = getString(R.string.btn_check_updates_now)
@@ -5516,108 +5480,6 @@ class MainActivity : AppCompatActivity() {
             LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, gdp(120))
         )
         return screen
-    }
-
-    private fun auroraAddSourceRow(
-        group: LinearLayout,
-        source: String,
-        iconRes: Int,
-        title: String,
-        badge: String,
-        desc: String
-    ): ViewGroup {
-        if (group.childCount > 0) {
-            group.addView(
-                View(this).apply { setBackgroundColor(auroraColor(R.color.au_sep)) },
-                LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, gdp(1))
-            )
-        }
-        val row = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            minimumHeight = gdp(74)
-            setPaddingRelative(gdp(16), gdp(14), gdp(16), gdp(14))
-            background = auroraRipple()
-        }
-        val tile = auroraTileFrame()
-        auroraTileChild(tile, iconRes)
-        row.addView(tile)
-
-        val col = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        val titleLine = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-        }
-        titleLine.addView(TextView(this).apply {
-            text = title
-            textSize = 15f
-            typeface = auroraFont(R.font.onest_600)
-            setTextColor(auroraColor(R.color.au_fg))
-        })
-        if (badge.isNotBlank()) {
-            val recommended = badge == getString(R.string.badge_recommended)
-            titleLine.addView(TextView(this).apply {
-                text = badge
-                textSize = 11f
-                typeface = auroraFont(R.font.onest_600)
-                letterSpacing = 0.04f
-                setTextColor(
-                    ContextCompat.getColor(
-                        context,
-                        if (recommended) R.color.au_accent_text else R.color.au_fg_2
-                    )
-                )
-                background = ContextCompat.getDrawable(
-                    context,
-                    if (recommended) R.drawable.bg_au_badge_rec else R.drawable.bg_au_badge_mod
-                )
-                setPaddingRelative(gdp(8), gdp(2), gdp(8), gdp(2))
-            }, LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-            ).apply { marginStart = gdp(8) })
-        }
-        col.addView(titleLine)
-        val descView = TextView(this).apply {
-            this.text = desc
-            textSize = 13f
-            typeface = auroraFont(R.font.onest_400)
-            setTextColor(auroraColor(R.color.au_fg_2))
-            tag = "au_row_desc"
-        }
-        col.addView(descView, LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.WRAP_CONTENT,
-            ViewGroup.LayoutParams.WRAP_CONTENT
-        ).apply { topMargin = gdp(2) })
-        row.addView(col, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
-            marginStart = gdp(14)
-        })
-
-        val radio = View(this).apply {
-            background = auroraRadioBg(false)
-            layoutParams = LinearLayout.LayoutParams(gdp(24), gdp(24))
-            tag = "au_radio"
-        }
-        row.addView(radio)
-        row.setOnClickListener {
-            AnimationHelper.bounceClick(row, minScale = 0.98f, durationMs = 130)
-            if (settingsRepository.updateSource != source) {
-                settingsRepository.updateSource = source
-                syncAuroraSourceRadios()
-            }
-        }
-        group.addView(row, LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT,
-            ViewGroup.LayoutParams.WRAP_CONTENT
-        ))
-        return row
-    }
-
-    private fun syncAuroraSourceRadios() {
-        auroraSourceRows.forEach { (source, row) ->
-            val radio = row.findViewWithTag<View>("au_radio") ?: return@forEach
-            radio.background = auroraRadioBg(settingsRepository.updateSource == source)
-        }
     }
 
     // ---------------- sheets + toast ----------------
@@ -9290,146 +9152,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun updateUpdateSourceUI() {
-        val descText = when (settingsRepository.updateSource) {
-            SettingsRepository.UPDATE_SOURCE_UPTODOWN -> getString(R.string.setting_updates_source_uptodown)
-            else -> getString(R.string.setting_updates_source_github)
-        }
-        binding.tvUpdateSettingDesc.text = descText
-    }
-
-    private fun showUpdateSourceDialog() {
-        val dialog = Dialog(this)
-        dialog.setContentView(R.layout.dialog_update_source)
-        dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
-        dialog.window?.setLayout(
-            (resources.displayMetrics.widthPixels * 0.92f).toInt(),
-            LinearLayout.LayoutParams.WRAP_CONTENT
-        )
-
-        val density = resources.displayMetrics.density
-        val hasWallpaper = !settingsRepository.customBgImagePath.isNullOrEmpty() && File(settingsRepository.customBgImagePath ?: "").exists()
-        val isLightContext = !hasWallpaper && (settingsRepository.themePreset == SettingsRepository.THEME_LIGHT || (settingsRepository.customBgColor != 0 && ColorUtils.calculateLuminance(settingsRepository.customBgColor) > 0.5))
-
-        val root = dialog.findViewById<LinearLayout>(R.id.dialogUpdateSourceRoot)
-        val tvTitle = dialog.findViewById<TextView>(R.id.tvUpdateSourceDialogTitle)
-        val tvSubtitle = dialog.findViewById<TextView>(R.id.tvUpdateSourceDialogSubtitle)
-        val ivClose = dialog.findViewById<ImageView>(R.id.ivUpdateSourceDialogClose)
-        val vDivider = dialog.findViewById<View>(R.id.vUpdateSourceDivider)
-
-        val rowGithub = dialog.findViewById<LinearLayout>(R.id.rowSourceGithub)
-        val tvGithubTitle = dialog.findViewById<TextView>(R.id.tvSourceGithubTitle)
-        val tvGithubDesc = dialog.findViewById<TextView>(R.id.tvSourceGithubDesc)
-        val badgeGithub = dialog.findViewById<TextView>(R.id.badgeSourceGithub)
-        val rbGithub = dialog.findViewById<RadioButton>(R.id.rbSourceGithub)
-        val ivGithub = dialog.findViewById<ImageView>(R.id.ivSourceGithubIcon)
-
-        val rowUptodown = dialog.findViewById<LinearLayout>(R.id.rowSourceUptodown)
-        val tvUptodownTitle = dialog.findViewById<TextView>(R.id.tvSourceUptodownTitle)
-        val tvUptodownDesc = dialog.findViewById<TextView>(R.id.tvSourceUptodownDesc)
-        val badgeUptodown = dialog.findViewById<TextView>(R.id.badgeSourceUptodown)
-        val rbUptodown = dialog.findViewById<RadioButton>(R.id.rbSourceUptodown)
-        val ivUptodown = dialog.findViewById<ImageView>(R.id.ivSourceUptodownIcon)
-
-        val customAction = settingsRepository.customActionBtnColor
-        val customText = settingsRepository.customTextColor
-
-        val cardBgColor = if (isLightContext) Color.WHITE else ContextCompat.getColor(this, R.color.card)
-        val strokeColor = if (isLightContext) Color.parseColor("#E2E8F0") else ContextCompat.getColor(this, R.color.card_stroke)
-        val titleTextColor = if (customText != 0) customText else (if (isLightContext) Color.parseColor("#0F172A") else Color.parseColor("#F8FAFC"))
-        val subtitleTextColor = if (customText != 0) ColorUtils.setAlphaComponent(customText, 190) else (if (isLightContext) Color.parseColor("#475569") else Color.parseColor("#94A3B8"))
-        val accentColor = if (customAction != 0) customAction else (if (isLightContext) Color.parseColor("#B45309") else Color.parseColor("#F59E0B"))
-
-        root.background = GradientDrawable().apply {
-            shape = GradientDrawable.RECTANGLE
-            cornerRadius = 24f * density
-            setColor(cardBgColor)
-            setStroke((1.2f * density).toInt(), strokeColor)
-        }
-
-        tvTitle.setTextColor(titleTextColor)
-        tvSubtitle.setTextColor(subtitleTextColor)
-        vDivider.setBackgroundColor(strokeColor)
-        ivClose.imageTintList = ColorStateList.valueOf(subtitleTextColor)
-
-        tvGithubTitle.setTextColor(titleTextColor)
-        tvGithubDesc.setTextColor(subtitleTextColor)
-        tvUptodownTitle.setTextColor(titleTextColor)
-        tvUptodownDesc.setTextColor(subtitleTextColor)
-
-        ivGithub.imageTintList = ColorStateList.valueOf(accentColor)
-        ivUptodown.imageTintList = ColorStateList.valueOf(subtitleTextColor)
-
-        val badgeRecommendBg = GradientDrawable().apply {
-            shape = GradientDrawable.RECTANGLE
-            cornerRadius = 8f * density
-            setColor(ColorUtils.setAlphaComponent(accentColor, 35))
-            setStroke((1f * density).toInt(), ColorUtils.setAlphaComponent(accentColor, 90))
-        }
-        badgeGithub.background = badgeRecommendBg
-        badgeGithub.setTextColor(accentColor)
-
-        val badgeModBg = GradientDrawable().apply {
-            shape = GradientDrawable.RECTANGLE
-            cornerRadius = 8f * density
-            setColor(ColorUtils.setAlphaComponent(Color.parseColor("#64748B"), 30))
-            setStroke((1f * density).toInt(), ColorUtils.setAlphaComponent(Color.parseColor("#64748B"), 80))
-        }
-        badgeUptodown.background = badgeModBg
-        badgeUptodown.setTextColor(Color.parseColor("#94A3B8"))
-
-        rbGithub.buttonTintList = ColorStateList.valueOf(accentColor)
-        rbUptodown.buttonTintList = ColorStateList.valueOf(accentColor)
-
-        rowGithub.background = getCardDrawable(isLightContext, 14f)
-        rowUptodown.background = getCardDrawable(isLightContext, 14f)
-
-        val btnCheckNow = dialog.findViewById<LinearLayout>(R.id.btnDialogCheckUpdatesNow)
-        val ivSpinner = dialog.findViewById<ImageView>(R.id.ivDialogCheckUpdatesSpinner)
-        val tvCheckNow = dialog.findViewById<TextView>(R.id.tvDialogCheckUpdatesNow)
-
-        btnCheckNow.background = getCardDrawable(isLightContext, 14f)
-        tvCheckNow.setTextColor(titleTextColor)
-        ivSpinner.imageTintList = ColorStateList.valueOf(accentColor)
-
-        fun updateRadios(source: String) {
-            rbGithub.isChecked = (source == SettingsRepository.UPDATE_SOURCE_GITHUB)
-            rbUptodown.isChecked = (source == SettingsRepository.UPDATE_SOURCE_UPTODOWN)
-        }
-
-        updateRadios(settingsRepository.updateSource)
-
-        val selectSource: (String, String) -> Unit = { newSource, name ->
-            settingsRepository.updateSource = newSource
-            updateRadios(newSource)
-            updateUpdateSourceUI()
-            Toast.makeText(this, getString(R.string.toast_source_fmt, name), Toast.LENGTH_SHORT).show()
-        }
-
-        rowGithub.setOnClickListener {
-            AnimationHelper.bounceClick(rowGithub, minScale = 0.96f, durationMs = 150) {
-                selectSource(SettingsRepository.UPDATE_SOURCE_GITHUB, "GitHub Releases")
-            }
-        }
-
-        rowUptodown.setOnClickListener {
-            AnimationHelper.bounceClick(rowUptodown, minScale = 0.96f, durationMs = 150) {
-                selectSource(SettingsRepository.UPDATE_SOURCE_UPTODOWN, "Uptodown App Store")
-            }
-        }
-
-        btnCheckNow.setOnClickListener {
-            AnimationHelper.bounceClick(btnCheckNow, minScale = 0.96f, durationMs = 150)
-            AnimationHelper.spin(ivSpinner, durationMs = 850, rotations = 1f)
-            AppUpdateManager.checkForUpdates(this, settingsRepository, isManual = true)
-        }
-
-        ivClose.setOnClickListener {
-            dialog.dismiss()
-        }
-
-        dialog.show()
-        AnimationHelper.popIn(root, durationMs = 240)
-        AnimationHelper.attachPressAnimations(root)
+        binding.tvUpdateSettingDesc.text = getString(R.string.setting_updates_desc)
     }
 
 

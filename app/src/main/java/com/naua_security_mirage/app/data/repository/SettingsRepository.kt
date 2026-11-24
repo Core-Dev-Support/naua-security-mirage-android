@@ -150,10 +150,8 @@ class SettingsRepository(context: Context) {
         set(value) = prefs.edit().putLong(KEY_GEO_LAST_UPDATE, value).apply()
 
     var updateSource: String
-        get() = prefs.getString(KEY_UPDATE_SOURCE, UPDATE_SOURCE_GITHUB)
-            ?.takeIf { it == UPDATE_SOURCE_GITHUB || it == UPDATE_SOURCE_UPTODOWN }
-            ?: UPDATE_SOURCE_GITHUB
-        set(value) = prefs.edit().putString(KEY_UPDATE_SOURCE, value).apply()
+        get() = UPDATE_SOURCE_GITHUB
+        set(_) = prefs.edit().putString(KEY_UPDATE_SOURCE, UPDATE_SOURCE_GITHUB).apply()
 
     var selectedServerPlan: String
         get() = prefs.getString(KEY_SELECTED_SERVER_PLAN, PLAN_FREE) ?: PLAN_FREE
@@ -292,7 +290,8 @@ class SettingsRepository(context: Context) {
     }
 
     fun getProtocolForNode(nodeId: String, defaultProtocol: String = PROTOCOL_AUTO): String {
-        return prefs.getString(KEY_NODE_PROTOCOL_PREFIX + nodeId, defaultProtocol) ?: defaultProtocol
+        val raw = prefs.getString(KEY_NODE_PROTOCOL_PREFIX + nodeId, defaultProtocol) ?: defaultProtocol
+        return if (raw == PROTOCOL_VLESS) PROTOCOL_AUTO else raw
     }
 
     fun setProtocolForNode(nodeId: String, protocol: String) {
@@ -329,7 +328,6 @@ class SettingsRepository(context: Context) {
         const val DEFAULT_SPEED_INTERVAL = 1
 
         const val UPDATE_SOURCE_GITHUB = "github"
-        const val UPDATE_SOURCE_UPTODOWN = "uptodown"
 
         const val PLAN_FREE = "free"
         const val LANG_RU = "ru"

@@ -275,7 +275,7 @@ The system allows only one active VPN at a time. That is an Android limitation, 
 <details>
 <summary><b>Will it be in app stores?</b></summary>
 
-Currently GitHub Releases, from which the app updates itself with signature verification. Uptodown is under review.
+Currently GitHub Releases, from which the app updates itself with signature verification.
 
 </details>
 

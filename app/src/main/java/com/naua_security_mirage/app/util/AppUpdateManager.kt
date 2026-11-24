@@ -120,28 +120,28 @@ object AppUpdateManager {
 
     fun hasUpdate(): Boolean = latestUpdate != null
 
+    sealed class CheckOutcome {
+        data class Available(val info: UpdateInfo) : CheckOutcome()
+        object UpToDate : CheckOutcome()
+        data class Failure(val message: String) : CheckOutcome()
+    }
+
     fun checkForUpdates(
         activity: Activity,
         settingsRepository: SettingsRepository,
         isManual: Boolean = false,
         onComplete: (() -> Unit)? = null
     ) {
-        when (settingsRepository.updateSource) {
-            SettingsRepository.UPDATE_SOURCE_UPTODOWN -> {
-                handleUptodownUpdates(activity, isManual)
-                onComplete?.invoke()
-            }
-            else -> {
-                checkGitHubUpdates(activity, settingsRepository, isManual, onComplete)
-            }
-        }
+        checkGitHubUpdates(activity, settingsRepository, isManual, autoShowDialog = true, onComplete = onComplete)
     }
 
     private fun checkGitHubUpdates(
         activity: Activity,
         settingsRepository: SettingsRepository,
         isManual: Boolean,
-        onComplete: (() -> Unit)?
+        autoShowDialog: Boolean = true,
+        onOutcome: ((CheckOutcome) -> Unit)? = null,
+        onComplete: (() -> Unit)? = null
     ) {
         Thread {
             try {
@@ -171,34 +171,35 @@ object AppUpdateManager {
                 mainHandler.post {
                     onComplete?.invoke()
                     if (response.isSuccessful && !responseBody.isNullOrEmpty()) {
-                        handleGitHubReleaseResponse(activity, settingsRepository, responseBody, isManual)
+                        handleGitHubReleaseResponse(
+                            activity,
+                            settingsRepository,
+                            responseBody,
+                            isManual,
+                            autoShowDialog,
+                            onOutcome
+                        )
                     } else if (statusCode == 404) {
                         latestUpdate = null
                         notifyListeners(false, null)
-                        if (isManual) {
-                            Toast.makeText(
-                                activity,
-                                R.string.update_github_private,
-                                Toast.LENGTH_LONG
-                            ).show()
+                        val msg = activity.getString(R.string.update_github_private)
+                        onOutcome?.invoke(CheckOutcome.Failure(msg))
+                        if (isManual && autoShowDialog) {
+                            Toast.makeText(activity, msg, Toast.LENGTH_LONG).show()
                         }
                     } else if (statusCode == 403) {
                         latestUpdate = null
                         notifyListeners(false, null)
-                        if (isManual) {
-                            Toast.makeText(
-                                activity,
-                                activity.getString(R.string.update_github_rate_limit),
-                                Toast.LENGTH_LONG
-                            ).show()
+                        val msg = activity.getString(R.string.update_github_rate_limit)
+                        onOutcome?.invoke(CheckOutcome.Failure(msg))
+                        if (isManual && autoShowDialog) {
+                            Toast.makeText(activity, msg, Toast.LENGTH_LONG).show()
                         }
                     } else {
-                        if (isManual) {
-                            Toast.makeText(
-                                activity,
-                                activity.getString(R.string.update_github_code_fmt, statusCode),
-                                Toast.LENGTH_SHORT
-                            ).show()
+                        val msg = activity.getString(R.string.update_github_code_fmt, statusCode)
+                        onOutcome?.invoke(CheckOutcome.Failure(msg))
+                        if (isManual && autoShowDialog) {
+                            Toast.makeText(activity, msg, Toast.LENGTH_SHORT).show()
                         }
                     }
                 }
@@ -206,12 +207,10 @@ object AppUpdateManager {
                 AppLogger.w(TAG, "Ошибка проверки GitHub обновлений: ${e.message}")
                 mainHandler.post {
                     onComplete?.invoke()
-                    if (isManual) {
-                        Toast.makeText(
-                            activity,
-                            activity.getString(R.string.update_network_error),
-                            Toast.LENGTH_SHORT
-                        ).show()
+                    val msg = activity.getString(R.string.update_network_error)
+                    onOutcome?.invoke(CheckOutcome.Failure(msg))
+                    if (isManual && autoShowDialog) {
+                        Toast.makeText(activity, msg, Toast.LENGTH_SHORT).show()
                     }
                 }
             }
@@ -222,7 +221,9 @@ object AppUpdateManager {
         activity: Activity,
         settingsRepository: SettingsRepository,
         jsonString: String,
-        isManual: Boolean
+        isManual: Boolean,
+        autoShowDialog: Boolean = true,
+        onOutcome: ((CheckOutcome) -> Unit)? = null
     ) {
         try {
             val json = JSONObject(jsonString)
@@ -257,11 +258,15 @@ object AppUpdateManager {
                 )
                 latestUpdate = info
                 notifyListeners(true, info)
-                showUpdateAvailableDialog(activity, info, settingsRepository)
+                onOutcome?.invoke(CheckOutcome.Available(info))
+                if (autoShowDialog) {
+                    showUpdateAvailableDialog(activity, info, settingsRepository)
+                }
             } else {
                 latestUpdate = null
                 notifyListeners(false, null)
-                if (isManual) {
+                onOutcome?.invoke(CheckOutcome.UpToDate)
+                if (isManual && autoShowDialog) {
                     Toast.makeText(
                         activity,
                         activity.getString(R.string.update_up_to_date_fmt, currentVersion),
@@ -271,7 +276,8 @@ object AppUpdateManager {
             }
         } catch (e: Exception) {
             AppLogger.w(TAG, "Ошибка разбора ответа релиза: ${e.message}")
-            if (isManual) {
+            onOutcome?.invoke(CheckOutcome.UpToDate)
+            if (isManual && autoShowDialog) {
                 Toast.makeText(activity, R.string.toast_up_to_date, Toast.LENGTH_SHORT).show()
             }
         }
@@ -345,16 +351,176 @@ object AppUpdateManager {
     fun isNewerVersion(latestTag: String, currentVersion: String): Boolean =
         VersionComparator.isNewer(latestTag, currentVersion)
 
-    private fun handleUptodownUpdates(activity: Activity, isManual: Boolean) {
-        latestUpdate = null
-        notifyListeners(false, null)
-        if (isManual) {
-            Toast.makeText(
-                activity,
-                activity.getString(R.string.update_uptodown_status),
-                Toast.LENGTH_LONG
-            ).show()
+    /**
+     * Единое окно проверки и скачивания обновлений с GitHub Releases.
+     * Если обновление уже найдено — сразу показывает карточку установки;
+     * если нет — проверяет наличие релиза прямо в этом окне с прогрессом.
+     */
+    fun openUpdateCenterDialog(
+        activity: Activity,
+        settingsRepository: SettingsRepository? = null
+    ) {
+        latestUpdate?.let { info ->
+            showUpdateAvailableDialog(activity, info, settingsRepository)
+            return
         }
+        if (updateDialogShowing) return
+        updateDialogShowing = true
+
+        val dialog = Dialog(activity)
+        dialog.setContentView(R.layout.dialog_update_available)
+        dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+        dialog.window?.setLayout(
+            (activity.resources.displayMetrics.widthPixels * 0.92f).toInt(),
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        )
+
+        val density = activity.resources.displayMetrics.density
+        val hasWallpaper = settingsRepository != null &&
+            !settingsRepository.customBgImagePath.isNullOrEmpty() &&
+            File(settingsRepository.customBgImagePath ?: "").exists()
+        val isLightContext = !hasWallpaper && (
+            settingsRepository?.themePreset == SettingsRepository.THEME_LIGHT ||
+                (settingsRepository != null && settingsRepository.customBgColor != 0 &&
+                    ColorUtils.calculateLuminance(settingsRepository.customBgColor) > 0.5)
+            )
+
+        val cardBgColor = if (isLightContext) Color.WHITE else ContextCompat.getColor(activity, R.color.card)
+        val strokeColor = if (isLightContext) Color.parseColor("#E2E8F0") else ContextCompat.getColor(activity, R.color.card_stroke)
+        val titleTextColor = if (isLightContext) Color.parseColor("#0F172A") else ContextCompat.getColor(activity, R.color.ink)
+        val subtitleTextColor = if (isLightContext) Color.parseColor("#475569") else ContextCompat.getColor(activity, R.color.ink_soft)
+        val accentColor = ContextCompat.getColor(activity, R.color.accent)
+
+        val root = dialog.findViewById<LinearLayout>(R.id.dialogUpdateAvailableRoot)
+        val ivIcon = dialog.findViewById<ImageView>(R.id.ivUpdateAvailableIcon)
+        val tvTitle = dialog.findViewById<TextView>(R.id.tvUpdateAvailableTitle)
+        val tvBadge = dialog.findViewById<TextView>(R.id.tvUpdateVersionBadge)
+        val vDivider = dialog.findViewById<View>(R.id.vUpdateAvailableDivider)
+        val tvLabel = dialog.findViewById<TextView>(R.id.tvChangelogLabel)
+        val scroll = dialog.findViewById<ScrollView>(R.id.scrollUpdateChangelog)
+        val tvChangelog = dialog.findViewById<TextView>(R.id.tvUpdateChangelog)
+        val tvFullLink = dialog.findViewById<TextView>(R.id.tvChangelogFullLink)
+        val layoutProgress = dialog.findViewById<LinearLayout>(R.id.layoutUpdateProgress)
+        val pbDownload = dialog.findViewById<ProgressBar>(R.id.pbUpdateDownload)
+        val tvDownloadProgress = dialog.findViewById<TextView>(R.id.tvUpdateDownloadProgress)
+        val btnLater = dialog.findViewById<TextView>(R.id.btnUpdateLater)
+        val btnDownload = dialog.findViewById<TextView>(R.id.btnUpdateDownload)
+        val btnBrowser = dialog.findViewById<TextView>(R.id.btnUpdateBrowser)
+
+        root.background = GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            cornerRadius = 24f * density
+            setColor(cardBgColor)
+            setStroke((1.2f * density).toInt(), strokeColor)
+        }
+        vDivider.setBackgroundColor(strokeColor)
+        ivIcon.imageTintList = ColorStateList.valueOf(accentColor)
+
+        tvTitle.setTextColor(titleTextColor)
+        tvBadge.setTextColor(subtitleTextColor)
+        tvChangelog.setTextColor(subtitleTextColor)
+        tvLabel.visibility = View.GONE
+        tvFullLink.setTextColor(accentColor)
+        tvFullLink.setOnClickListener {
+            runCatching {
+                activity.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(CHANGELOG_URL)))
+            }
+        }
+
+        val dangerColor = ContextCompat.getColor(activity, R.color.danger)
+        btnLater.setTextColor(dangerColor)
+        btnLater.background = GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            cornerRadius = 14f * density
+            setColor(ColorUtils.setAlphaComponent(dangerColor, 28))
+            setStroke((1f * density).toInt(), ColorUtils.setAlphaComponent(dangerColor, 140))
+        }
+        btnLater.text = activity.getString(R.string.update_dialog_close)
+        btnLater.setOnClickListener {
+            AnimationHelper.bounceClick(btnLater, minScale = 0.94f, durationMs = 150) {
+                dialog.dismiss()
+            }
+        }
+
+        btnBrowser.visibility = View.GONE
+        btnDownload.background = GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            cornerRadius = 14f * density
+            setColor(ColorUtils.setAlphaComponent(accentColor, 35))
+            setStroke((1f * density).toInt(), accentColor)
+        }
+        var handedOffToAvailable = false
+        btnDownload.setTextColor(accentColor)
+        btnDownload.text = activity.getString(R.string.update_recheck_btn)
+
+        fun startCheck() {
+            tvTitle.text = activity.getString(R.string.update_checking_title)
+            tvBadge.text = activity.getString(
+                R.string.update_current_version_fmt,
+                BuildConfig.VERSION_NAME,
+                BuildConfig.VERSION_CODE
+            )
+            scroll.visibility = View.GONE
+            tvFullLink.visibility = View.GONE
+            btnDownload.visibility = View.GONE
+            layoutProgress.visibility = View.VISIBLE
+            pbDownload.isIndeterminate = true
+            tvDownloadProgress.text = activity.getString(R.string.update_checking_status)
+
+            val repo = settingsRepository ?: SettingsRepository(activity)
+            checkGitHubUpdates(
+                activity = activity,
+                settingsRepository = repo,
+                isManual = true,
+                autoShowDialog = false,
+                onOutcome = { outcome ->
+                    if (!dialog.isShowing) return@checkGitHubUpdates
+                    when (outcome) {
+                        is CheckOutcome.Available -> {
+                            handedOffToAvailable = true
+                            dialog.dismiss()
+                            updateDialogShowing = false
+                            showUpdateAvailableDialog(activity, outcome.info, settingsRepository)
+                        }
+                        is CheckOutcome.UpToDate -> {
+                            layoutProgress.visibility = View.GONE
+                            scroll.visibility = View.VISIBLE
+                            tvChangelog.text = activity.getString(
+                                R.string.update_up_to_date_fmt,
+                                "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})"
+                            )
+                            tvFullLink.visibility = View.VISIBLE
+                            btnDownload.visibility = View.VISIBLE
+                            btnDownload.text = activity.getString(R.string.update_recheck_btn)
+                        }
+                        is CheckOutcome.Failure -> {
+                            layoutProgress.visibility = View.GONE
+                            scroll.visibility = View.VISIBLE
+                            tvChangelog.text = outcome.message
+                            tvFullLink.visibility = View.GONE
+                            btnDownload.visibility = View.VISIBLE
+                            btnDownload.text = activity.getString(R.string.update_recheck_btn)
+                        }
+                    }
+                }
+            )
+        }
+
+        btnDownload.setOnClickListener {
+            AnimationHelper.bounceClick(btnDownload, minScale = 0.94f, durationMs = 150) {
+                startCheck()
+            }
+        }
+
+        dialog.setOnDismissListener {
+            if (!handedOffToAvailable) {
+                updateDialogShowing = false
+            }
+        }
+
+        dialog.show()
+        AnimationHelper.popIn(root, durationMs = 240)
+        startCheck()
     }
 
     fun showUpdateAvailableDialog(

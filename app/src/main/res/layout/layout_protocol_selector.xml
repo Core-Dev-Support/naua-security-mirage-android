@@ -100,23 +100,5 @@
             android:textColor="@color/ink_soft"
             android:textSize="11.5sp"
             android:textStyle="bold" />
-
-        <TextView
-            android:id="@+id/btnProtoVless"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="3dp"
-            android:background="@android:color/transparent"
-            android:clickable="true"
-            android:focusable="true"
-            android:maxLines="1"
-            android:paddingStart="11dp"
-            android:paddingTop="5dp"
-            android:paddingEnd="11dp"
-            android:paddingBottom="5dp"
-            android:text="@string/protocol_vless"
-            android:textColor="@color/ink_soft"
-            android:textSize="11.5sp"
-            android:textStyle="bold" />
     </LinearLayout>
 </LinearLayout>

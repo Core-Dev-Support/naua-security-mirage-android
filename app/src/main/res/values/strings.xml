@@ -133,10 +133,9 @@
     <string name="action_reset_default">Сбросить по умолчанию</string>
     <string name="reset_confirm">Внешний вид сброшен</string>
 
-    <string name="setting_updates">Источник обновления</string>
-    <string name="setting_updates_desc">GitHub Releases (по умолчанию)</string>
-    <string name="setting_updates_source_github">GitHub Releases (по умолчанию)</string>
-    <string name="setting_updates_source_uptodown">Uptodown App Store (на модерации)</string>
+    <string name="setting_updates">Обновления приложения</string>
+    <string name="setting_updates_desc">GitHub Releases · проверка и загрузка APK</string>
+    <string name="setting_updates_source_github">GitHub Releases</string>
     <string name="btn_check_updates_now">Проверить наличие обновления</string>
     <string name="app_version">Mirage %1$s</string>
     <string name="sub_renew_button">Продлить подписку</string>
@@ -260,7 +259,10 @@
     <string name="update_download_complete_title">Обновление загружено</string>
     <string name="update_download_complete_body">Нажмите для установки %1$s</string>
     <string name="update_install_permission_hint">Разрешите установку из этого источника для завершения обновления</string>
-    <string name="update_uptodown_status">Приложение находится на модерации в Uptodown App Store. Новых версий пока нет.</string>
+    <string name="update_checking_title">Проверка обновлений</string>
+    <string name="update_checking_status">Ищем новую версию на GitHub Releases…</string>
+    <string name="update_recheck_btn">Проверить снова</string>
+    <string name="update_current_version_fmt">Версия %1$s (%2$d) · GitHub Releases</string>
     <string name="update_github_rate_limit">Временный лимит запросов GitHub (60 в час). Попробуйте через несколько минут или скачайте через браузер.</string>
 
     <string name="action_disconnect">Отключить</string>
@@ -395,7 +397,7 @@
     <string name="sub_dynamic_servers_fmt">VIP-серверы: %1$s</string>
     <string name="export_dialog_title">Ключ для других устройств</string>
     <string name="export_dialog_subtitle">Используйте на ПК, ТВ или iPhone/iPad</string>
-    <string name="export_qr_content_desc">QR-код ключа VLESS / подписки</string>
+    <string name="export_qr_content_desc">QR-код подписки и ключей</string>
     <string name="export_key_hint">Отсканируйте QR-код в приложении Happ или v2rayN (также работает в Shadowrocket)</string>
     <string name="action_copy_key">Скопировать ключ</string>
     <string name="action_copy_link">Скопировать ссылку</string>
@@ -403,18 +405,14 @@
     <string name="action_share_key">Поделиться</string>
     <string name="export_multi_device_info">1 подписка действует на всех ваших устройствах без доплат</string>
     <string name="action_export_keys_title">Подписка на других устройствах</string>
-    <string name="action_export_keys_desc">Экспорт VLESS/Hysteria 2 ключей и QR для ПК, iOS и Smart TV</string>
+    <string name="action_export_keys_desc">Экспорт XHTTP / Hysteria 2 ключей и QR для ПК, iOS и Smart TV</string>
     <string name="toast_key_copied">Скопировано в буфер обмена</string>
     <string name="export_chip_all_nodes">Все узлы (Единая ссылка)</string>
     <string name="update_badge_sample">Версия 1.5.0</string>
     <string name="changelog_label">Что нового:</string>
     <string name="changelog_full_link">Полный список изменений</string>
-    <string name="source_title">Источник обновлений</string>
-    <string name="source_subtitle">Выберите платформу для проверки версий</string>
     <string name="badge_recommended">Рекомендуется</string>
     <string name="source_github_desc">Прямые обновления и новые релизы APK</string>
-    <string name="badge_moderation">На модерации</string>
-    <string name="source_uptodown_desc">Международный каталог приложений</string>
     <string name="site_direct">Прямое подключение</string>
     <string name="site_via_tunnel">Через туннель (по умолчанию)</string>
     <string name="plan_free">⚡ Бесплатный</string>
