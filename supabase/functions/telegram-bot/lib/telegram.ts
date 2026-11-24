@@ -222,11 +222,16 @@ export class Telegram {
     if (!this.#token) return null;
     try {
       const response = await this.post("sendMessage", payload);
-      if (!response.ok) return null;
+      if (!response.ok) {
+        const body = await response.text();
+        console.warn(`[telegram.sendMessage] HTTP ${response.status}: ${body}`);
+        return null;
+      }
       const parsed = await response.json();
       const id = parsed?.result?.message_id;
       return typeof id === "number" ? id : null;
-    } catch {
+    } catch (err) {
+      console.warn("[telegram.sendMessage] network error:", err);
       return null;
     }
   }
@@ -253,11 +258,16 @@ export class Telegram {
     if (!this.#token) return null;
     try {
       const response = await this.post("sendMessage", payload);
-      if (!response.ok) return null;
+      if (!response.ok) {
+        const body = await response.text();
+        console.warn(`[telegram.sendMessage] HTTP ${response.status}: ${body}`);
+        return null;
+      }
       const parsed = await response.json();
       const id = parsed?.result?.message_id;
       return typeof id === "number" ? id : null;
-    } catch {
+    } catch (err) {
+      console.warn("[telegram.sendMessage] network error:", err);
       return null;
     }
   }
@@ -353,8 +363,10 @@ export class Telegram {
       if (response.ok) return "ok";
       const body = await response.text();
       if (body.includes("not modified")) return "unchanged";
+      console.warn(`[telegram.editMessage] HTTP ${response.status}: ${body}`);
       return "error";
-    } catch {
+    } catch (err) {
+      console.warn("[telegram.editMessage] network error:", err);
       return "error";
     }
   }

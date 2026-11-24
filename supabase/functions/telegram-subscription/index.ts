@@ -502,7 +502,10 @@ serve(async (req) => {
 
     const rawUser = url.searchParams.get("user") || "";
     const bearerHeader = req.headers.get("Authorization") || "";
-    const bearer = bearerHeader.startsWith("Bearer ") ? bearerHeader.slice(7).trim() : "";
+    const urlToken = url.searchParams.get("token") || url.searchParams.get("jwt") || url.searchParams.get("uid") || "";
+    const bearer = bearerHeader.startsWith("Bearer ")
+      ? bearerHeader.slice(7).trim()
+      : urlToken.trim();
 
     let account: AccountRow | null = null;
     let subjectId: string | null = null;
@@ -530,18 +533,48 @@ serve(async (req) => {
       tgId = verified;
       subjectId = account?.user_id ?? null;
     } else if (bearer) {
-      const { data, error } = await service().auth.getUser(bearer);
-      if (error || !data?.user?.id) {
-        return json({ error: "Сессия недействительна" }, 401);
+      let authedUserId: string | null = null;
+      try {
+        const { data, error } = await service().auth.getUser(bearer);
+        if (!error && data?.user?.id) {
+          authedUserId = data.user.id;
+        }
+      } catch (_) {}
+
+      if (authedUserId) {
+        subjectId = authedUserId;
+        const { data: rows } = await service()
+          .from("telegram_accounts")
+          .select("tg_id,user_id,email,access_token,refresh_token,access_expires_at")
+          .eq("user_id", authedUserId)
+          .limit(1);
+        account = ((rows && rows[0]) as AccountRow | undefined) ?? null;
+        tgId = account?.tg_id ?? null;
+      } else {
+        // Резервный поиск по client_uuid или user_id
+        const isUuid = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(bearer);
+        if (isUuid) {
+          const { data: subRows } = await service()
+            .from("subscriptions")
+            .select("user_id,email,is_active,paid_until,client_uuid")
+            .or(`client_uuid.eq.${bearer},user_id.eq.${bearer}`)
+            .limit(1);
+          if (subRows && subRows[0]?.user_id) {
+            subjectId = subRows[0].user_id;
+            const { data: rows } = await service()
+              .from("telegram_accounts")
+              .select("tg_id,user_id,email,access_token,refresh_token,access_expires_at")
+              .eq("user_id", subjectId)
+              .limit(1);
+            account = ((rows && rows[0]) as AccountRow | undefined) ?? null;
+            tgId = account?.tg_id ?? null;
+          } else {
+            return json({ error: "Сессия недействительна" }, 401);
+          }
+        } else {
+          return json({ error: "Сессия недействительна" }, 401);
+        }
       }
-      subjectId = data.user.id;
-      const { data: rows } = await service()
-        .from("telegram_accounts")
-        .select("tg_id,user_id,email,access_token,refresh_token,access_expires_at")
-        .eq("user_id", data.user.id)
-        .limit(1);
-      account = ((rows && rows[0]) as AccountRow | undefined) ?? null;
-      tgId = account?.tg_id ?? null;
     } else {
       return json({ error: "Нужен параметр user или заголовок Authorization" }, 400);
     }

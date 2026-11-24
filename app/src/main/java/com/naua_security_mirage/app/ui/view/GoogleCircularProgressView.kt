@@ -25,10 +25,7 @@ class GoogleCircularProgressView @JvmOverloads constructor(
     private val strokeWidthPx = 2.5f * density
 
     private var running = false
-    private var startAngle = 0f
-    private var sweepAngle = 40f
-    private var isGrowing = true
-    private var lastFrameTime = 0L
+    private var startTime = 0L
 
     private val trackPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
@@ -54,14 +51,14 @@ class GoogleCircularProgressView @JvmOverloads constructor(
     fun start() {
         if (running && visibility == VISIBLE) return
         running = true
-        lastFrameTime = SystemClock.uptimeMillis()
+        startTime = SystemClock.uptimeMillis()
         visibility = VISIBLE
         postInvalidateOnAnimation()
     }
 
     fun stop() {
         running = false
-        lastFrameTime = 0L
+        startTime = 0L
         visibility = GONE
         invalidate()
     }
@@ -71,12 +68,12 @@ class GoogleCircularProgressView @JvmOverloads constructor(
         if (visibility == VISIBLE) {
             if (!running) {
                 running = true
-                lastFrameTime = SystemClock.uptimeMillis()
+                startTime = SystemClock.uptimeMillis()
                 postInvalidateOnAnimation()
             }
         } else {
             running = false
-            lastFrameTime = 0L
+            startTime = 0L
         }
     }
 
@@ -84,7 +81,7 @@ class GoogleCircularProgressView @JvmOverloads constructor(
         super.onAttachedToWindow()
         if (visibility == VISIBLE) {
             running = true
-            lastFrameTime = SystemClock.uptimeMillis()
+            startTime = SystemClock.uptimeMillis()
             postInvalidateOnAnimation()
         }
     }
@@ -92,7 +89,7 @@ class GoogleCircularProgressView @JvmOverloads constructor(
     override fun onDetachedFromWindow() {
         super.onDetachedFromWindow()
         running = false
-        lastFrameTime = 0L
+        startTime = 0L
     }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
@@ -113,29 +110,16 @@ class GoogleCircularProgressView @JvmOverloads constructor(
         if (visibility != VISIBLE) return
 
         val now = SystemClock.uptimeMillis()
-        if (running) {
-            val deltaMs = if (lastFrameTime > 0L) (now - lastFrameTime).coerceIn(1L, 100L) else 16L
-            lastFrameTime = now
+        if (startTime == 0L) startTime = now
+        val elapsed = (now - startTime).coerceAtLeast(0L)
 
-            // 360 градусов за ~1000 мс (~0.36 град/мс)
-            startAngle = (startAngle + deltaMs * 0.36f) % 360f
+        // Silky-smooth 360-degree rotation every 1000ms (~0.36 deg/ms) based on absolute elapsed time
+        val startAngle = (elapsed * 0.36f) % 360f
 
-            // Плавное расширение/сжатие дуги по реальному прошедшему времени
-            val sweepDelta = deltaMs * 0.18f
-            if (isGrowing) {
-                sweepAngle += sweepDelta
-                if (sweepAngle >= 250f) {
-                    sweepAngle = 250f
-                    isGrowing = false
-                }
-            } else {
-                sweepAngle -= sweepDelta
-                if (sweepAngle <= 35f) {
-                    sweepAngle = 35f
-                    isGrowing = true
-                }
-            }
-        }
+        // Natural sinusoidal arc breathing between 35° and 240° over a 1400ms cycle
+        val cycle = (elapsed % 1400L) / 1400.0
+        val sinFactor = ((Math.sin(cycle * 2.0 * Math.PI - Math.PI / 2.0) + 1.0) / 2.0).toFloat()
+        val sweepAngle = 35f + 205f * sinFactor
 
         // 1. Static faint background circular track
         canvas.drawOval(arcRect, trackPaint)

@@ -1930,6 +1930,8 @@ class SupabaseManager private constructor() {
         return regex.find(vlessUrl)?.groupValues?.get(1)
     }
 
+    fun getAccessToken(): String? = prefs?.getString(KEY_ACCESS_TOKEN, null)
+
     fun getActiveVlessKey(): String? {
         val sub = _subscription.value
         val vlessUrl = sub?.vlessKey ?: prefs?.getString(KEY_SUB_VLESS_KEY, null)

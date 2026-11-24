@@ -1417,7 +1417,7 @@ class MainActivity : AppCompatActivity() {
         if (user == null) {
             binding.cardAccount.layoutAccountLoggedOut.visibility = View.VISIBLE
             binding.cardAccount.layoutAccountLoggedIn.visibility = View.GONE
-            binding.tvBrandSub.text = getString(R.string.brand_sub)
+            updateHeaderVipFrame(false)
         } else {
             binding.cardAccount.layoutAccountLoggedOut.visibility = View.GONE
             binding.cardAccount.layoutAccountLoggedIn.visibility = View.VISIBLE
@@ -1427,6 +1427,8 @@ class MainActivity : AppCompatActivity() {
                 if (settingsRepository.isEmailMasked) R.drawable.ic_eye_off else R.drawable.ic_eye
             )
 
+            updateHeaderVipFrame(isActive)
+
             if (isActive) {
                 binding.cardAccount.containerAccountVipBadge.visibility = View.VISIBLE
                 binding.cardAccount.btnAccountExportKeys.visibility = View.VISIBLE
@@ -1434,7 +1436,6 @@ class MainActivity : AppCompatActivity() {
                     AnimationHelper.bounceClick(binding.cardAccount.btnAccountExportKeys, minScale = 0.96f, durationMs = 160)
                     showExportSubscriptionDialog()
                 }
-                binding.tvBrandSub.text = "⚡ VIP · Reality / Hysteria 2"
 
                 val untilStr = sub?.paidUntil?.take(10).orEmpty()
                 val text = if (untilStr.isNotEmpty()) {
@@ -1461,7 +1462,6 @@ class MainActivity : AppCompatActivity() {
             } else {
                 binding.cardAccount.containerAccountVipBadge.visibility = View.GONE
                 binding.cardAccount.btnAccountExportKeys.visibility = View.GONE
-                binding.tvBrandSub.text = getString(R.string.brand_sub)
 
                 val expiredStr = sub?.paidUntil?.take(10).orEmpty()
                 binding.cardAccount.tvAccountSubscriptionStatus.text = if (expiredStr.isNotEmpty()) {
@@ -1475,6 +1475,31 @@ class MainActivity : AppCompatActivity() {
                 binding.cardAccount.tvAccountCacheAge.visibility = View.GONE
             }
             restyleAllCardDividers()
+        }
+    }
+
+    private fun updateHeaderVipFrame(hasActive: Boolean) {
+        val density = resources.displayMetrics.density
+        if (hasActive) {
+            binding.headerBrand.background = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                cornerRadius = 14f * density
+                setColor(Color.parseColor("#14E8A33D"))
+                setStroke((1.4f * density).toInt(), Color.parseColor("#E8A33D"))
+            }
+            binding.headerBrand.setPadding(
+                (12 * density).toInt(),
+                (6 * density).toInt(),
+                (12 * density).toInt(),
+                (6 * density).toInt()
+            )
+            binding.tvBrandName.text = "NAUA Security Mirage  👑 VIP"
+            binding.tvBrandSub.text = getString(R.string.brand_sub)
+        } else {
+            binding.headerBrand.background = null
+            binding.headerBrand.setPadding(0, 0, 0, 0)
+            binding.tvBrandName.text = getString(R.string.brand_name)
+            binding.tvBrandSub.text = getString(R.string.brand_sub)
         }
     }
 
@@ -1812,17 +1837,6 @@ class MainActivity : AppCompatActivity() {
                 dialogBinding.tvSubDesc.text = getString(R.string.sub_active_until, formatExpiry(until))
                 dialogBinding.btnSubPay.text = getString(R.string.sub_renew_button)
             }
-            dialogBinding.btnSubExport.visibility = View.VISIBLE
-            dialogBinding.btnSubExport.backgroundTintList = ColorStateList.valueOf(pal.cardBg)
-            dialogBinding.btnSubExport.strokeColor = ColorStateList.valueOf(accentColor)
-            dialogBinding.btnSubExport.setTextColor(accentColor)
-            dialogBinding.btnSubExport.setOnClickListener {
-                AnimationHelper.bounceClick(dialogBinding.btnSubExport, minScale = 0.96f, durationMs = 160)
-                dialog.dismiss()
-                showExportSubscriptionDialog()
-            }
-        } else {
-            dialogBinding.btnSubExport.visibility = View.GONE
         }
 
         // Пробный день доступен только тем, у кого подписки ещё не было.
@@ -1923,18 +1937,77 @@ class MainActivity : AppCompatActivity() {
         val targets = mutableListOf<ExportTarget>()
 
         // 1. Единая подписка (все узлы) через публичный эндпоинт telegram-subscription
-        val subUrl = "${com.naua_security_mirage.app.data.supabase.SupabaseConfig.SUPABASE_URL}/functions/v1/telegram-subscription"
+        val token = manager.getAccessToken().orEmpty()
+        val uuid = manager.getActiveClientUuid() ?: user.id
+        val subUrl = when {
+            token.isNotBlank() -> "${com.naua_security_mirage.app.data.supabase.SupabaseConfig.SUPABASE_URL}/functions/v1/telegram-subscription?token=$token"
+            uuid.isNotBlank() -> "${com.naua_security_mirage.app.data.supabase.SupabaseConfig.SUPABASE_URL}/functions/v1/telegram-subscription?uid=$uuid"
+            else -> "${com.naua_security_mirage.app.data.supabase.SupabaseConfig.SUPABASE_URL}/functions/v1/telegram-subscription"
+        }
         targets.add(ExportTarget("all", getString(R.string.export_chip_all_nodes)) { subUrl })
 
-        // 2. Все оплаченные узлы из каталога (Нидерланды, Турция, и любые будущие серверы)
+        suspend fun loadFranceLinks(): List<String> {
+            var links = manager.getFranceLinks()
+            if (links.isEmpty()) {
+                manager.ensureFranceVlessKey()
+                links = manager.getFranceLinks()
+            }
+            if (links.isEmpty()) {
+                val single = manager.getActiveVlessKey()
+                if (!single.isNullOrBlank()) links = listOf(single)
+            }
+            return links
+        }
+
+        suspend fun loadBelarusLinks(): List<String> {
+            var links = manager.getBelarusLinks()
+            if (links.isEmpty()) {
+                manager.ensureBelarusVlessKey()
+                links = manager.getBelarusLinks()
+            }
+            if (links.isEmpty()) {
+                val single = manager.getActiveBelarusVlessKey()
+                if (!single.isNullOrBlank()) links = listOf(single)
+            }
+            return links
+        }
+
+        fun findHy2Key(links: List<String>): String? =
+            links.firstOrNull { it.startsWith("hysteria2://", true) || it.startsWith("hy2://", true) }
+
+        fun findXhttpKey(links: List<String>): String? =
+            links.firstOrNull { it.contains("type=xhttp", true) || it.contains("xhttp", true) }
+                ?: links.firstOrNull { it.startsWith("vless://", true) }
+
+        // 2. Все оплаченные узлы из каталога (Нидерланды XHTTP & Hy2, Турция XHTTP & Hy2, и любые будущие серверы)
         for (node in config.paidNodes) {
-            targets.add(ExportTarget(node.id, node.label()) {
-                when (node.kind) {
-                    PaidNode.Kind.FRANCE -> manager.getActiveVlessKey() ?: manager.ensureFranceVlessKey()
-                    PaidNode.Kind.BELARUS, PaidNode.Kind.TURKEY -> manager.getActiveBelarusVlessKey() ?: manager.ensureBelarusVlessKey()
-                    PaidNode.Kind.VLESS -> manager.getNodeVlessKey(node.id) ?: manager.ensureNodeVlessKey(node)
+            when (node.kind) {
+                PaidNode.Kind.FRANCE -> {
+                    targets.add(ExportTarget("${node.id}_xhttp", "${node.label()} (XHTTP)") {
+                        val links = loadFranceLinks()
+                        findXhttpKey(links) ?: manager.getActiveVlessKey() ?: manager.ensureFranceVlessKey()
+                    })
+                    targets.add(ExportTarget("${node.id}_hy2", "${node.label()} (Hysteria 2)") {
+                        val links = loadFranceLinks()
+                        findHy2Key(links) ?: findXhttpKey(links)
+                    })
                 }
-            })
+                PaidNode.Kind.BELARUS, PaidNode.Kind.TURKEY -> {
+                    targets.add(ExportTarget("${node.id}_xhttp", "${node.label()} (XHTTP)") {
+                        val links = loadBelarusLinks()
+                        findXhttpKey(links) ?: manager.getActiveBelarusVlessKey() ?: manager.ensureBelarusVlessKey()
+                    })
+                    targets.add(ExportTarget("${node.id}_hy2", "${node.label()} (Hysteria 2)") {
+                        val links = loadBelarusLinks()
+                        findHy2Key(links) ?: findXhttpKey(links)
+                    })
+                }
+                PaidNode.Kind.VLESS -> {
+                    targets.add(ExportTarget(node.id, node.label()) {
+                        manager.getNodeVlessKey(node.id) ?: manager.ensureNodeVlessKey(node)
+                    })
+                }
+            }
         }
 
         var currentSelectedKey: String = subUrl
@@ -2441,6 +2514,14 @@ class MainActivity : AppCompatActivity() {
                 }
             }
             VpnState.CONNECTING -> {
+                if (isRefreshing) {
+                    refreshJob?.cancel()
+                    isRefreshing = false
+                    binding.pbRefreshSpinner.stop()
+                    binding.ivRefreshIcon.setImageResource(R.drawable.ic_refresh)
+                    binding.ivRefreshIcon.scaleX = 1.0f
+                    binding.ivRefreshIcon.scaleY = 1.0f
+                }
                 binding.containerSpeedLive.visibility = View.GONE
                 lastMeasuredServerInfo = null
                 binding.tvStatus.text = getString(R.string.status_connecting)
@@ -2563,140 +2644,113 @@ class MainActivity : AppCompatActivity() {
             binding.tvStatusSub.text = getString(R.string.refreshing_servers)
             refreshJob = lifecycleScope.launch(Dispatchers.IO) {
                 try {
-                    val hasPaid = com.naua_security_mirage.app.data.supabase.SupabaseManager.instance
-                        .hasActiveSubscription()
+                    val manager = com.naua_security_mirage.app.data.supabase.SupabaseManager.instance
+                    val hasPaid = manager.hasActiveSubscription()
                     val paidPlan = settingsRepository.selectedServerPlan
                     val paidNode = AppConfigRepository.node(paidPlan)
-                    val isPaidPlan = paidNode != null
+                    val isPaidPlan = paidNode != null && hasPaid
 
-                    if (hasPaid && paidNode != null) {
-                        when (paidNode.kind) {
-                            PaidNode.Kind.BELARUS, PaidNode.Kind.TURKEY -> AppLogger.i(
-                                "DataRefresh",
-                                "Ключ Турции обновляется параллельно с замером задержки"
-                            )
+                    val statusText: String = if (isPaidPlan && paidNode != null) {
+                        val preferredProto = settingsRepository.getProtocolForNode(paidNode.id)
+                        AppLogger.i("DataRefresh", "Точечное обновление выбранного платного узла ${paidNode.id} (протокол: $preferredProto)")
+
+                        val links = when (paidNode.kind) {
                             PaidNode.Kind.FRANCE -> {
-                                val freshKey = runCatching {
-                                    com.naua_security_mirage.app.data.supabase.SupabaseManager.instance
-                                        .ensureFranceVlessKey()
-                                }.getOrNull()
-                                AppLogger.i(
-                                    "DataRefresh",
-                                    if (freshKey != null) "Ключ платного узла обновлён"
-                                    else "Ключ платного узла не обновлён, используется кэш"
-                                )
+                                var l = manager.getFranceLinks()
+                                if (l.isEmpty()) {
+                                    manager.ensureFranceVlessKey()
+                                    l = manager.getFranceLinks()
+                                }
+                                if (l.isEmpty()) {
+                                    val k = manager.getActiveVlessKey()
+                                    if (!k.isNullOrBlank()) l = listOf(k)
+                                }
+                                l
+                            }
+                            PaidNode.Kind.BELARUS, PaidNode.Kind.TURKEY -> {
+                                var l = manager.getBelarusLinks()
+                                if (l.isEmpty()) {
+                                    manager.ensureBelarusVlessKey()
+                                    l = manager.getBelarusLinks()
+                                }
+                                if (l.isEmpty()) {
+                                    val k = manager.getActiveBelarusVlessKey()
+                                    if (!k.isNullOrBlank()) l = listOf(k)
+                                }
+                                l
                             }
                             PaidNode.Kind.VLESS -> {
-                                val freshKey = runCatching {
-                                    com.naua_security_mirage.app.data.supabase.SupabaseManager.instance
-                                        .ensureNodeVlessKey(paidNode)
-                                }.getOrNull()
-                                AppLogger.i(
-                                    "DataRefresh",
-                                    if (freshKey != null) "Ключ узла ${paidNode.id} обновлён"
-                                    else "Ключ узла ${paidNode.id} не обновлён, используется кэш"
-                                )
+                                val k = manager.getNodeVlessKey(paidNode.id) ?: manager.ensureNodeVlessKey(paidNode)
+                                if (!k.isNullOrBlank()) listOf(k) else emptyList()
+                            }
+                        }
+
+                        val hy2Link = links.firstOrNull { it.startsWith("hysteria2://", true) || it.startsWith("hy2://", true) }
+                        val xhttpLink = links.firstOrNull { it.contains("type=xhttp", true) || it.contains("xhttp", true) }
+                            ?: links.firstOrNull { it.startsWith("vless://", true) }
+
+                        val hy2Server = hy2Link?.let { com.naua_security_mirage.app.data.model.VlessServer.fromUri(it, "${paidNode.label()} (Hy2)") }
+                        val xhttpServer = xhttpLink?.let { com.naua_security_mirage.app.data.model.VlessServer.fromUri(it, "${paidNode.label()} (XHTTP)") }
+
+                        when (preferredProto) {
+                            SettingsRepository.PROTOCOL_HYSTERIA2 -> {
+                                val s = hy2Server ?: xhttpServer
+                                if (s == null) {
+                                    getString(R.string.refresh_paid_no_key)
+                                } else {
+                                    val p = pingRepository.measurePing(s, timeoutMs = 1200)
+                                    if (p in 1..9998) "$p ms (Hy2)" else getString(R.string.ping_timeout)
+                                }
+                            }
+                            SettingsRepository.PROTOCOL_XHTTP -> {
+                                val s = xhttpServer ?: hy2Server
+                                if (s == null) {
+                                    getString(R.string.refresh_paid_no_key)
+                                } else {
+                                    val p = pingRepository.measurePing(s, timeoutMs = 1200)
+                                    if (p in 1..9998) "$p ms (XHTTP)" else getString(R.string.ping_timeout)
+                                }
+                            }
+                            else -> {
+                                // AUTO: параллельный замер обоих протоколов и выбор лучшего
+                                val hy2Deferred = hy2Server?.let { s ->
+                                    async {
+                                        val p = pingRepository.measurePing(s, timeoutMs = 1200)
+                                        if (p in 1..9998) Pair(p, "Hy2") else null
+                                    }
+                                }
+                                val xhttpDeferred = xhttpServer?.let { s ->
+                                    async {
+                                        val p = pingRepository.measurePing(s, timeoutMs = 1200)
+                                        if (p in 1..9998) Pair(p, "XHTTP") else null
+                                    }
+                                }
+                                val hy2Res = hy2Deferred?.await()
+                                val xhttpRes = xhttpDeferred?.await()
+                                val best = listOfNotNull(hy2Res, xhttpRes).minByOrNull { it.first }
+                                if (best != null) {
+                                    "${best.first} ms (${best.second})"
+                                } else {
+                                    getString(R.string.ping_timeout)
+                                }
                             }
                         }
                     } else {
-                        AppLogger.d("DataRefresh", "Нет активной подписки, платный узел пропущен")
-                    }
-
-                    val paidPingJob = if (isPaidPlan && hasPaid) {
-                        async {
-                            runCatching {
-                                when (paidNode.kind) {
-                                    PaidNode.Kind.BELARUS, PaidNode.Kind.TURKEY -> {
-                                        val probe = BelarusNodeMonitor.probe(
-                                            this@MainActivity,
-                                            forceRefresh = false
-                                        )
-                                        when {
-                                            probe.reason == "no_session" ->
-                                                getString(R.string.refresh_paid_login_required)
-                                            probe.server == null -> getString(R.string.refresh_paid_no_key)
-                                            probe.reachable -> "${probe.pingMs} ms"
-                                            else -> getString(R.string.ping_timeout)
-                                        }
-                                    }
-                                    PaidNode.Kind.FRANCE -> {
-                                        val manager = com.naua_security_mirage.app.data.supabase.SupabaseManager.instance
-                                        // Пингуем тот же сервер, на который реально пойдёт туннель:
-                                        // ключ из базы, а не зашитый в APK адрес (он может отставать).
-                                        val key = manager.getActiveVlessKey() ?: manager.ensureFranceVlessKey()
-                                        val server = key?.let {
-                                            com.naua_security_mirage.app.data.model.VlessServer
-                                                .fromUri(it, paidNode.label())
-                                        } ?: run {
-                                            val uuid = manager.getActiveClientUuid()
-                                            com.naua_security_mirage.app.data.supabase.SupabaseConfig
-                                                .getFranceServer(uuid, manager.getActiveClientFlow(uuid))
-                                        }
-                                        val p = try {
-                                            pingRepository.measurePing(server, timeoutMs = 1200, protectSocket = { socket ->
-                                                MirageVpnService.protectSocket(socket)
-                                            })
-                                        } catch (t: Throwable) {
-                                            if (t is kotlinx.coroutines.CancellationException) throw t
-                                            -1L
-                                        }
-                                        if (p in 1..9998) "$p ms" else getString(R.string.ping_timeout)
-                                    }
-                                    PaidNode.Kind.VLESS -> {
-                                        val manager = com.naua_security_mirage.app.data.supabase.SupabaseManager.instance
-                                        if (manager.currentUser.value == null) {
-                                            getString(R.string.refresh_paid_login_required)
-                                        } else {
-                                            val key = manager.getNodeVlessKey(paidNode.id)
-                                                ?: manager.ensureNodeVlessKey(paidNode)
-                                            val server = key?.let {
-                                                com.naua_security_mirage.app.data.model.VlessServer.fromUri(
-                                                    it,
-                                                    paidNode.label()
-                                                )
-                                            }
-                                            if (server == null) {
-                                                getString(R.string.refresh_paid_no_key)
-                                            } else {
-                                                val p = pingRepository.measurePing(server, timeoutMs = 1200)
-                                                if (p in 1..9998) "$p ms" else getString(R.string.ping_timeout)
-                                            }
-                                        }
-                                    }
-                                }
-                            }.getOrNull() ?: getString(R.string.ping_timeout)
-                        }
-                    } else {
-                        null
-                    }
-                    val servers = vlessKeyRepository.getVlessServers(forceRefresh = true)
-                    AppLogger.d("DataRefresh", "Получено конфигураций: ${servers.size}. Быстрый замер задержки...")
-                    val measured = if (servers.isNotEmpty()) {
-                        pingRepository.measureAllPings(servers, probeTimeoutMs = 800, totalBudgetMs = 2500L, samples = 1)
-                    } else {
-                        emptyList()
-                    }
-                    measured.forEach { s ->
-                        val pingStr = if (s.pingMs in 1..9998) "${s.pingMs} ms" else getString(R.string.ping_timeout)
-                        AppLogger.d("DataRefresh", "Узел ${s.tag} -> пинг: $pingStr")
-                    }
-                    val best = if (measured.isNotEmpty()) pingRepository.selectBestServer(measured) else null
-                    val pingText = best?.let {
-                        if (it.pingMs in 1..9998) "${it.pingMs} ms" else getString(R.string.ping_timeout)
-                    } ?: getString(R.string.ping_timeout)
-                    val paidPingText = paidPingJob?.await()
-
-                    val statusText = paidPingText ?: pingText
-                    AppLogger.i(
-                        "DataRefresh",
-                        if (paidPingText != null) {
-                            "Обновление завершено. Показан пинг платного узла $paidPingText" +
-                                (best?.let { ", бесплатные обновлены: ${it.tag} $pingText" } ?: "")
+                        // Бесплатный режим: сканируем бесплатные серверы
+                        val servers = vlessKeyRepository.getVlessServers(forceRefresh = true)
+                        AppLogger.d("DataRefresh", "Получено конфигураций: ${servers.size}. Быстрый замер задержки...")
+                        val measured = if (servers.isNotEmpty()) {
+                            pingRepository.measureAllPings(servers, probeTimeoutMs = 800, totalBudgetMs = 2500L, samples = 1)
                         } else {
-                            "Обновление завершено. Показан пинг бесплатного " +
-                                (best?.let { "${it.tag} $pingText" } ?: pingText)
+                            emptyList()
                         }
-                    )
+                        val best = if (measured.isNotEmpty()) pingRepository.selectBestServer(measured) else null
+                        best?.let {
+                            if (it.pingMs in 1..9998) "${it.pingMs} ms" else getString(R.string.ping_timeout)
+                        } ?: getString(R.string.ping_timeout)
+                    }
+
+                    AppLogger.i("DataRefresh", "Обновление завершено. Результат: $statusText")
                     withContext(Dispatchers.Main) {
                         showRefreshSuccess()
                         if (MirageVpnService.vpnState.value == VpnState.DISCONNECTED) {

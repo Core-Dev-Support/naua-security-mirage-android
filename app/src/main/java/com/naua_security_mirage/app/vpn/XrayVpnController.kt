@@ -352,27 +352,37 @@ class XrayVpnController(private val vpnService: VpnService) {
      * Замер реального RTT сквозь туннель Xray через локальный SOCKS5-прокси (in-tunnel RTT).
      * Возвращает миллисекунды полного цикла (запрос-ответ) или -1 при недоступности.
      */
-    fun measureTunnelRtt(timeoutMs: Int = 2000): Long {
-        val start = SystemClock.elapsedRealtime()
-        var socket: java.net.Socket? = null
-        return try {
-            val target = PROBE_TARGETS.firstOrNull() ?: ("1.1.1.1" to 80)
-            socket = Socks5Client.connect(target.first, target.second, timeoutMs)
-            socket.soTimeout = timeoutMs.coerceAtLeast(400)
-            val output = socket.getOutputStream()
-            val input = socket.getInputStream()
-            output.write("HEAD /generate_204 HTTP/1.1\r\nHost: cp.cloudflare.com\r\nUser-Agent: curl/7.88.1\r\nConnection: close\r\n\r\n".toByteArray(StandardCharsets.US_ASCII))
-            output.flush()
-            val buffer = ByteArray(32)
-            val read = input.read(buffer)
-            if (read > 0) {
-                (SystemClock.elapsedRealtime() - start).coerceAtLeast(1L)
-            } else -1L
-        } catch (_: Throwable) {
-            -1L
-        } finally {
-            try { socket?.close() } catch (_: Throwable) {}
+    fun measureTunnelRtt(timeoutMs: Int = 1000): Long {
+        val targets = listOf(
+            "cp.cloudflare.com" to "cp.cloudflare.com",
+            "connectivitycheck.gstatic.com" to "connectivitycheck.gstatic.com"
+        )
+        for ((host, headerHost) in targets) {
+            val start = SystemClock.elapsedRealtime()
+            var socket: java.net.Socket? = null
+            try {
+                socket = Socks5Client.connect(host, 80, timeoutMs)
+                socket.soTimeout = timeoutMs.coerceAtLeast(350)
+                val output = socket.getOutputStream()
+                val input = socket.getInputStream()
+                val req = "GET /generate_204 HTTP/1.1\r\nHost: $headerHost\r\nUser-Agent: Happ/4.11.2\r\nConnection: close\r\n\r\n"
+                output.write(req.toByteArray(StandardCharsets.US_ASCII))
+                output.flush()
+                val buffer = ByteArray(32)
+                val read = input.read(buffer)
+                if (read > 0) {
+                    val resp = String(buffer, 0, read, StandardCharsets.US_ASCII)
+                    if (resp.startsWith("HTTP")) {
+                        return (SystemClock.elapsedRealtime() - start).coerceAtLeast(1L)
+                    }
+                }
+            } catch (_: Throwable) {
+                // Try next probe target
+            } finally {
+                try { socket?.close() } catch (_: Throwable) {}
+            }
         }
+        return -1L
     }
 
     private fun probeOnce(host: String, port: Int, timeoutMs: Int): Boolean {

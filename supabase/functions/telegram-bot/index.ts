@@ -362,11 +362,15 @@ async function mainMenuButtons(
   isAdmin: boolean,
   linked: boolean,
   lang: Lang,
+  hasActiveSub = false,
 ): Promise<InlineKeyboard> {
   const buttons: InlineKeyboard = [
     [
       { text: t(lang, "menu.connect"), callback_data: "connect:main" },
-      { text: t(lang, "sub.title_short"), callback_data: "sub:main" },
+      {
+        text: hasActiveSub ? t(lang, "sub.renew") : t(lang, "sub.title_short"),
+        callback_data: "sub:main",
+      },
     ],
     [
       { text: t(lang, "menu.profile"), callback_data: "profile" },
@@ -442,21 +446,21 @@ function profileText(
 
   const account = ctx.account;
   let statusLine = t(lang, "profile.status.none");
-  let accountLine = t(lang, "profile.account.unlinked");
+  const state = subscriptionState(ctx);
+  if (state?.active) {
+    statusLine = t(lang, "profile.status.active", {
+      date: new Date(state.expiry).toISOString().slice(0, 16).replace("T", " "),
+      days: state.days,
+    });
+  } else if (ctx.subscription) {
+    statusLine = t(lang, "profile.status.expired");
+  }
 
+  let accountLine = t(lang, "profile.account.unlinked");
   if (account) {
     accountLine = t(lang, "profile.account.linked", {
       email: escapeHtml(account.email ?? "—"),
     });
-    const state = subscriptionState(ctx);
-    if (state?.active) {
-      statusLine = t(lang, "profile.status.active", {
-        date: new Date(state.expiry).toISOString().slice(0, 16).replace("T", " "),
-        days: state.days,
-      });
-    } else if (ctx.subscription) {
-      statusLine = t(lang, "profile.status.expired");
-    }
   }
 
   const lines = [
@@ -650,35 +654,43 @@ async function showMainMenu(
   lang: Lang,
   fresh = false,
 ): Promise<void> {
+  const hasActiveSub = Boolean(subscriptionState(ctx)?.active);
   await showScreen(
     chatId,
     mainMenuText(ctx, chatId, name, lang),
-    await mainMenuButtons(chatId, isAdmin, Boolean(ctx.account), lang),
+    await mainMenuButtons(chatId, isAdmin, Boolean(ctx.account), lang, hasActiveSub),
     0,
     fresh,
   );
 }
 
-// profileKeyboard — кнопки профиля: рефералка, язык, документы, чаевые, выход.
+// profileKeyboard — кнопки профиля: подключение, подписка, рефералка, язык, документы, чаевые, выход.
 async function profileKeyboard(
   ctx: BotContext,
   chatId: number,
   lang: Lang,
 ): Promise<InlineKeyboard> {
   const account = ctx.account;
+  const state = subscriptionState(ctx);
   const keyboard: InlineKeyboard = [
-    [
-      { text: t(lang, "menu.referral"), callback_data: "referral:profile" },
-    ],
-    [
-      { text: t(lang, "profile.language.change"), callback_data: "lang_menu|profile" },
-      { text: t(lang, "menu.docs"), callback_data: "docs" },
-    ],
-    [
-      { text: t(lang, "thanks.button"), callback_data: "thanks" },
-      { text: t(lang, "profile.payments.button"), callback_data: "profile_payments" },
-    ],
+    [{ text: t(lang, "menu.connect"), callback_data: "connect:profile" }],
   ];
+  if (state?.active) {
+    keyboard.push([{ text: t(lang, "sub.renew"), callback_data: "sub:profile" }]);
+  } else {
+    keyboard.push([{ text: t(lang, "sub.title_short"), callback_data: "sub:profile" }]);
+  }
+  keyboard.push([
+    { text: t(lang, "menu.referral"), callback_data: "referral:profile" },
+  ]);
+  keyboard.push([
+    { text: t(lang, "profile.language.change"), callback_data: "lang_menu|profile" },
+    { text: t(lang, "menu.docs"), callback_data: "docs" },
+  ]);
+  keyboard.push([
+    { text: t(lang, "thanks.button"), callback_data: "thanks" },
+    { text: t(lang, "profile.payments.button"), callback_data: "profile_payments" },
+  ]);
   if (!account) {
     const loginUrl = await googleLoginUrl(chatId);
     keyboard.push([
@@ -1005,6 +1017,13 @@ async function showConnect(
         callback_data: `sub:${origin}`,
       },
     ]);
+  } else {
+    buttons.push([
+      {
+        text: t(lang, "sub.renew"),
+        callback_data: `sub:${origin}`,
+      },
+    ]);
   }
   buttons.push([{ text: t(lang, "connect.open"), url: await connectPage(link, lang, chatId) }]);
   buttons.push([{ text: t(lang, "connect.copy"), copy_text: { text: link } }]);
@@ -1093,14 +1112,12 @@ type SubscriptionState = {
 // Считается из уже загруженного контекста: отдельный запрос в базу не нужен.
 function subscriptionState(ctx: BotContext): SubscriptionState | null {
   const subscription = ctx.subscription;
-  if (!subscription) return null;
-  if (!subscription?.is_active || !subscription.paid_until) {
-    return { active: false, expiry: 0, days: 0 };
-  }
+  if (!subscription || !subscription.paid_until) return null;
   const expiry = Date.parse(subscription.paid_until);
   if (!Number.isFinite(expiry)) return { active: false, expiry: 0, days: 0 };
+  const active = (Boolean(subscription.is_active) || expiry > Date.now()) && expiry > Date.now();
   return {
-    active: expiry > Date.now(),
+    active,
     expiry,
     days: Math.max(0, Math.ceil((expiry - Date.now()) / 86_400_000)),
   };
@@ -2070,6 +2087,17 @@ function textMenuKeys(key: string): string[] {
     list.push("👤 Профиль", "👤 Profile");
   } else if (key === "textmenu.connect") {
     list.push("🚀 Подключить", "🔗 Подключиться");
+  } else if (key === "textmenu.sub") {
+    list.push(
+      "🔄 Продлить подписку",
+      "💳 Продлить подписку",
+      "Продлить подписку",
+      "Подписка",
+      "🔄 Renew subscription",
+      "💳 Renew subscription",
+      "Renew subscription",
+      "Subscription",
+    );
   }
   return list;
 }
@@ -2434,7 +2462,13 @@ async function handleCommand(
       // Тот же экран, что и при обычном /start: прежний удаляется, новый
       // присылается снизу. Иначе меню после входа оказывалось ВЫШЕ, чем
       // строка «/start» (Телеграм прячет параметр start в дип-ссылке).
-      const keyboard = await mainMenuButtons(chatId, chatId === ADMIN_ID, true, lang);
+      const keyboard = await mainMenuButtons(
+        chatId,
+        chatId === ADMIN_ID,
+        true,
+        lang,
+        Boolean(subscriptionState(ctx)?.active),
+      );
       await showScreen(chatId, text, keyboard, 0, true);
       return;
     }
@@ -2457,7 +2491,13 @@ async function handleCommand(
           "",
           mainMenuText(updatedCtx, chatId, name, lang),
         ].join("\n");
-        const keyboard = await mainMenuButtons(chatId, chatId === ADMIN_ID, true, lang);
+        const keyboard = await mainMenuButtons(
+          chatId,
+          chatId === ADMIN_ID,
+          true,
+          lang,
+          Boolean(subscriptionState(updatedCtx)?.active),
+        );
         await showScreen(chatId, text, keyboard, 0, true);
         return;
       } else {
@@ -2649,23 +2689,40 @@ async function handleCallback(callback: CallbackQuery): Promise<void> {
   const ctx = await contextPromise;
   await answered;
 
-  const user = ctx.user;
+  let user = ctx.user;
   if (user?.banned) return;
   if (!isAdmin && adminOnly) return;
+
+  if (!user && callback.from) {
+    const from = callback.from;
+    const username = safeUsername(from.username ?? "");
+    const name = [from.first_name, from.last_name].filter(Boolean).join(" ");
+    await upsertUser(chatId, username, name);
+    invalidateContext(chatId);
+    user = (await loadContext(chatId, true)).user;
+  }
 
   const lang = langOf(user) ?? "ru";
 
   // Сообщение, на котором нажали кнопку, и есть текущий экран чата.
   // Если он и так записан — базу не трогаем: это лишний круг на каждый клик.
-  if (messageId > 0 && ctx.user?.screen_message_id !== messageId) {
+  if (messageId > 0 && user?.screen_message_id !== messageId) {
     await setScreenId(chatId, messageId);
   }
 
-  // Согласие с документами — до входа и до разделов. Разрешаем только
-  // язык, сами кнопки согласия и документы.
+  // Согласие с документами — до входа и до разделов.
+  // Продление и выбор тарифов подписки не блокируем, чтобы пользователи всегда
+  // могли оплатить или продлить подписку (в т.ч. из уведомлений).
+  const isSubscriptionAction = data === "sub" ||
+    data.startsWith("sub:") ||
+    data.startsWith("plan:") ||
+    data === "sub_check" ||
+    data.startsWith("sub_check:");
+
   const consentAction = data === "consent_accept" ||
     data === "consent_decline" || data === "consent_back" ||
-    data.startsWith("lang_") || data === "docs";
+    data.startsWith("lang_") || data === "docs" ||
+    isSubscriptionAction;
   if (!hasConsent(user) && !consentAction) {
     await renderScreen(chatId, messageId, consentText(lang), consentKeyboard(lang));
     return;
@@ -2708,7 +2765,13 @@ async function handleCallback(callback: CallbackQuery): Promise<void> {
           chatId,
           messageId,
           mainMenuText(ctx, chatId, user?.name ?? "", picked),
-          await mainMenuButtons(chatId, isAdmin, Boolean(ctx.account), picked),
+          await mainMenuButtons(
+            chatId,
+            isAdmin,
+            Boolean(ctx.account),
+            picked,
+            Boolean(subscriptionState(ctx)?.active),
+          ),
         );
       }
       break;
@@ -2805,7 +2868,13 @@ async function handleCallback(callback: CallbackQuery): Promise<void> {
           chatId,
           messageId,
           mainMenuText(ctx, chatId, user?.name ?? "", lang),
-          await mainMenuButtons(chatId, isAdmin, Boolean(ctx.account), lang),
+          await mainMenuButtons(
+            chatId,
+            isAdmin,
+            Boolean(ctx.account),
+            lang,
+            Boolean(subscriptionState(ctx)?.active),
+          ),
         );
       }
       break;
