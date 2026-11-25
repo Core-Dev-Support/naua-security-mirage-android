@@ -158,9 +158,9 @@
       brokenSteps: "1. Откройте нашего бота в Telegram;<br>2. Перейдите в раздел <b>«🚀 Подключиться»</b>;<br>3. Нажмите кнопку <b>«Открыть подписку»</b>.",
       brokenBotBtn: "🤖 Открыть бота в Telegram",
       note: "Если приложение не открылось — скопируй ссылку и добавь её в приложении вручную.",
-      appHint: "Приложение не открылось? <a href=\"{store}\" target=\"_blank\" rel=\"noreferrer\">Установи его</a> или скопируй ссылку ниже и добавь вручную.",
+      appHint: "Приложение не открылось? <a href=\"{store}\" target=\"_blank\" rel=\"noreferrer\">Установи его</a> или <a href=\"#\" id=\"appHintCopy\">скопируй ссылку</a> и добавь вручную.",
       tag: "рекомендуем",
-      verification: "Проект NAUA Security Mirage · Код верификации: PLAT"
+      verification: "NAUA Security Mirage · PLAT · <a href=\"https://t.me/NAUA_Security_Mirage_Bot\" target=\"_blank\" rel=\"noreferrer\">Бот</a> · <a href=\"https://t.me/News_And_Updates_Apps?direct\" target=\"_blank\" rel=\"noreferrer\">Поддержка</a>"
     },
     en: {
       subtitle: "VPN connection",
@@ -176,9 +176,9 @@
       brokenSteps: "1. Open our Telegram bot;<br>2. Go to the <b>«🚀 Connect»</b> section;<br>3. Tap <b>«Open Subscription»</b>.",
       brokenBotBtn: "🤖 Open Telegram Bot",
       note: "If the app did not open, copy the link and add it inside the app manually.",
-      appHint: "The app did not open? <a href=\"{store}\" target=\"_blank\" rel=\"noreferrer\">Install it</a> or copy the link below and add it manually.",
+      appHint: "The app did not open? <a href=\"{store}\" target=\"_blank\" rel=\"noreferrer\">Install it</a> or <a href=\"#\" id=\"appHintCopy\">copy the link</a> and add it manually.",
       tag: "recommended",
-      verification: "NAUA Security Mirage Project · Verification code: PLAT"
+      verification: "NAUA Security Mirage · PLAT · <a href=\"https://t.me/NAUA_Security_Mirage_Bot\" target=\"_blank\" rel=\"noreferrer\">Bot</a> · <a href=\"https://t.me/News_And_Updates_Apps?direct\" target=\"_blank\" rel=\"noreferrer\">Support</a>"
     }
   };
   var t = texts[lang];
@@ -192,7 +192,7 @@
   document.querySelector("#copy span").textContent = t.copy;
   document.querySelector("#happ .tag").textContent = t.tag;
   var verEl = document.getElementById("verificationNote");
-  if (verEl) verEl.textContent = t.verification;
+  if (verEl) verEl.innerHTML = t.verification;
 
   if (!url) {
     var bTitle = document.getElementById("brokenTitle");
@@ -232,6 +232,13 @@
         if (document.visibilityState !== "visible") return;
         appHint.innerHTML = t.appHint.replace("{store}", storeUrl);
         appHint.classList.remove("hidden");
+        var quickCopy = document.getElementById("appHintCopy");
+        if (quickCopy) {
+          quickCopy.addEventListener("click", function (ev) {
+            ev.preventDefault();
+            document.getElementById("copy").click();
+          });
+        }
       }, 1600);
     });
   };
