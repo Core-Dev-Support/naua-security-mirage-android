@@ -209,17 +209,15 @@
   document.getElementById("ready").classList.remove("hidden");
   document.getElementById("note").textContent = t.note;
 
-  // Happ и Hiddify ждут адрес подписки как есть: если его percent-кодировать,
-  // они отвечают «Url подписки не валидна». v2rayTun, наоборот, принимает
-  // адрес параметром запроса — там кодирование обязательно.
-  var encoded = encodeURIComponent(url);
+  // Happ, Hiddify и v2RayTun ждут адрес подписки как есть: если его
+  // percent-кодировать, они отвечают «Url подписки не валидна».
   var raw = encodeURI(url);
 
   // Прямое добавление подписки в один тап:
   // настройки открыты — Happ отображает узлы (Швейцария, Турция) и их пинг.
   document.getElementById("happ").href = "happ://add/" + raw;
   document.getElementById("hiddify").href = "hiddify://import/" + raw;
-  document.getElementById("v2rayng").href = "v2rayng://install-sub?url=" + encoded;
+  document.getElementById("v2rayng").href = "v2raytun://import/" + raw;
 
   // Приложение могло не установиться или не открыться. Если через секунду
   // страница всё ещё на экране — подсказываем установку и ручное добавление.
