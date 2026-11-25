@@ -484,8 +484,13 @@ serve(async (req) => {
       !userAgent.includes("clash") &&
       !userAgent.includes("v2ray");
 
+    const hasSubParam = url.searchParams.has("user") ||
+      url.searchParams.has("uid") ||
+      url.searchParams.has("token") ||
+      url.searchParams.has("jwt");
+
     if (
-      url.searchParams.has("user") &&
+      hasSubParam &&
       !url.searchParams.has("format") &&
       isBrowser
     ) {
