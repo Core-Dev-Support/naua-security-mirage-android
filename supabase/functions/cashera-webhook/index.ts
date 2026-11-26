@@ -10,7 +10,7 @@ import {
   nextPaidUntil,
   parsePaymentLabel,
   type Plan,
-} from "../yoomoney-webhook/contract.ts";
+} from "../_shared/plans.ts";
 
 type SubscriptionRow = {
   user_id: string;

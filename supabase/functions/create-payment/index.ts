@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.8";
 import { allowRequest, clientIp, tooManyRequests } from "../_shared/security.ts";
-import { PLANS as FALLBACK_PLANS, type Plan } from "../yoomoney-webhook/contract.ts";
+import { PLANS as FALLBACK_PLANS, type Plan } from "../_shared/plans.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
