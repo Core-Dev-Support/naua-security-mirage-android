@@ -841,6 +841,13 @@ class MainActivity : AppCompatActivity() {
         val density = style.density
         return LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
+            showDividers = LinearLayout.SHOW_DIVIDER_MIDDLE
+            dividerDrawable = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                // Width 0 prevents LinearLayout from expanding WRAP_CONTENT popup to screen width.
+                setSize(0, (1f * density).toInt().coerceAtLeast(1))
+                setColor(style.strokeColor)
+            }
             setPadding(
                 (6f * density).toInt(),
                 (6f * density).toInt(),
@@ -877,16 +884,9 @@ class MainActivity : AppCompatActivity() {
         } else {
             settingsRepository.lastPaidPlan
         }
-        for ((index, choice) in choices.withIndex()) {
-            if (index > 0) {
-                list.addView(View(this).apply {
-                    layoutParams = LinearLayout.LayoutParams(
-                        LinearLayout.LayoutParams.MATCH_PARENT,
-                        (1f * density).toInt().coerceAtLeast(1)
-                    )
-                    setBackgroundColor(style.strokeColor)
-                })
-            }
+        val maxLabelWidth = (resources.displayMetrics.widthPixels - (64f * density).toInt())
+            .coerceAtLeast((160f * density).toInt())
+        for (choice in choices) {
             val selected = choice.plan == selectedPlan
             lateinit var row: LinearLayout
             row = LinearLayout(this).apply {
@@ -911,6 +911,9 @@ class MainActivity : AppCompatActivity() {
                 setTextColor(if (selected) style.accent else style.titleColor)
                 textSize = 14f
                 setTypeface(typeface, android.graphics.Typeface.BOLD)
+                maxLines = 1
+                ellipsize = android.text.TextUtils.TruncateAt.END
+                maxWidth = maxLabelWidth
                 layoutParams = LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.WRAP_CONTENT,
                     LinearLayout.LayoutParams.WRAP_CONTENT
@@ -999,18 +1002,9 @@ class MainActivity : AppCompatActivity() {
             )
         }
 
-        rows.forEachIndexed { index, row ->
+        for (row in rows) {
             val key = row.first
             val label = row.second
-            if (index > 0) {
-                list.addView(View(this).apply {
-                    layoutParams = LinearLayout.LayoutParams(
-                        LinearLayout.LayoutParams.MATCH_PARENT,
-                        (1f * density).toInt().coerceAtLeast(1)
-                    )
-                    setBackgroundColor(style.strokeColor)
-                })
-            }
             val selected = if (key == null) preferredKey.isNullOrBlank() else key == preferredKey
             lateinit var rowView: LinearLayout
             rowView = LinearLayout(this).apply {
