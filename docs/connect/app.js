@@ -165,10 +165,10 @@
       meta_conn: "Поиск наилучшего сервера...",
       meta_on_fmt: "Время сессии {time} • 18 ms",
       split_chip: "⚡ .ru и выбранные сайты напрямую",
-      sec_pill: "🔒 FLAG_SECURE",
+      sec_pill: "🔒",
       sw_tunnel: "Подключить VPN",
       sw_style: "3D-стиль (Cyber Earth)",
-      sw_glass: "Стиль: Жидкое стекло",
+      sw_anim: "Анимации интерфейса",
       sw_split: "Split-tunneling (.ru)",
       sw_secure: "Снимки экрана запрещены",
       k_high: "Возможности",
@@ -206,9 +206,9 @@
       f3_l1: "AD_ID и рекламные сервисы вырезаны; диагностика Firebase отключается",
       f3_l2: "Токены в EncryptedSharedPreferences, allowBackup=false, Kill Switch Android",
       f3_l3: "Самообновление из GitHub Releases с проверкой подписи v2/v3",
-      f4_t: "Внешний вид", f4_s: "Классический или Жидкое стекло",
+      f4_t: "Внешний вид", f4_s: "Настройка главного экрана",
       f4_l1: "5 стилей кнопки: Стандарт, Cyber Earth, Quantum Core, Holo-Shield, Realistic Earth",
-      f4_l2: "Свои цвета для «Стандарт», своё фото на фон и анимации интерфейса",
+      f4_l2: "Свои цвета для «Стандарт», своё фото из галереи на фон и анимации",
       f4_l3: "Скрытие и перестановка разделов, резервные копии, RU / EN (618 строк)",
       f5_t: "Диагностика и журнал", f5_s: "Прозрачность каждого соединения",
       f5_l1: "Live-скорость, пинг и время сессии на экране и в шторке",
@@ -267,10 +267,10 @@
       meta_conn: "Finding best server...",
       meta_on_fmt: "Session time {time} • 18 ms",
       split_chip: "⚡ .ru & custom sites direct",
-      sec_pill: "🔒 FLAG_SECURE",
+      sec_pill: "🔒",
       sw_tunnel: "Connect VPN",
       sw_style: "3D style (Cyber Earth)",
-      sw_glass: "UI style: Liquid Glass",
+      sw_anim: "UI animations",
       sw_split: "Split-tunneling (.ru)",
       sw_secure: "Screenshots blocked",
       k_high: "Highlights",
@@ -308,7 +308,7 @@
       f3_l1: "AD_ID & ad services stripped; Firebase diagnostics can be turned off",
       f3_l2: "Tokens in EncryptedSharedPreferences, allowBackup=false, Android Kill Switch",
       f3_l3: "Self-updates from GitHub Releases with v2/v3 signature check",
-      f4_t: "Appearance", f4_s: "Classic or Liquid Glass UI",
+      f4_t: "Appearance", f4_s: "Customizable home screen",
       f4_l1: "5 button styles: Standard, Cyber Earth, Quantum Core, Holo-Shield, Realistic Earth",
       f4_l2: "Custom colors for Standard, gallery photo background & UI animations",
       f4_l3: "Reorder & hide sections, settings backup, instant RU / EN (618 strings)",
@@ -349,10 +349,10 @@
 
   var stylesData = [
     { id: "standard", ru: "Стандарт", en: "Standard", descRu: "Классический шар", descEn: "Classic sphere", glow: "rgba(232, 163, 61, 0.34)", color: "#e8a33d" },
-    { id: "cyber", ru: "3D Cyber Earth", en: "3D Cyber Earth", descRu: "Неоновый глобус", descEn: "Neon globe", glow: "rgba(245, 185, 81, 0.38)", color: "#f5b951" },
-    { id: "quantum", ru: "3D Quantum Core", en: "3D Quantum Core", descRu: "Квантовый реактор", descEn: "Quantum reactor", glow: "rgba(77, 232, 163, 0.32)", color: "#4de8a3" },
-    { id: "holo", ru: "3D Holo-Shield", en: "3D Holo-Shield", descRu: "Голографический щит", descEn: "Holographic shield", glow: "rgba(232, 163, 61, 0.30)", color: "#e8a33d" },
-    { id: "earth", ru: "3D Realistic Earth", en: "3D Realistic Earth", descRu: "Планета Земля", descEn: "Planet Earth", glow: "rgba(59, 130, 246, 0.32)", color: "#3b82f6" }
+    { id: "cyber", ru: "3D Cyber Earth", en: "3D Cyber Earth", descRu: "Неоновый глобус", descEn: "Neon globe", glow: "rgba(0, 240, 255, 0.35)", color: "#00f0ff" },
+    { id: "quantum", ru: "3D Quantum Core", en: "3D Quantum Core", descRu: "Квантовый реактор", descEn: "Quantum reactor", glow: "rgba(255, 145, 0, 0.35)", color: "#ff9100" },
+    { id: "holo", ru: "3D Holo-Shield", en: "3D Holo-Shield", descRu: "Голографический щит", descEn: "Holographic shield", glow: "rgba(0, 229, 255, 0.30)", color: "#00e5ff" },
+    { id: "earth", ru: "3D Realistic Earth", en: "3D Realistic Earth", descRu: "Планета Земля", descEn: "Planet Earth", glow: "rgba(56, 189, 248, 0.35)", color: "#38bdf8" }
   ];
   var activeStyleIdx = 0;
   var activePlanTab = "free";
@@ -377,14 +377,14 @@
     paid: {
       ru: [
         ["Узлы", "Выделенные (Нидерланды, Турция и др.)"],
-        ["Протоколы", "VLESS + Reality (Hysteria 2 & XHTTP в бете)"],
+        ["Протокол", "VLESS + Reality"],
         ["Split-tunneling & .ru", "✓ Включено"],
         ["Экспорт на ПК / iOS / TV", "✓ Happ, v2rayN, Shadowrocket, TV"],
         ["Цена (без автосписаний)", "от 50 ₽ / 30 дн. (1.12 ₽/день за год)"]
       ],
       en: [
         ["Nodes", "Dedicated (Netherlands, Turkey, etc.)"],
-        ["Protocols", "VLESS + Reality (Hysteria 2 & XHTTP in beta)"],
+        ["Protocol", "VLESS + Reality"],
         ["Split-tunneling & .ru", "✓ Included"],
         ["PC / iOS / TV Export", "✓ Happ, v2rayN, Shadowrocket, TV"],
         ["Price (no auto-renewal)", "from 50 ₽ / 30d (1.12 ₽/day annual)"]
@@ -412,7 +412,7 @@
   };
 
   // Phone mockup state
-  var phoneState = { connected: false, connecting: false, style3d: false, glass: true, split: true, secure: true, sec: 0 };
+  var phoneState = { connected: false, connecting: false, style3d: false, anim: true, split: true, secure: true, sec: 0 };
   var sessionTimer = null;
   var fmtTime = function (s) {
     var m = Math.floor(s / 60), r = s % 60;
@@ -423,10 +423,12 @@
     var scr = document.getElementById("phoneScreen");
     var btn = document.getElementById("phoneVpnBtn");
     scr.classList.toggle("connected", phoneState.connected);
-    scr.classList.toggle("aurora-on", true);
-    scr.classList.toggle("glass-on", phoneState.glass);
+    scr.classList.toggle("aurora-on", phoneState.anim);
+    scr.classList.toggle("no-anim", !phoneState.anim);
     scr.classList.toggle("split-on", phoneState.split);
     scr.classList.toggle("secure-on", phoneState.secure);
+    var lb = document.getElementById("phoneLangBadge");
+    if (lb) lb.textContent = lang.toUpperCase();
 
     btn.className = "vpn-btn" + (phoneState.style3d ? " style-cyber" : "");
     document.getElementById("vpnStatus").textContent = phoneState.connecting ? dict.vpn_conn : (phoneState.connected ? dict.vpn_on : dict.vpn_off);
@@ -436,7 +438,7 @@
 
     document.getElementById("rowTunnel").classList.toggle("on", phoneState.connected || phoneState.connecting);
     document.getElementById("rowStyle").classList.toggle("on", phoneState.style3d);
-    document.getElementById("rowGlass").classList.toggle("on", phoneState.glass);
+    document.getElementById("rowAnim").classList.toggle("on", phoneState.anim);
     document.getElementById("rowSplit").classList.toggle("on", phoneState.split);
     document.getElementById("rowSecure").classList.toggle("on", phoneState.secure);
   };
@@ -468,7 +470,7 @@
   document.getElementById("phoneVpnBtn").addEventListener("click", toggleVpn);
   document.getElementById("rowTunnel").addEventListener("click", toggleVpn);
   document.getElementById("rowStyle").addEventListener("click", function () { phoneState.style3d = !phoneState.style3d; updatePhoneUI(); });
-  document.getElementById("rowGlass").addEventListener("click", function () { phoneState.glass = !phoneState.glass; updatePhoneUI(); });
+  document.getElementById("rowAnim").addEventListener("click", function () { phoneState.anim = !phoneState.anim; updatePhoneUI(); });
   document.getElementById("rowSplit").addEventListener("click", function () { phoneState.split = !phoneState.split; updatePhoneUI(); });
   document.getElementById("rowSecure").addEventListener("click", function () { phoneState.secure = !phoneState.secure; updatePhoneUI(); });
 
@@ -520,40 +522,60 @@
       var g = ctx.createRadialGradient(cx - 16, cy - 18, 6, cx, cy, r);
       g.addColorStop(0, "#fde68a"); g.addColorStop(0.55, "#e8a33d"); g.addColorStop(1, "#8f4712");
       ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fillStyle = g; ctx.fill();
-    } else if (st.id === "cyber" || st.id === "earth") {
+    } else if (st.id === "cyber") {
       ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2);
-      ctx.fillStyle = st.id === "earth" ? "#0f294a" : "#11131b";
-      ctx.fill();
-      ctx.strokeStyle = st.color; ctx.lineWidth = 2; ctx.stroke();
+      ctx.fillStyle = "#08121e"; ctx.fill();
+      ctx.strokeStyle = "#00f0ff"; ctx.lineWidth = 2.2; ctx.stroke();
       for (var i = -2; i <= 2; i++) {
         ctx.beginPath();
         ctx.ellipse(cx, cy, Math.abs(Math.cos(angle + i * 0.5)) * r, r, 0, 0, Math.PI * 2);
-        ctx.strokeStyle = st.id === "earth" ? "rgba(96,165,250,0.45)" : "rgba(245,185,81,0.45)";
-        ctx.lineWidth = 1.2; ctx.stroke();
+        ctx.strokeStyle = "rgba(0, 240, 255, 0.45)"; ctx.lineWidth = 1.2; ctx.stroke();
       }
       for (var j = -1; j <= 1; j++) {
         ctx.beginPath();
         ctx.ellipse(cx, cy + j * 18, r * Math.cos(j * 0.35), 7, 0, 0, Math.PI * 2);
         ctx.stroke();
       }
+    } else if (st.id === "earth") {
+      var og = ctx.createRadialGradient(cx - 16, cy - 16, 8, cx, cy, r);
+      og.addColorStop(0, "#38bdf8"); og.addColorStop(0.55, "#1d4ed8"); og.addColorStop(1, "#0f172a");
+      ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fillStyle = og; ctx.fill();
+      ctx.strokeStyle = "rgba(56, 189, 248, 0.7)"; ctx.lineWidth = 2; ctx.stroke();
+      ctx.save(); ctx.beginPath(); ctx.arc(cx, cy, r - 1, 0, Math.PI * 2); ctx.clip();
+      var off = (angle * 22) % (r * 2);
+      ctx.fillStyle = "rgba(74, 222, 128, 0.55)";
+      ctx.beginPath(); ctx.ellipse(cx - r + off, cy - 12, 22, 14, 0.3, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(cx - r + off + 48, cy + 16, 18, 11, -0.2, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
     } else if (st.id === "quantum") {
+      ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.fillStyle = "rgba(5, 6, 12, 0.9)"; ctx.fill();
+      var rCols = ["#ff9100", "#00e6ff", "#b44bff"];
       for (var k = 0; k < 3; k++) {
-        ctx.save(); ctx.translate(cx, cy); ctx.rotate(angle + k * Math.PI / 3);
-        ctx.beginPath(); ctx.ellipse(0, 0, r, 20, 0, 0, Math.PI * 2);
-        ctx.strokeStyle = k === 0 ? "#4de8a3" : "#e8a33d"; ctx.lineWidth = 2; ctx.stroke();
+        ctx.save(); ctx.translate(cx, cy); ctx.rotate(angle * (k % 2 ? -1 : 1) + k * Math.PI / 3);
+        ctx.beginPath(); ctx.ellipse(0, 0, r * 0.9, 19, 0, 0, Math.PI * 2);
+        ctx.strokeStyle = rCols[k]; ctx.lineWidth = 2; ctx.stroke();
         ctx.restore();
       }
-      ctx.beginPath(); ctx.arc(cx, cy, 16, 0, Math.PI * 2); ctx.fillStyle = "#4de8a3"; ctx.fill();
+      var cg = ctx.createRadialGradient(cx, cy, 2, cx, cy, 22);
+      cg.addColorStop(0, "#ffffff"); cg.addColorStop(0.5, "#ffa014"); cg.addColorStop(1, "rgba(230,40,90,0)");
+      ctx.beginPath(); ctx.arc(cx, cy, 22, 0, Math.PI * 2); ctx.fillStyle = cg; ctx.fill();
     } else if (st.id === "holo") {
-      ctx.save(); ctx.translate(cx, cy);
-      ctx.beginPath();
-      ctx.moveTo(0, -r); ctx.lineTo(r * 0.85, -r * 0.48); ctx.lineTo(r * 0.85, r * 0.25);
-      ctx.quadraticCurveTo(0, r * 1.05, 0, r * 1.05);
-      ctx.quadraticCurveTo(0, r * 1.05, -r * 0.85, r * 0.25);
-      ctx.lineTo(-r * 0.85, -r * 0.48); ctx.closePath();
-      ctx.fillStyle = "rgba(232, 163, 61, 0.16)"; ctx.fill();
-      ctx.strokeStyle = "#f5b951"; ctx.lineWidth = 2.4; ctx.stroke();
-      ctx.restore();
+      ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.fillStyle = "rgba(4, 16, 24, 0.9)"; ctx.fill();
+      ctx.strokeStyle = "rgba(0, 229, 255, 0.65)"; ctx.lineWidth = 1.4; ctx.stroke();
+      for (var m = 0; m < 6; m++) {
+        var a1 = angle + m * Math.PI / 3, a2 = angle + (m + 1) * Math.PI / 3;
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.lineTo(cx + Math.cos(a1) * r * 0.92, cy + Math.sin(a1) * r * 0.92);
+        ctx.lineTo(cx + Math.cos(a2) * r * 0.92, cy + Math.sin(a2) * r * 0.92);
+        ctx.closePath();
+        ctx.strokeStyle = "rgba(0, 229, 255, 0.38)"; ctx.lineWidth = 1.1; ctx.stroke();
+      }
+      var scan = cy + Math.sin(angle * 2) * (r * 0.8);
+      ctx.beginPath(); ctx.moveTo(cx - r * 0.7, scan); ctx.lineTo(cx + r * 0.7, scan);
+      ctx.strokeStyle = "rgba(0, 240, 255, 0.85)"; ctx.lineWidth = 2; ctx.stroke();
     }
     requestAnimationFrame(drawStyle);
   };

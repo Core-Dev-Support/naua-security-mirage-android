@@ -100,12 +100,20 @@
 
       <div class="phone-col">
         <div class="phone">
-          <div class="screen aurora-on split-on secure-on glass-on" id="phoneScreen">
+          <div class="screen aurora-on split-on secure-on" id="phoneScreen">
             <div class="aurora-bg"></div>
-            <div class="statusbar"><span>01:28</span><span>5G · 98%</span></div>
+            <div class="statusbar"><span>01:33</span><span>5G · 98%</span></div>
             <div class="phone-top">
-              <div class="phone-title">🛡 Mirage <span style="font-weight:400;opacity:.6;font-size:12px;">NAUA Security</span></div>
-              <div class="secure-pill" data-i18n="sec_pill">🔒 FLAG_SECURE</div>
+              <div>
+                <div class="phone-title">Mirage</div>
+                <div style="font-size:10.5px;color:#8a8d9e;line-height:1;">NAUA Security</div>
+              </div>
+              <div class="phone-hdr-btns">
+                <span class="secure-pill" data-i18n="sec_pill">🔒</span>
+                <span class="phone-ico-btn" id="phoneLangBadge">RU</span>
+                <span class="phone-ico-btn">⬇</span>
+                <span class="phone-ico-btn">↻</span>
+              </div>
             </div>
             <div class="vpn-stage">
               <button class="vpn-btn" id="phoneVpnBtn" type="button" aria-label="VPN">
@@ -118,7 +126,7 @@
             <div class="m-card">
               <div class="m-row" id="rowTunnel"><span data-i18n="sw_tunnel">Подключить VPN</span><span class="m-switch"></span></div>
               <div class="m-row" id="rowStyle"><span data-i18n="sw_style">3D-стиль (Cyber Earth)</span><span class="m-switch"></span></div>
-              <div class="m-row on" id="rowGlass"><span data-i18n="sw_glass">Стиль: Жидкое стекло</span><span class="m-switch"></span></div>
+              <div class="m-row on" id="rowAnim"><span data-i18n="sw_anim">Анимации интерфейса</span><span class="m-switch"></span></div>
               <div class="m-row on" id="rowSplit"><span data-i18n="sw_split">Split-tunneling (.ru)</span><span class="m-switch"></span></div>
               <div class="m-row on" id="rowSecure"><span data-i18n="sw_secure">Снимки экрана запрещены</span><span class="m-switch"></span></div>
             </div>
