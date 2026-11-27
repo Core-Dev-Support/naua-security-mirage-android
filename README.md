@@ -15,15 +15,7 @@
   <a href="https://github.com/Core-Dev-Support/naua-security-mirage-android/actions/workflows/build-release.yml"><img src="https://img.shields.io/github/actions/workflow/status/Core-Dev-Support/naua-security-mirage-android/build-release.yml?branch=main&style=for-the-badge&label=BUILD" alt="Build status" /></a>
   <img src="https://img.shields.io/github/downloads/Core-Dev-Support/naua-security-mirage-android/total?style=for-the-badge&logo=github&label=DOWNLOADS" alt="Downloads" />
   <img src="https://img.shields.io/github/stars/Core-Dev-Support/naua-security-mirage-android?style=for-the-badge&logo=github&label=STARS&color=FFB800" alt="Stars" />
-</p>
-
-<p align="center">
   <img src="https://img.shields.io/badge/Android-6.0%2B-3DDC84?style=for-the-badge&logo=android&logoColor=white" alt="Android 6.0+" />
-  <img src="https://img.shields.io/badge/Kotlin-2.4.21-7F52FF?style=for-the-badge&logo=kotlin&logoColor=white" alt="Kotlin" />
-  <img src="https://img.shields.io/badge/Xray-core-FF6B35?style=for-the-badge&logo=github&logoColor=white" alt="Xray core" />
-  <img src="https://img.shields.io/badge/Material_3-6750A4?style=for-the-badge&logo=materialdesign&logoColor=white" alt="Material 3" />
-  <img src="https://img.shields.io/badge/minSdk-23-00D4FF?style=for-the-badge&logo=android&logoColor=white" alt="minSdk 23" />
-  <img src="https://img.shields.io/badge/targetSdk-35-00D4FF?style=for-the-badge&logo=android&logoColor=white" alt="targetSdk 35" />
   <img src="https://img.shields.io/badge/AD_ID-removed-success?style=for-the-badge&logo=shield&logoColor=white" alt="No ad id" />
 </p>
 
@@ -38,14 +30,32 @@
 </p>
 
 <p align="center">
-  <sub>Последний релиз: <b>v1.4.0</b> · Android 6.0+ · <code>arm64-v8a</code> / <code>armeabi-v7a</code></sub>
+  <sub>Последний релиз: <b>v1.4.0</b> · Android 6.0+ (API 23–35) · <code>arm64-v8a</code> / <code>armeabi-v7a</code></sub>
 </p>
+
+<p align="center">
+  <a href="#-быстрый-старт">Быстрый старт</a> ·
+  <a href="#что-внутри">Возможности</a> ·
+  <a href="#-протоколы">Протоколы</a> ·
+  <a href="#-экраны">Экраны</a> ·
+  <a href="#-как-это-работает">Архитектура</a> ·
+  <a href="#-безопасность-и-приватность">Безопасность</a> ·
+  <a href="#-вопросы">FAQ</a>
+</p>
+
+---
+
+## ⚡ Быстрый старт
+
+1. Скачай `NAUA-Security-Mirage-v1.4.0-arm64-v8a.apk` (или `armeabi-v7a` для старых 32-битных устройств) из [**Releases → Latest**](https://github.com/Core-Dev-Support/naua-security-mirage-android/releases/latest).
+2. Установи APK и нажми большую кнопку на главном экране — приложение само выберет лучший узел.
+3. Проверь работу туннеля прямо в карточке диагностики или на [ipleak.net](https://ipleak.net) / [dnsleaktest.com](https://dnsleaktest.com).
 
 ---
 
 ## Что внутри
 
-Одна большая кнопка — и туннель поднят. Локацию выбирать не нужно: клиент сам замеряет пинг до всех доступных узлов, поднимает ядро Xray на лучшем и проверяет, что трафик реально идёт, а не просто «ядро стартовало». Если выбранный узел не тянет — происходит автоматический переход на следующий.
+Одна большая кнопка — и туннель поднят. Локацию выбирать не нужно: клиент сам замеряет пинг, потери и джиттер до всех доступных узлов, поднимает ядро Xray на лучшем и проверяет, что трафик реально идёт, а не просто «ядро стартовало». Если выбранный узел не тянет — происходит автоматический переход на следующий.
 
 **🛡 Маскировка.** VLESS + Reality: соединение неотличимо от обычной TLS-сессии к популярному сайту, поэтому переживает DPI там, где падают протоколы с узнаваемыми сигнатурами.
 
@@ -62,10 +72,20 @@
 **🧩 Своя панель настроек.** Темы, 5 стилей кнопки, анимации, скрытие и перестановка разделов, русский и английский.
 
 **🤖 Telegram-бот и кроссплатформенная подписка:**
-- 🤖 **Официальный бот**: [@NAUA_Security_Mirage_Bot](https://t.me/NAUA_Security_Mirage_Bot) — быстрое управление подпиской и привязка аккаунтов.
-- 🎁 **Бесплатная проба без привязки карты**: активируйте 24 часа бесплатного доступа ко всем VIP-узлам в один тап прямо в приложении или в боте (без ввода данных банковской карты и скрытых автосписаний).
-- 📺 **1 подписка на все устройства**: экспорт персональных VLESS-ключей и QR-кодов прямо из приложения для использования на ПК (Happ, v2rayN, Nekoray), iPhone/iPad (Happ, Shadowrocket, Streisand) и Smart TV.
-- ⚡ **Без автопродлений**: оплата только за выбранный срок (от 1.1 ₽ в день), никаких внезапных списаний.
+- 🤖 **Официальный бот**: [@NAUA_Security_Mirage_Bot](https://t.me/NAUA_Security_Mirage_Bot) — быстрое управление подпиской и привязка аккаунта.
+- 🎁 **Пробный день без привязки карты**: 24 часа бесплатного доступа к выделенным платным узлам — выдаётся один раз на аккаунт и на устройство без ввода карты и скрытых списаний.
+- 📺 **1 подписка на все устройства**: экспорт персональных ключей и QR-кодов прямо из приложения для ПК (Happ, v2rayN, Nekoray), iPhone/iPad (Happ, Shadowrocket, Streisand) и Smart TV.
+- ⚡ **Без автопродлений**: оплата через **Cashera** только за выбранный срок (от 1.12 ₽/день при оплате за год), никаких внезапных списаний.
+
+---
+
+## 🔌 Протоколы
+
+| Протокол | Транспорт / Маскировка | Статус | Назначение |
+| :--- | :--- | :--- | :--- |
+| **VLESS + Reality** | TCP / TLS 1.3 (uTLS) | В релизе (`v1.4.0`) | Основной обход DPI и ТСПУ без отличимых сигнатур |
+| **Hysteria 2 (`hy2`)** | QUIC / UDP | В тестировании (`main` / `1.4.1-beta`) | Стабильная скорость при потерях пакетов в мобильных сетях |
+| **XHTTP (`SplitHTTP`)** | HTTP/2–3 поверх TLS | В тестировании (`main` / `1.4.1-beta`) | Резервный транспорт для сетей с агрессивной фильтрацией |
 
 ---
 
@@ -83,7 +103,7 @@
       <td align="center"><img src="docs/screenshots/App_Slide_5.jpg" width="170" alt="Цвета интерфейса" /><br /><sub><b>Цвета</b><br />кнопка · текст · переключатели</sub></td>
       <td align="center"><img src="docs/screenshots/App_Slide_6.jpg" width="170" alt="Диагностика" /><br /><sub><b>Диагностика</b><br />скорость · автопинг · узлы</sub></td>
       <td align="center"><img src="docs/screenshots/App_Slide_7.jpg" width="170" alt="Журнал" /><br /><sub><b>Журнал</b><br />уровни · экспорт · шаринг</sub></td>
-      <td align="center"><b>407 строк</b><br /><sub>русский и английский,<br />переключаются на лету</sub></td>
+      <td align="center"><b>618 строк</b><br /><sub>русский и английский,<br />переключаются на лету</sub></td>
     </tr>
   </table>
 </p>
@@ -95,8 +115,8 @@
 ```mermaid
 flowchart TD
     A["📱 Приложение<br/>VpnService · TUN · Material 3"] --> S{"Выбор узла"}
-    S -->|"платная подписка"| P["🇨🇭 Швейцария · 🇹🇷 Турция<br/>выделенные узлы"]
-    S -->|"бесплатный тариф"| F["🌐 Пул бесплатных узлов<br/>сортировка по пингу"]
+    S -->|"платная подписка"| P["🌍 Выделенные узлы<br/>каталог из app-config<br/>(напр. Нидерланды · Турция)"]
+    S -->|"бесплатный тариф"| F["🌐 Пул бесплатных узлов<br/>сортировка по пингу и потерям"]
     P --> C["⚙️ libXray<br/>libgojni.so<br/>VLESS + Reality + geosite"]
     F --> C
     C --> W{"Трафик идёт?"}
@@ -104,15 +124,16 @@ flowchart TD
     W -->|да| N["🌍 Интернет"]
 
     G["👤 Supabase Auth<br/>email + Google, PKCE"] -.->|JWT в EncryptedSharedPreferences| A
-    Y["💳 yoomoney-webhook<br/>50 ₽ / 30 дней"] -.->|подписка| G
-    B["📡 france-config · belarus-config · node-status<br/>send-release-push · latest-release"] -.-> A
+    Y["💳 Cashera (create-payment)<br/>cashera-webhook · от 50 ₽"] -.->|подписка| G
+    B["📡 app-config · node-status<br/>latest-release · send-release-push"] -.-> A
+    T["🤖 telegram-bot<br/>telegram-auth · telegram-subscription"] -.-> G
 
     style A fill:#6C63FF,stroke:#fff,stroke-width:2px,color:#fff
     style C fill:#FF6B35,stroke:#fff,stroke-width:2px,color:#fff
     style N fill:#00D4FF,stroke:#fff,stroke-width:2px,color:#000
 ```
 
-1. **Выбор узла.** Замеряется пинг до всех кандидатов, ядро поднимается на лучшем, затем проверяется фактический проход трафика. Не прошёл — берётся следующий узел.
+1. **Выбор узла.** Замеряется пинг, потери и джиттер до кандидатов, ядро поднимается на лучшем, затем проверяется фактический проход трафика. Не прошёл — берётся следующий узел.
 2. **Целостность.** При старте сверяется SHA-256 сертификата подписи APK с зашитым в код значением; проверяются отладчик, трассировка, хук-фреймворки, Frida, root и эмулятор.
 3. **Маршрутизация.** DNS-запросы идут внутри туннеля, `geosite.dat` разводит `.ru` и пользовательские домены напрямую.
 4. **Контроль.** Скорость, пинг и время сессии — на экране и в уведомлении; состояние платного узла и история сбоев — в карточке диагностики; фоновые воркеры проверяют обновления, подписку и доступность узла.
@@ -126,6 +147,8 @@ flowchart TD
 <p align="center">
   <img src="https://img.shields.io/badge/Kotlin-2.4.21-7F52FF?style=flat-square&logo=kotlin&logoColor=white" alt="Kotlin" />
   <img src="https://img.shields.io/badge/AGP-9.4.1-3DDC84?style=flat-square&logo=android&logoColor=white" alt="AGP" />
+  <img src="https://img.shields.io/badge/minSdk-23-00D4FF?style=flat-square&logo=android&logoColor=white" alt="minSdk 23" />
+  <img src="https://img.shields.io/badge/targetSdk-35-00D4FF?style=flat-square&logo=android&logoColor=white" alt="targetSdk 35" />
   <img src="https://img.shields.io/badge/Xray--core--libgojni-FF6B35?style=flat-square&logo=github&logoColor=white" alt="Xray" />
   <img src="https://img.shields.io/badge/R8_full--mode-6C63FF?style=flat-square&logo=proguard&logoColor=white" alt="R8" />
   <img src="https://img.shields.io/badge/Supabase-3ECF8E?style=flat-square&logo=supabase&logoColor=white" alt="Supabase" />
@@ -136,9 +159,13 @@ flowchart TD
 </p>
 
 - **Клиент** — Kotlin, `VpnService` (TUN, `specialUse` FGS), 2 Quick Settings Tile, WorkManager, OkHttp, `EncryptedSharedPreferences`.
-- **Ядро** — Xray (`libgojni.so`, `arm64-v8a` + `armeabi-v7a`), VLESS + Reality, `geosite.dat` в assets с обновлением из приложения.
-- **Бэкенд** — Supabase Auth (email + Google, PKCE) и 6 Edge-функций на Deno: `france-config`, `latest-release`, `node-status`, `register-device`, `send-release-push`, `yoomoney-webhook`.
-- **CI/CD** — secret-scan → `deno check` и `deno test` → 9 юнит-тестов → сборка с R8 → проверка манифеста на рекламные идентификаторы → требование подписи v2/v3.
+- **Ядро** — Xray (`libgojni.so`, `arm64-v8a` + `armeabi-v7a`), VLESS + Reality (`hy2` и `xhttp` тестируются в `main`), `geosite.dat` в assets с обновлением из приложения.
+- **Бэкенд** — Supabase Auth (email + Google, PKCE) и **15 Edge-функций на Deno**:
+  - *Конфигурация и узлы:* `app-config`, `france-config`, `belarus-config`, `finland-config`, `node-status`
+  - *Оплата и триал:* `create-payment`, `cashera-webhook`, `yoomoney-webhook`, `free-trial`
+  - *Telegram-бот и авторизация:* `telegram-bot`, `telegram-auth`, `telegram-subscription`
+  - *Релизы и пуши:* `latest-release`, `register-device`, `send-release-push`
+- **CI/CD** — secret-scan → `deno check` и `deno test` → 68 юнит-тестов Android (13 файлов) → сборка с R8 → проверка манифеста на рекламные идентификаторы → требование подписи v2/v3.
 
 ---
 
@@ -152,9 +179,9 @@ flowchart TD
 **Требования:** Android 6.0+ (API 23), процессор `arm64-v8a` или `armeabi-v7a`, любой интернет. Универсальный APK `NAUA-Security-Mirage-v1.4.0.apk` весит больше — он нужен только для нестандартных случаев.
 
 <details>
-<summary><b>Подписка на платные узлы (Швейцария и Турция)</b></summary>
+<summary><b>Подписка на выделенные платные узлы</b></summary>
 
-Войди через email или Google, затем «Оплатить через ЮMoney» — **50 ₽ за 30 дней**. Разовая оплата, автосписаний нет. Узлы активируются в течение 1–2 минут. Подписка привязана к аккаунту, а не к устройству.
+Войди через email или Google, затем выбери срок и оплати через **Cashera** — от **50 ₽ за 30 дней** (или 140 ₽ за 3 мес., 250 ₽ за 6 мес., 410 ₽ за год). Разовая оплата, автосписаний нет. Узлы активируются в течение 1–2 минут. Подписка привязана к аккаунту, а не к устройству; актуальный список стран подгружается с сервера (`app-config`).
 
 </details>
 
@@ -169,14 +196,14 @@ flowchart TD
 
 ## 🔨 Сборка из исходников
 
-Нужны **JDK 17** и **Android SDK (API 34+)**:
+Нужны **JDK 17** и **Android SDK (API 35)**:
 
 ```bash
 git clone https://github.com/Core-Dev-Support/naua-security-mirage-android.git
 cd naua-security-mirage-android
 
 ./gradlew assembleDebug          # отладочная сборка
-./gradlew testDebugUnitTest      # юнит-тесты
+./gradlew testDebugUnitTest      # юнит-тесты (68 тестов)
 ./gradlew assembleRelease        # релизная сборка с R8
 ```
 
@@ -195,17 +222,17 @@ naua-security-mirage-android/
 │       ├── java/com/naua_security_mirage/app/
 │       │   ├── ui/          MainActivity, адаптеры, кастомные вьюхи
 │       │   ├── vpn/         MirageVpnService, XrayVpnController, тайлы
-│       │   ├── data/        Supabase, репозитории, модели
+│       │   ├── data/        Supabase, репозитории, модели, AppConfig
 │       │   ├── util/        AppShield, обновления, логи, анимации
 │       │   ├── work/        WorkManager: узел, подписка, обновления
 │       │   └── push/        FCM-приёмник
 │       ├── jniLibs/         libgojni.so — arm64-v8a, armeabi-v7a
 │       ├── assets/geo/      geosite.dat
-│       └── test/            9 юнит-тестов
+│       └── test/            13 тестовых файлов (68 юнит-тестов)
 ├── desktop/                 Клиент на Compose Multiplatform (в разработке)
-├── supabase/functions/      6 Edge-функций на Deno
-├── docs/                    Архитектура, релизы, правовые документы, скриншоты
-└── .github/workflows/       build-release, secret-scan, live-check, build-desktop
+├── supabase/functions/      15 Edge-функций на Deno + _shared
+├── docs/                    Архитектура, релизы, бот, правовые документы, скриншоты
+└── .github/workflows/       build-release, secret-scan, live-check, build-desktop, node-watchdog, pages
 ```
 
 ---
@@ -228,8 +255,9 @@ naua-security-mirage-android/
 
 | Версия | Статус | Что внутри |
 | :--- | :--- | :--- |
-| **v1.4.0** | релиз | Вход через Google без браузера · подписка с датой окончания · платный узел в Беларуси · продление на 3, 6 и 12 месяцев · пробный день узлов · английский язык |
-| **v1.3.0** | релиз | Вход через Google · подписка ЮMoney 30 ₽ · выделенный узел во Франции · защита экрана · логи туннеля · починка бесплатного режима (DNS) |
+| **v1.4.1-beta** | в тестировании (`main`) | Протоколы Hysteria 2 и XHTTP · селектор протоколов · динамические флаги · честный QUIC/медианный пинг |
+| **v1.4.0** | релиз | Вход через Google без браузера · подписка с датой окончания · серверный каталог узлов и цен · продление на 3, 6 и 12 мес. · пробный день · английский язык |
+| **v1.3.0** | релиз | Вход через Google · выделенный платный узел · защита экрана (`FLAG_SECURE`) · логи туннеля · починка бесплатного режима (DNS) |
 
 Заметки к релизам: [docs/releases/](docs/releases/). Полная история: [CHANGELOG.md](CHANGELOG.md). Планы: [ROADMAP.md](ROADMAP.md).
 
@@ -240,14 +268,14 @@ naua-security-mirage-android/
 <details>
 <summary><b>Это бесплатно?</b></summary>
 
-Да, есть бесплатный режим на пуле бесплатных узлов. Платные узлы (Швейцария и Турция) — разовые **50 ₽ за 30 дней**, без автосписаний.
+Да, есть бесплатный режим на пуле бесплатных узлов. Выделенные платные узлы (динамический каталог в `app-config`, например Нидерланды и Турция) — разовые **от 50 ₽ за 30 дней** через Cashera, без автосписаний.
 
 </details>
 
 <details>
 <summary><b>Какие сроки подписки и есть ли пробный день?</b></summary>
 
-Продлить подписку можно на 1 месяц (50 ₽), 3 месяца (140 ₽), 6 месяцев (250 ₽) или год (410 ₽) — дни добавляются к текущей подписке. Новичкам доступен **пробный день**: один бесплатный день платного узла. Его выдаёт сервер, и только один раз на аккаунт и на устройство.
+Продлить подписку можно на 1 месяц (50 ₽), 3 месяца (140 ₽), 6 месяцев (250 ₽) или год (410 ₽) — дни добавляются к текущей подписке. Новичкам доступен **пробный день**: один бесплатный день платных узлов. Его выдаёт сервер, и только один раз на аккаунт и на устройство.
 
 </details>
 
@@ -285,7 +313,7 @@ Split-tunneling: `.ru`-сайты и выбранные тобой прилож�
 
 - ⭐ Поставь звезду — это лучшая поддержка проекта.
 - 🐛 Баг — [bug report](https://github.com/Core-Dev-Support/naua-security-mirage-android/issues/new/choose).
-- 💡 Идея — [feature request](https://github.com/Core-Dev-Support/naua-security-mirage-android/issues/new/choose).
+- 💡 Идея — [feature request](https://github.com/Core-Dev-Support/naua-security-mirage-android/issues/new/choose) или [Discussions](https://github.com/Core-Dev-Support/naua-security-mirage-android/discussions).
 - 🔧 Код — [CONTRIBUTING.md](CONTRIBUTING.md), шаблоны PR и issue уже настроены.
 - 📣 [Telegram-канал с обновлениями](https://t.me/News_And_Updates_Apps).
 

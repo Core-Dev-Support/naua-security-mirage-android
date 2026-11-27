@@ -15,15 +15,7 @@
   <a href="https://github.com/Core-Dev-Support/naua-security-mirage-android/actions/workflows/build-release.yml"><img src="https://img.shields.io/github/actions/workflow/status/Core-Dev-Support/naua-security-mirage-android/build-release.yml?branch=main&style=for-the-badge&label=BUILD" alt="Build status" /></a>
   <img src="https://img.shields.io/github/downloads/Core-Dev-Support/naua-security-mirage-android/total?style=for-the-badge&logo=github&label=DOWNLOADS" alt="Downloads" />
   <img src="https://img.shields.io/github/stars/Core-Dev-Support/naua-security-mirage-android?style=for-the-badge&logo=github&label=STARS&color=FFB800" alt="Stars" />
-</p>
-
-<p align="center">
   <img src="https://img.shields.io/badge/Android-6.0%2B-3DDC84?style=for-the-badge&logo=android&logoColor=white" alt="Android 6.0+" />
-  <img src="https://img.shields.io/badge/Kotlin-2.4.21-7F52FF?style=for-the-badge&logo=kotlin&logoColor=white" alt="Kotlin" />
-  <img src="https://img.shields.io/badge/Xray-core-FF6B35?style=for-the-badge&logo=github&logoColor=white" alt="Xray core" />
-  <img src="https://img.shields.io/badge/Material_3-6750A4?style=for-the-badge&logo=materialdesign&logoColor=white" alt="Material 3" />
-  <img src="https://img.shields.io/badge/minSdk-23-00D4FF?style=for-the-badge&logo=android&logoColor=white" alt="minSdk 23" />
-  <img src="https://img.shields.io/badge/targetSdk-35-00D4FF?style=for-the-badge&logo=android&logoColor=white" alt="targetSdk 35" />
   <img src="https://img.shields.io/badge/AD_ID-removed-success?style=for-the-badge&logo=shield&logoColor=white" alt="No ad id" />
 </p>
 
@@ -38,14 +30,32 @@
 </p>
 
 <p align="center">
-  <sub>Latest release: <b>v1.4.0</b> · Android 6.0+ · <code>arm64-v8a</code> / <code>armeabi-v7a</code></sub>
+  <sub>Latest release: <b>v1.4.0</b> · Android 6.0+ (API 23–35) · <code>arm64-v8a</code> / <code>armeabi-v7a</code></sub>
 </p>
+
+<p align="center">
+  <a href="#-quick-start">Quick Start</a> ·
+  <a href="#whats-inside">Features</a> ·
+  <a href="#-protocols">Protocols</a> ·
+  <a href="#-screens">Screens</a> ·
+  <a href="#-how-it-works">Architecture</a> ·
+  <a href="#-security-and-privacy">Security</a> ·
+  <a href="#-faq">FAQ</a>
+</p>
+
+---
+
+## ⚡ Quick Start
+
+1. Download `NAUA-Security-Mirage-v1.4.0-arm64-v8a.apk` (or `armeabi-v7a` for older 32-bit devices) from [**Releases → Latest**](https://github.com/Core-Dev-Support/naua-security-mirage-android/releases/latest).
+2. Install the APK and tap the big button on the home screen — the app automatically picks the best node.
+3. Verify the tunnel in the diagnostics card or on [ipleak.net](https://ipleak.net) / [dnsleaktest.com](https://dnsleaktest.com).
 
 ---
 
 ## What's inside
 
-One big button, and the tunnel is up. There is no location to pick: the client measures latency to every available node, starts the Xray core on the best one, and then checks that traffic actually flows rather than trusting a successful core start. If the chosen node does not hold up, it fails over to the next one automatically.
+One big button, and the tunnel is up. There is no location to pick: the client measures latency, packet loss, and jitter across all available nodes, starts the Xray core on the best one, and checks that traffic actually flows rather than trusting a successful core start. If the chosen node does not hold up, it fails over to the next one automatically.
 
 **🛡 Masquerade.** VLESS + Reality: the connection is indistinguishable from a normal TLS session to a popular site, so it survives DPI where fingerprinted protocols fail.
 
@@ -63,9 +73,19 @@ One big button, and the tunnel is up. There is no location to pick: the client m
 
 **🤖 Telegram Bot & Cross-Platform Subscription:**
 - 🤖 **Official Bot**: [@NAUA_Security_Mirage_Bot](https://t.me/NAUA_Security_Mirage_Bot) — fast subscription management and account linking.
-- 🎁 **Free Trial Without Card Binding**: activate 24 hours of free access to all VIP nodes in one click in the app or bot (no credit card required, no recurring billing traps).
-- 📺 **1 Subscription for All Devices**: export personal VLESS keys and QR codes directly from the app for use on PC (Happ, v2rayN, Nekoray), iPhone/iPad (Happ, Shadowrocket, Streisand), and Smart TV.
-- ⚡ **No Auto-Renewal**: pay only for the chosen duration (from 1.1 ₽ / day), zero unexpected charges.
+- 🎁 **Free Trial Without Card Binding**: activate 24 hours of free access to dedicated paid nodes — issued once per account and per device with no credit card required and no recurring billing traps.
+- 📺 **1 Subscription for All Devices**: export personal keys and QR codes directly from the app for use on PC (Happ, v2rayN, Nekoray), iPhone/iPad (Happ, Shadowrocket, Streisand), and Smart TV.
+- ⚡ **No Auto-Renewal**: one-time payments via **Cashera** only for the chosen duration (from 1.12 ₽/day on the annual plan), zero unexpected charges.
+
+---
+
+## 🔌 Protocols
+
+| Protocol | Transport / Masquerade | Status | Purpose |
+| :--- | :--- | :--- | :--- |
+| **VLESS + Reality** | TCP / TLS 1.3 (uTLS) | Released (`v1.4.0`) | Primary DPI & TSPU circumvention without identifiable fingerprints |
+| **Hysteria 2 (`hy2`)** | QUIC / UDP | Testing (`main` / `1.4.1-beta`) | High throughput on lossy mobile networks |
+| **XHTTP (`SplitHTTP`)** | HTTP/2–3 over TLS | Testing (`main` / `1.4.1-beta`) | Fallback transport for heavily filtered networks |
 
 ---
 
@@ -83,7 +103,7 @@ One big button, and the tunnel is up. There is no location to pick: the client m
       <td align="center"><img src="docs/screenshots/App_Slide_5.jpg" width="170" alt="Colors" /><br /><sub><b>Colors</b><br />button · text · switches</sub></td>
       <td align="center"><img src="docs/screenshots/App_Slide_6.jpg" width="170" alt="Diagnostics" /><br /><sub><b>Diagnostics</b><br />speed · autoping · nodes</sub></td>
       <td align="center"><img src="docs/screenshots/App_Slide_7.jpg" width="170" alt="Log" /><br /><sub><b>Journal</b><br />levels · export · share</sub></td>
-      <td align="center"><b>407 strings</b><br /><sub>Russian and English,<br />switched at runtime</sub></td>
+      <td align="center"><b>618 strings</b><br /><sub>Russian and English,<br />switched at runtime</sub></td>
     </tr>
   </table>
 </p>
@@ -95,8 +115,8 @@ One big button, and the tunnel is up. There is no location to pick: the client m
 ```mermaid
 flowchart TD
     A["📱 App<br/>VpnService · TUN · Material 3"] --> S{"Node selection"}
-    S -->|"paid subscription"| P["🇨🇭 Switzerland · 🇹🇷 Turkey<br/>dedicated nodes"]
-    S -->|"free plan"| F["🌐 Free node pool<br/>sorted by latency"]
+    S -->|"paid subscription"| P["🌍 Dedicated nodes<br/>server-driven app-config<br/>(e.g. Netherlands · Turkey)"]
+    S -->|"free plan"| F["🌐 Free node pool<br/>sorted by latency & loss"]
     P --> C["⚙️ libXray<br/>libgojni.so<br/>VLESS + Reality + geosite"]
     F --> C
     C --> W{"Traffic flowing?"}
@@ -104,18 +124,19 @@ flowchart TD
     W -->|yes| N["🌍 Internet"]
 
     G["👤 Supabase Auth<br/>email + Google, PKCE"] -.->|JWT in EncryptedSharedPreferences| A
-    Y["💳 yoomoney-webhook<br/>50 ₽ / 30 days"] -.->|subscription| G
-    B["📡 france-config · belarus-config · node-status<br/>send-release-push · latest-release"] -.-> A
+    Y["💳 Cashera (create-payment)<br/>cashera-webhook · from 50 ₽"] -.->|subscription| G
+    B["📡 app-config · node-status<br/>latest-release · send-release-push"] -.-> A
+    T["🤖 telegram-bot<br/>telegram-auth · telegram-subscription"] -.-> G
 
     style A fill:#6C63FF,stroke:#fff,stroke-width:2px,color:#fff
     style C fill:#FF6B35,stroke:#fff,stroke-width:2px,color:#fff
     style N fill:#00D4FF,stroke:#fff,stroke-width:2px,color:#000
 ```
 
-1. **Node selection.** Latency is measured across all candidates, the core is started on the best one, and actual traffic flow is then verified. If it does not hold, the next node is taken.
-2. **Integrity.** On start the APK signing certificate is hashed with SHA-256 and compared against a value compiled into the binary; debugger attachment, `TracerPid`, hooking frameworks, Frida, root and emulator are all checked.
+1. **Node selection.** Latency, packet loss, and jitter are measured across candidates, the core starts on the best one, and actual traffic flow is verified. If it does not hold, the next node is taken.
+2. **Integrity.** On start the APK signing certificate is hashed with SHA-256 and compared against a value compiled into the binary; debugger attachment, `TracerPid`, hooking frameworks, Frida, root, and emulator are all checked.
 3. **Routing.** DNS stays inside the tunnel, while `geosite.dat` sends `.ru` and the domains you picked straight out.
-4. **Control.** Speed, latency and session time appear on screen and in the notification; paid-node state and outage history live in the diagnostics card; background workers watch updates, the subscription and node availability.
+4. **Control.** Speed, latency, and session time appear on screen and in the notification; paid-node state and outage history live in the diagnostics card; background workers watch updates, the subscription, and node availability.
 
 Details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
@@ -126,6 +147,8 @@ Details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 <p align="center">
   <img src="https://img.shields.io/badge/Kotlin-2.4.21-7F52FF?style=flat-square&logo=kotlin&logoColor=white" alt="Kotlin" />
   <img src="https://img.shields.io/badge/AGP-9.4.1-3DDC84?style=flat-square&logo=android&logoColor=white" alt="AGP" />
+  <img src="https://img.shields.io/badge/minSdk-23-00D4FF?style=flat-square&logo=android&logoColor=white" alt="minSdk 23" />
+  <img src="https://img.shields.io/badge/targetSdk-35-00D4FF?style=flat-square&logo=android&logoColor=white" alt="targetSdk 35" />
   <img src="https://img.shields.io/badge/Xray--core--libgojni-FF6B35?style=flat-square&logo=github&logoColor=white" alt="Xray" />
   <img src="https://img.shields.io/badge/R8_full--mode-6C63FF?style=flat-square&logo=proguard&logoColor=white" alt="R8" />
   <img src="https://img.shields.io/badge/Supabase-3ECF8E?style=flat-square&logo=supabase&logoColor=white" alt="Supabase" />
@@ -136,9 +159,13 @@ Details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 </p>
 
 - **Client** — Kotlin, `VpnService` (TUN, `specialUse` FGS), 2 Quick Settings tiles, WorkManager, OkHttp, `EncryptedSharedPreferences`.
-- **Core** — Xray (`libgojni.so`, `arm64-v8a` + `armeabi-v7a`), VLESS + Reality, `geosite.dat` in assets with in-app updates.
-- **Backend** — Supabase Auth (email + Google, PKCE) and 6 Deno Edge functions: `france-config`, `latest-release`, `node-status`, `register-device`, `send-release-push`, `yoomoney-webhook`.
-- **CI/CD** — secret-scan → `deno check` and `deno test` → 9 unit tests → R8 build → manifest check for advertising identifiers → v2/v3 signature requirement.
+- **Core** — Xray (`libgojni.so`, `arm64-v8a` + `armeabi-v7a`), VLESS + Reality (`hy2` and `xhttp` in testing on `main`), `geosite.dat` in assets with in-app updates.
+- **Backend** — Supabase Auth (email + Google, PKCE) and **15 Deno Edge functions**:
+  - *Config & nodes:* `app-config`, `france-config`, `belarus-config`, `finland-config`, `node-status`
+  - *Payments & trial:* `create-payment`, `cashera-webhook`, `yoomoney-webhook`, `free-trial`
+  - *Telegram bot & auth:* `telegram-bot`, `telegram-auth`, `telegram-subscription`
+  - *Releases & push:* `latest-release`, `register-device`, `send-release-push`
+- **CI/CD** — secret-scan → `deno check` and `deno test` → 68 Android unit tests (13 files) → R8 build → manifest check for advertising identifiers → v2/v3 signature requirement.
 
 ---
 
@@ -152,9 +179,9 @@ Details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 **Requirements:** Android 6.0+ (API 23), `arm64-v8a` or `armeabi-v7a`, any internet connection. The universal `NAUA-Security-Mirage-v1.4.0.apk` is larger and only needed for unusual cases.
 
 <details>
-<summary><b>Subscribing to the paid nodes (Switzerland and Turkey)</b></summary>
+<summary><b>Subscribing to dedicated paid nodes</b></summary>
 
-Sign in with email or Google, then choose YooMoney — **50 ₽ for 30 days**. One-time payment, no auto-renewals. The nodes activate within 1–2 minutes. The subscription is bound to your account, not to a device.
+Sign in with email or Google, then choose a duration and pay via **Cashera** — from **50 ₽ for 30 days** (or 140 ₽ for 3 mo., 250 ₽ for 6 mo., 410 ₽ for 1 year). One-time payment, no auto-renewals. The nodes activate within 1–2 minutes. The subscription is bound to your account, not to a device; the active node catalog is loaded dynamically from `app-config`.
 
 </details>
 
@@ -169,14 +196,14 @@ The app has a node card with an "N of M responding" check, an outage history for
 
 ## 🔨 Build from source
 
-Requires **JDK 17** and the **Android SDK (API 34+)**:
+Requires **JDK 17** and the **Android SDK (API 35)**:
 
 ```bash
 git clone https://github.com/Core-Dev-Support/naua-security-mirage-android.git
 cd naua-security-mirage-android
 
 ./gradlew assembleDebug          # debug build
-./gradlew testDebugUnitTest      # unit tests
+./gradlew testDebugUnitTest      # unit tests (68 tests)
 ./gradlew assembleRelease        # release build with R8
 ```
 
@@ -195,17 +222,17 @@ naua-security-mirage-android/
 │       ├── java/com/naua_security_mirage/app/
 │       │   ├── ui/          MainActivity, adapters, custom views
 │       │   ├── vpn/         MirageVpnService, XrayVpnController, tiles
-│       │   ├── data/        Supabase, repositories, models
+│       │   ├── data/        Supabase, repositories, models, AppConfig
 │       │   ├── util/        AppShield, updates, logging, animations
 │       │   ├── work/        WorkManager: node, subscription, updates
 │       │   └── push/        FCM receiver
 │       ├── jniLibs/         libgojni.so — arm64-v8a, armeabi-v7a
 │       ├── assets/geo/      geosite.dat
-│       └── test/            9 unit tests
+│       └── test/            13 test files (68 unit tests)
 ├── desktop/                 Compose Multiplatform client (work in progress)
-├── supabase/functions/      6 Deno Edge functions
-├── docs/                    Architecture, releases, legal, screenshots
-└── .github/workflows/       build-release, secret-scan, live-check, build-desktop
+├── supabase/functions/      15 Deno Edge functions + _shared
+├── docs/                    Architecture, releases, bot, legal, screenshots
+└── .github/workflows/       build-release, secret-scan, live-check, build-desktop, node-watchdog, pages
 ```
 
 ---
@@ -228,8 +255,9 @@ Found a vulnerability? Do not open a public issue — see [SECURITY.md](SECURITY
 
 | Version | Status | Highlights |
 | :--- | :--- | :--- |
-| **v1.4.0** | released | Google sign-in without a browser · subscription with an end date · paid Belarus node · 3, 6 and 12-month renewals · free trial day · English UI |
-| **v1.3.0** | released | Google sign-in · YooMoney subscription at 30 ₽ · dedicated France node · screenshot protection · tunnel logs · free-mode DNS fixes |
+| **v1.4.1-beta** | testing (`main`) | Hysteria 2 & XHTTP protocols · protocol selector · dynamic country flags · accurate QUIC/median latency |
+| **v1.4.0** | released | Google sign-in without a browser · subscription with an end date · server-driven nodes & pricing · 3, 6 & 12-month renewals · free trial day · English UI |
+| **v1.3.0** | released | Google sign-in · dedicated paid node · screenshot protection (`FLAG_SECURE`) · tunnel logs · free-mode DNS fixes |
 
 Release notes: [docs/releases/](docs/releases/). Full history: [CHANGELOG.md](CHANGELOG.md). Plans: [ROADMAP.md](ROADMAP.md).
 
@@ -240,14 +268,14 @@ Release notes: [docs/releases/](docs/releases/). Full history: [CHANGELOG.md](CH
 <details>
 <summary><b>Is it free?</b></summary>
 
-Yes, there is a free mode on a pool of free nodes. The paid nodes (Switzerland and Turkey) cost a one-time **50 ₽ for 30 days**, with no auto-renewals.
+Yes, there is a free mode on a pool of free nodes. Dedicated paid nodes (server-driven catalog in `app-config`, e.g. Netherlands and Turkey) cost a one-time **from 50 ₽ for 30 days** via Cashera, with no auto-renewals.
 
 </details>
 
 <details>
-<summary><b>What is AI mode?</b></summary>
+<summary><b>What subscription plans and trial options exist?</b></summary>
 
-A node-selection mode that checks for a **real response from Google** through the tunnel itself instead of trusting the exit country. If no node qualifies, the app says so plainly rather than connecting blindly.
+You can renew for 1 month (50 ₽), 3 months (140 ₽), 6 months (250 ₽), or 1 year (410 ₽) — days are added to your active subscription. New users get a **free trial day**: 24 hours on paid nodes, issued once per account and per device by the server.
 
 </details>
 
@@ -285,7 +313,7 @@ Currently GitHub Releases, from which the app updates itself with signature veri
 
 - ⭐ A star is the best support this project can get.
 - 🐛 Found a bug? — [bug report](https://github.com/Core-Dev-Support/naua-security-mirage-android/issues/new/choose).
-- 💡 Have an idea? — [feature request](https://github.com/Core-Dev-Support/naua-security-mirage-android/issues/new/choose).
+- 💡 Have an idea? — [feature request](https://github.com/Core-Dev-Support/naua-security-mirage-android/issues/new/choose) or [Discussions](https://github.com/Core-Dev-Support/naua-security-mirage-android/discussions).
 - 🔧 Want to send code? — [CONTRIBUTING.md](CONTRIBUTING.md); PR and issue templates are already configured.
 - 📣 [Telegram channel for updates](https://t.me/News_And_Updates_Apps).
 

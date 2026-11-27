@@ -1,7 +1,7 @@
 # Архитектура NAUA Security Mirage
 
 Карта того, как устроены приложение и его серверная часть, для контрибьюторов
-и аудиторов безопасности. Соответствует коду в `main` (v1.4.0).
+и аудиторов безопасности. Соответствует коду в `main` (релиз `v1.4.0` и ветка тестирования `1.4.1-beta`).
 
 Отдельного бэкенда нет: Postgres, Auth и Edge Functions живут в одном проекте
 Supabase (`orwwaptbxmwxvfwfqavc`). Vercel не используется — вебхук Telegram
@@ -33,9 +33,11 @@ flowchart TD
     BOT --> SUBS[🔗 telegram-subscription]
     SUBS --> FR
     SUBS --> BY
-    FR --> XUI[H1, Швейцария]
-    BY --> H1[H1Cloud, Турция]
-    YM[💳 YooMoney] --> WH[yoomoney-webhook] --> DB
+    FR --> XUI[3X-UI / Node 1]
+    BY --> H1[H1Cloud / Node 2]
+    CSH[💳 Cashera / create-payment] --> CWH[cashera-webhook] --> DB
+    YM[💳 YooMoney legacy] -.-> WH[yoomoney-webhook] -.-> DB
+    APPCFG[⚙️ app-config] -.-> APP
     CFG[📊 node-status] -.-> VM
     PUSH[🔔 send-release-push] -.-> APP
     UPD[📦 latest-release] -.-> APP
@@ -180,7 +182,11 @@ select cron.schedule(
 | `telegram-bot` | Telegram | секрет вебхука | Экраны, подписка, поддержка, рефералка, админка, крон |
 | `telegram-auth` | браузер, бот | публичный GET; `start`/`status` — только с `x-bot-secret` | Google-вход, привязка, пробник, экран ошибки |
 | `telegram-subscription` | VPN-клиент, приложение | подпись `tg_id` (с версией ссылки) или JWT | Одна base64-ссылка: все узлы из `app_config.paid_nodes` (+ бесплатный обход по подписанной `?free=…`, только Happ) |
-| `yoomoney-webhook` | YooMoney | подпись YooMoney | Начисление дней, реферальный бонус, журнал платежей |
+| `app-config` | приложение, бот | публичный | Тарифы и каталог платных узлов (`paid_nodes`) |
+| `create-payment` | приложение, бот | публичный / параметры заказа | Создание ссылки на оплату в **Cashera** |
+| `cashera-webhook` | Cashera | подпись Cashera | Основной вебхук оплаты: начисление дней, реферальный бонус, журнал платежей |
+| `yoomoney-webhook` | YooMoney (legacy) | подпись YooMoney | Совместимость со старыми ссылками оплаты |
+| `free-trial` | приложение | JWT пользователя | Выдача пробного дня (1 раз на аккаунт и устройство) |
 | `france-config` | приложение | JWT пользователя | Узел 3X-UI для оплатившего |
 | `belarus-config` | приложение | JWT пользователя | Узел H1Cloud для оплатившего |
 | `finland-config` | приложение, `telegram-subscription` | JWT пользователя | Заготовка VLESS-узла; в живом каталоге не включена |
@@ -309,7 +315,7 @@ where id = 'paid_nodes';
 - **Вход:** Google → Supabase Auth (PKCE) → `telegram-auth` (бот) или
   `mirage://auth/callback` (приложение) → `telegram_accounts` /
   `subscriptions` → JWT локально.
-- **Оплата:** форма YooMoney → `yoomoney-webhook` → `subscriptions` (+ дни) →
+- **Оплата:** `create-payment` → форма **Cashera** → `cashera-webhook` (или `yoomoney-webhook` для legacy) → `subscriptions` (+ дни) →
   `payment_events` → при необходимости бонус пригласившему.
 - **Пробник:** первый вход через Google и пустая подписка → `plan='trial'`,
   `paid_until = now + 1 день`.
@@ -358,7 +364,7 @@ merged-манифеста (без AD_ID) → проверка подписи v2/
 | Путь | Назначение |
 |---|---|
 | `app/src/main/java/.../app/ui/` | MainActivity, диалоги: auth, подписка, обновления, поддержка |
-| `app/src/main/java/.../app/vpn/` | MirageVpnService, XrayEnvelope, HandoverPolicy, AiRegionBlock, Tile-сервисы |
+| `app/src/main/java/.../app/vpn/` | MirageVpnService, XrayEnvelope, HandoverPolicy, Tile-сервисы |
 | `app/src/main/java/.../app/work/` | Воркеры: UpdateCheck, SubscriptionExpiry, NodeStatus |
 | `app/src/main/java/.../app/data/` | Supabase Auth/репозитории, модель VlessServer |
 | `app/src/main/jniLibs/` | `libgojni.so` для `arm64-v8a` и `armeabi-v7a` |
