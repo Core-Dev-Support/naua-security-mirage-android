@@ -235,6 +235,17 @@ body.connect-mode {
 .screen.connected .aurora-bg {
   background: radial-gradient(circle at 50% 42%, rgba(77, 232, 163, 0.26), rgba(232, 163, 61, 0.14) 48%, transparent 72%);
 }
+.screen.glass-on .m-card {
+  background: rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-color: rgba(255, 255, 255, 0.16);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14);
+}
+.screen.glass-on .split-chip {
+  backdrop-filter: blur(10px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14);
+}
 .statusbar {
   position: relative; display: flex; justify-content: space-between; align-items: center;
   font: 600 11px var(--f-mono); color: #9ca3af; padding: 2px 6px 8px;

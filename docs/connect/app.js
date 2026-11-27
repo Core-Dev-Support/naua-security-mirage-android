@@ -159,18 +159,18 @@
       fact_3: "1 подписка на все устройства",
       phone_hint: "Живой макет приложения. Нажми на кнопку или тумблеры.",
       vpn_off: "Отключено",
-      vpn_conn: "Подбор лучшего узла…",
+      vpn_conn: "Подключение...",
       vpn_on: "Подключено",
-      meta_off: "Нажми на кнопку для старта",
-      meta_conn: "Замер пинга и потерь…",
-      meta_on: "Нидерланды · Xray · 18 мс · ↓ 42 Мбит/с",
-      split_chip: "⚡ .ru и банки идут напрямую",
+      meta_off: "Нажми, чтобы включить защиту",
+      meta_conn: "Поиск наилучшего сервера...",
+      meta_on_fmt: "Время сессии {time} • 18 ms",
+      split_chip: "⚡ .ru и выбранные сайты напрямую",
       sec_pill: "🔒 FLAG_SECURE",
-      sw_tunnel: "Туннель VPN",
-      sw_style: "3D-стиль кнопки",
-      sw_aurora: "Сияние Aurora",
+      sw_tunnel: "Подключить VPN",
+      sw_style: "3D-стиль (Cyber Earth)",
+      sw_glass: "Стиль: Жидкое стекло",
       sw_split: "Split-tunneling (.ru)",
-      sw_secure: "Защита экрана",
+      sw_secure: "Снимки экрана запрещены",
       k_high: "Возможности",
       h_high: "Почему выбирают Mirage",
       s_high: "От маскировки трафика под обычный HTTPS до самозащиты APK и единой подписки.",
@@ -203,13 +203,13 @@
       f2_l2: "Обновляемый geosite.dat для .ru-доменов",
       f2_l3: "Per-App Proxy без разрешения QUERY_ALL_PACKAGES",
       f3_t: "Безопасность и приватность", f3_s: "Zero logs и защита контура",
-      f3_l1: "AD_ID и рекламные сервисы вырезаны из манифеста (проверка в CI)",
-      f3_l2: "Токены в EncryptedSharedPreferences, allowBackup=false",
+      f3_l1: "AD_ID и рекламные сервисы вырезаны; диагностика Firebase отключается",
+      f3_l2: "Токены в EncryptedSharedPreferences, allowBackup=false, Kill Switch Android",
       f3_l3: "Самообновление из GitHub Releases с проверкой подписи v2/v3",
-      f4_t: "Внешний вид", f4_s: "Настройка главного экрана",
+      f4_t: "Внешний вид", f4_s: "Классический или Жидкое стекло",
       f4_l1: "5 стилей кнопки: Стандарт, Cyber Earth, Quantum Core, Holo-Shield, Realistic Earth",
-      f4_l2: "Свои цвета кнопки, текста, переключателей и фон",
-      f4_l3: "Скрытие и перестановка разделов, RU / EN (618 строк)",
+      f4_l2: "Свои цвета для «Стандарт», своё фото на фон и анимации интерфейса",
+      f4_l3: "Скрытие и перестановка разделов, резервные копии, RU / EN (618 строк)",
       f5_t: "Диагностика и журнал", f5_s: "Прозрачность каждого соединения",
       f5_l1: "Live-скорость, пинг и время сессии на экране и в шторке",
       f5_l2: "Карточка узлов («отвечают N из M») и история сбоев",
@@ -261,18 +261,18 @@
       fact_3: "1 subscription for all devices",
       phone_hint: "Interactive app mockup. Tap the button or toggles.",
       vpn_off: "Disconnected",
-      vpn_conn: "Selecting best node…",
+      vpn_conn: "Connecting...",
       vpn_on: "Connected",
-      meta_off: "Tap the button to connect",
-      meta_conn: "Measuring latency & loss…",
-      meta_on: "Netherlands · Xray · 18 ms · ↓ 42 Mbps",
-      split_chip: "⚡ .ru & local banks bypass VPN",
+      meta_off: "Tap to enable protection",
+      meta_conn: "Finding best server...",
+      meta_on_fmt: "Session time {time} • 18 ms",
+      split_chip: "⚡ .ru & custom sites direct",
       sec_pill: "🔒 FLAG_SECURE",
-      sw_tunnel: "VPN Tunnel",
-      sw_style: "3D button style",
-      sw_aurora: "Aurora glow",
+      sw_tunnel: "Connect VPN",
+      sw_style: "3D style (Cyber Earth)",
+      sw_glass: "UI style: Liquid Glass",
       sw_split: "Split-tunneling (.ru)",
-      sw_secure: "Screen protection",
+      sw_secure: "Screenshots blocked",
       k_high: "Highlights",
       h_high: "Why people choose Mirage",
       s_high: "From HTTPS-grade DPI masquerade to APK self-protection and cross-platform access.",
@@ -305,13 +305,13 @@
       f2_l2: "Updatable geosite.dat for direct .ru routing",
       f2_l3: "Per-App Proxy without QUERY_ALL_PACKAGES",
       f3_t: "Security & Privacy", f3_s: "Zero logs & hardened runtime",
-      f3_l1: "AD_ID & ad services stripped from manifest (verified by CI)",
-      f3_l2: "Tokens in EncryptedSharedPreferences, allowBackup=false",
+      f3_l1: "AD_ID & ad services stripped; Firebase diagnostics can be turned off",
+      f3_l2: "Tokens in EncryptedSharedPreferences, allowBackup=false, Android Kill Switch",
       f3_l3: "Self-updates from GitHub Releases with v2/v3 signature check",
-      f4_t: "Appearance", f4_s: "Customizable home screen",
+      f4_t: "Appearance", f4_s: "Classic or Liquid Glass UI",
       f4_l1: "5 button styles: Standard, Cyber Earth, Quantum Core, Holo-Shield, Realistic Earth",
-      f4_l2: "Custom colors for button, text, switches, and background",
-      f4_l3: "Reorder & hide sections, instant RU / EN (618 strings)",
+      f4_l2: "Custom colors for Standard, gallery photo background & UI animations",
+      f4_l3: "Reorder & hide sections, settings backup, instant RU / EN (618 strings)",
       f5_t: "Diagnostics & Journal", f5_s: "Full connection visibility",
       f5_l1: "Live speed, ping, and session timer on screen and notification",
       f5_l2: "Node health card (N of M responding) and outage history",
@@ -412,23 +412,31 @@
   };
 
   // Phone mockup state
-  var phoneState = { connected: false, connecting: false, style3d: false, aurora: true, split: true, secure: true };
+  var phoneState = { connected: false, connecting: false, style3d: false, glass: true, split: true, secure: true, sec: 0 };
+  var sessionTimer = null;
+  var fmtTime = function (s) {
+    var m = Math.floor(s / 60), r = s % 60;
+    return (m < 10 ? "0" : "") + m + ":" + (r < 10 ? "0" : "") + r;
+  };
   var updatePhoneUI = function () {
     var dict = i18n[lang];
     var scr = document.getElementById("phoneScreen");
     var btn = document.getElementById("phoneVpnBtn");
     scr.classList.toggle("connected", phoneState.connected);
-    scr.classList.toggle("aurora-on", phoneState.aurora);
+    scr.classList.toggle("aurora-on", true);
+    scr.classList.toggle("glass-on", phoneState.glass);
     scr.classList.toggle("split-on", phoneState.split);
     scr.classList.toggle("secure-on", phoneState.secure);
 
     btn.className = "vpn-btn" + (phoneState.style3d ? " style-cyber" : "");
     document.getElementById("vpnStatus").textContent = phoneState.connecting ? dict.vpn_conn : (phoneState.connected ? dict.vpn_on : dict.vpn_off);
-    document.getElementById("vpnMeta").textContent = phoneState.connecting ? dict.meta_conn : (phoneState.connected ? dict.meta_on : dict.meta_off);
+    document.getElementById("vpnMeta").textContent = phoneState.connecting
+      ? dict.meta_conn
+      : (phoneState.connected ? dict.meta_on_fmt.replace("{time}", fmtTime(phoneState.sec)) : dict.meta_off);
 
     document.getElementById("rowTunnel").classList.toggle("on", phoneState.connected || phoneState.connecting);
     document.getElementById("rowStyle").classList.toggle("on", phoneState.style3d);
-    document.getElementById("rowAurora").classList.toggle("on", phoneState.aurora);
+    document.getElementById("rowGlass").classList.toggle("on", phoneState.glass);
     document.getElementById("rowSplit").classList.toggle("on", phoneState.split);
     document.getElementById("rowSecure").classList.toggle("on", phoneState.secure);
   };
@@ -436,7 +444,9 @@
   var toggleVpn = function () {
     if (phoneState.connecting) return;
     if (phoneState.connected) {
+      clearInterval(sessionTimer);
       phoneState.connected = false;
+      phoneState.sec = 0;
       updatePhoneUI();
     } else {
       phoneState.connecting = true;
@@ -444,7 +454,13 @@
       setTimeout(function () {
         phoneState.connecting = false;
         phoneState.connected = true;
+        phoneState.sec = 1;
         updatePhoneUI();
+        clearInterval(sessionTimer);
+        sessionTimer = setInterval(function () {
+          phoneState.sec++;
+          if (phoneState.connected) updatePhoneUI();
+        }, 1000);
       }, 650);
     }
   };
@@ -452,7 +468,7 @@
   document.getElementById("phoneVpnBtn").addEventListener("click", toggleVpn);
   document.getElementById("rowTunnel").addEventListener("click", toggleVpn);
   document.getElementById("rowStyle").addEventListener("click", function () { phoneState.style3d = !phoneState.style3d; updatePhoneUI(); });
-  document.getElementById("rowAurora").addEventListener("click", function () { phoneState.aurora = !phoneState.aurora; updatePhoneUI(); });
+  document.getElementById("rowGlass").addEventListener("click", function () { phoneState.glass = !phoneState.glass; updatePhoneUI(); });
   document.getElementById("rowSplit").addEventListener("click", function () { phoneState.split = !phoneState.split; updatePhoneUI(); });
   document.getElementById("rowSecure").addEventListener("click", function () { phoneState.secure = !phoneState.secure; updatePhoneUI(); });
 
