@@ -62,7 +62,7 @@
       </a>
       <nav class="nav-links">
         <a href="#highlights" data-i18n="nav_highlights">Возможности</a>
-        <a href="#styles" data-i18n="nav_styles">Кастомизация</a>
+        <a href="#modes" data-i18n="nav_styles">Режимы</a>
         <a href="#plans" data-i18n="nav_plans">Подписка</a>
         <a href="#download" data-i18n="nav_download">Скачать</a>
       </nav>
@@ -98,41 +98,22 @@
         </div>
       </div>
 
-      <div class="phone-col">
-        <div class="phone">
-          <div class="screen aurora-on split-on secure-on" id="phoneScreen">
-            <div class="aurora-bg"></div>
-            <div class="statusbar"><span>01:33</span><span>5G · 98%</span></div>
-            <div class="phone-top">
-              <div>
-                <div class="phone-title">Mirage</div>
-                <div style="font-size:10.5px;color:#8a8d9e;line-height:1;">NAUA Security</div>
-              </div>
-              <div class="phone-hdr-btns">
-                <span class="secure-pill" data-i18n="sec_pill">🔒</span>
-                <span class="phone-ico-btn" id="phoneLangBadge">RU</span>
-                <span class="phone-ico-btn">⬇</span>
-                <span class="phone-ico-btn">↻</span>
-              </div>
-            </div>
-            <div class="vpn-stage">
-              <button class="vpn-btn" id="phoneVpnBtn" type="button" aria-label="VPN">
-                <svg width="40" height="40" viewBox="0 0 24 24" fill="currentColor"><path d="M13 3h-2v10h2V3zm4.83 2.17l-1.42 1.42A6.92 6.92 0 0 1 19 12c0 3.87-3.13 7-7 7s-7-3.13-7-7c0-2.05.88-3.89 2.29-5.17L5.88 5.42A8.95 8.95 0 0 0 3 12a9 9 0 0 0 18 0c0-2.74-1.23-5.18-3.17-6.83z"/></svg>
-              </button>
-              <div class="vpn-status" id="vpnStatus">Отключено</div>
-              <div class="vpn-meta" id="vpnMeta">Нажми, чтобы включить защиту</div>
-            </div>
-            <div class="split-chip" data-i18n="split_chip">⚡ .ru и выбранные сайты напрямую</div>
-            <div class="m-card">
-              <div class="m-row" id="rowTunnel"><span data-i18n="sw_tunnel">Подключить VPN</span><span class="m-switch"></span></div>
-              <div class="m-row" id="rowStyle"><span data-i18n="sw_style">3D-стиль (Cyber Earth)</span><span class="m-switch"></span></div>
-              <div class="m-row on" id="rowAnim"><span data-i18n="sw_anim">Анимации интерфейса</span><span class="m-switch"></span></div>
-              <div class="m-row on" id="rowSplit"><span data-i18n="sw_split">Split-tunneling (.ru)</span><span class="m-switch"></span></div>
-              <div class="m-row on" id="rowSecure"><span data-i18n="sw_secure">Снимки экрана запрещены</span><span class="m-switch"></span></div>
-            </div>
+      <div class="hero-card-col">
+        <div class="hero-card">
+          <div class="aurora-bg"></div>
+          <div class="vpn-stage">
+            <button class="vpn-btn" id="heroVpnBtn" type="button" aria-label="VPN">
+              <svg width="44" height="44" viewBox="0 0 24 24" fill="currentColor"><path d="M13 3h-2v10h2V3zm4.83 2.17l-1.42 1.42A6.92 6.92 0 0 1 19 12c0 3.87-3.13 7-7 7s-7-3.13-7-7c0-2.05.88-3.89 2.29-5.17L5.88 5.42A8.95 8.95 0 0 0 3 12a9 9 0 0 0 18 0c0-2.74-1.23-5.18-3.17-6.83z"/></svg>
+            </button>
+            <div class="vpn-status" id="vpnStatus">Отключено</div>
+            <div class="vpn-meta" id="vpnMeta">Нажми, чтобы проверить подключение</div>
+          </div>
+          <div class="hero-card-facts">
+            <div class="hc-row"><span>🛡 VLESS + Reality</span><span class="hc-val" data-i18n="hc_v1">Маскировка под HTTPS</span></div>
+            <div class="hc-row"><span>⚡ Split-tunneling</span><span class="hc-val" data-i18n="hc_v2">.ru сайты напрямую</span></div>
+            <div class="hc-row"><span>🔒 No-Logs & No AD_ID</span><span class="hc-val" data-i18n="hc_v3">Без рекламы</span></div>
           </div>
         </div>
-        <div class="phone-hint" data-i18n="phone_hint">Живой макет приложения. Нажми на кнопку или тумблеры.</div>
       </div>
     </div>
   </section>
@@ -192,37 +173,25 @@
     </div>
   </section>
 
-  <section id="styles">
+  <section id="modes">
     <div class="wrap">
       <div class="sec-head">
         <div>
-          <span class="kicker" data-i18n="k_styles">Кастомизация и тарифы</span>
-          <h2 data-i18n="h_styles">5 стилей кнопки и режимы работы</h2>
+          <span class="kicker" data-i18n="k_modes">Режимы работы</span>
+          <h2 data-i18n="h_modes">Бесплатный пул или выделенные серверы</h2>
         </div>
-        <p class="sec-sub" data-i18n="s_styles">Покрути стили главной кнопки прямо из приложения и сравни бесплатный пул с подпиской.</p>
+        <p class="sec-sub" data-i18n="s_modes">Пользуйтесь бесплатно без регистрации или подключите подписку для максимальной скорости и всех устройств.</p>
       </div>
       <div class="showcase-grid">
         <div class="panel">
-          <div class="style-stage">
-            <div class="style-glow" id="styleGlow"></div>
-            <canvas id="styleCanvas" width="150" height="150"></canvas>
-            <div class="style-name" id="styleName">Стандарт</div>
-            <div class="style-desc" id="styleDesc">Классический шар</div>
-          </div>
-          <div class="style-picker">
-            <button class="style-pill active" type="button">Стандарт</button>
-            <button class="style-pill" type="button">3D Cyber Earth</button>
-            <button class="style-pill" type="button">3D Quantum Core</button>
-            <button class="style-pill" type="button">3D Holo-Shield</button>
-            <button class="style-pill" type="button">3D Realistic Earth</button>
-          </div>
+          <div class="mode-badge" data-i18n="plan_free">Бесплатный режим</div>
+          <h3 style="font-family:var(--f-display);margin:10px 0 14px;" data-i18n="free_h">Старт в один тап</h3>
+          <div class="compare-list" id="compareFree"></div>
         </div>
-        <div class="panel">
-          <div class="plan-toggle">
-            <button class="active" data-plan="free" type="button" data-i18n="plan_free">Бесплатный режим</button>
-            <button data-plan="paid" type="button" data-i18n="plan_paid">Платная подписка</button>
-          </div>
-          <div class="compare-list" id="compareList"></div>
+        <div class="panel panel-accent">
+          <div class="mode-badge accent" data-i18n="plan_paid">Платная подписка</div>
+          <h3 style="font-family:var(--f-display);margin:10px 0 14px;" data-i18n="paid_h">Максимум возможностей</h3>
+          <div class="compare-list" id="comparePaid"></div>
         </div>
       </div>
     </div>

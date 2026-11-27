@@ -213,127 +213,57 @@ body.connect-mode {
 .trust-facts span { display: inline-flex; align-items: center; gap: 6px; }
 .trust-facts b { color: var(--accent); }
 
-/* ---------- PHONE MOCKUP ---------- */
-.phone-col { display: flex; flex-direction: column; align-items: center; }
-.phone {
-  width: 332px; max-width: 100%;
-  background: var(--phone-frame); border-radius: 46px; padding: 11px;
-  box-shadow: var(--shadow), 0 0 0 1px rgba(255, 255, 255, 0.08);
+/* ---------- HERO INTERACTIVE CARD ---------- */
+.hero-card-col { display: flex; justify-content: center; }
+.hero-card {
+  width: 100%; max-width: 390px; position: relative; overflow: hidden;
+  background: #12141c; color: #f3f1ea;
+  border: 1px solid rgba(232, 163, 61, 0.25); border-radius: 28px;
+  padding: 28px 24px 24px; box-shadow: var(--shadow);
 }
-.screen {
-  position: relative; overflow: hidden;
-  background: var(--phone-screen); color: #f3f1ea;
-  border-radius: 36px; padding: 14px 14px 16px;
-  min-height: 550px; display: flex; flex-direction: column;
+.hero-card .aurora-bg {
+  position: absolute; inset: -40px -40px auto; height: 260px; pointer-events: none;
+  background: radial-gradient(circle at 50% 42%, rgba(232, 163, 61, 0.24), rgba(201, 114, 42, 0.06) 45%, transparent 70%);
+  transition: background .35s ease;
 }
-.aurora-bg {
-  position: absolute; inset: -40px -40px auto; height: 280px; pointer-events: none;
-  background: radial-gradient(circle at 50% 42%, rgba(232, 163, 61, 0.28), rgba(201, 114, 42, 0.08) 45%, transparent 70%);
-  opacity: 0; transition: opacity .35s ease;
+.hero-card.connected .aurora-bg {
+  background: radial-gradient(circle at 50% 42%, rgba(77, 232, 163, 0.24), rgba(232, 163, 61, 0.10) 48%, transparent 72%);
 }
-.screen.aurora-on .aurora-bg { opacity: 1; }
-.screen.connected .aurora-bg {
-  background: radial-gradient(circle at 50% 42%, rgba(77, 232, 163, 0.26), rgba(232, 163, 61, 0.14) 48%, transparent 72%);
-}
-.screen.no-anim .aurora-bg { transition: none; opacity: 0.4; }
-.screen.no-anim .vpn-btn { transition: none; }
-.phone-hdr-btns { display: flex; gap: 6px; align-items: center; }
-.phone-ico-btn {
-  width: 28px; height: 28px; border-radius: 9px;
-  background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.09);
-  display: grid; place-items: center; font: 700 10px var(--f-body); color: #e5e7eb;
-}
-.statusbar {
-  position: relative; display: flex; justify-content: space-between; align-items: center;
-  font: 600 11px var(--f-mono); color: #9ca3af; padding: 2px 6px 8px;
-}
-.phone-top {
-  position: relative; display: flex; align-items: center; justify-content: space-between;
-  padding: 2px 4px 10px;
-}
-.phone-title { font-weight: 700; font-size: 14px; display: flex; align-items: center; gap: 6px; }
-.secure-pill {
-  font: 600 10px var(--f-mono); padding: 3px 7px; border-radius: 999px;
-  background: rgba(232, 163, 61, 0.16); color: #f5b951; border: 1px solid rgba(232, 163, 61, 0.35);
-  transition: opacity .2s, transform .2s;
-}
-.screen:not(.secure-on) .secure-pill { opacity: 0; transform: scale(.9); pointer-events: none; }
-
 .vpn-stage {
   position: relative; display: flex; flex-direction: column; align-items: center;
-  padding: 10px 0 14px;
+  padding: 8px 0 22px;
 }
 .vpn-btn {
-  width: 112px; height: 112px; border-radius: 50%; border: 0; cursor: pointer;
+  width: 118px; height: 118px; border-radius: 50%; border: 0; cursor: pointer;
   position: relative; display: grid; place-items: center; color: #1f1103;
   background: radial-gradient(circle at 35% 30%, #f5b951, #e8a33d 55%, #c9722a);
-  box-shadow: 0 0 0 8px rgba(232, 163, 61, 0.12), 0 16px 32px rgba(232, 163, 61, 0.28);
-  transition: transform .2s, box-shadow .3s, background .3s, border-radius .25s;
+  box-shadow: 0 0 0 9px rgba(232, 163, 61, 0.12), 0 16px 34px rgba(232, 163, 61, 0.28);
+  transition: transform .2s, box-shadow .3s;
 }
-.vpn-btn:hover { transform: scale(1.03); }
+.vpn-btn:hover { transform: scale(1.04); }
 .vpn-btn:active { transform: scale(0.96); }
-.vpn-btn.style-cyber {
-  background: radial-gradient(circle at 35% 30%, #0a0b10, #161821);
-  color: #e8a33d; border: 2px solid #e8a33d;
-  box-shadow: 0 0 24px rgba(232, 163, 61, 0.45), inset 0 0 18px rgba(232, 163, 61, 0.25);
+.hero-card.connected .vpn-btn {
+  box-shadow: 0 0 0 11px rgba(77, 232, 163, 0.16), 0 16px 36px rgba(77, 232, 163, 0.3);
 }
-.vpn-btn.style-quantum {
-  background: conic-gradient(from 0deg, #e8a33d, #c9722a, #4de8a3, #e8a33d);
-  color: #0a0b10;
-  box-shadow: 0 0 28px rgba(77, 232, 163, 0.35);
-}
-.vpn-btn.style-holo {
-  border-radius: 28px;
-  background: linear-gradient(145deg, rgba(232, 163, 61, 0.28), rgba(201, 114, 42, 0.14));
-  color: #f5b951; border: 1.5px solid rgba(245, 185, 81, 0.6);
-}
-.vpn-btn.style-earth {
-  background: radial-gradient(circle at 32% 28%, #3b82f6, #1d4ed8 55%, #0f172a);
-  color: #ffffff;
-  box-shadow: 0 0 26px rgba(59, 130, 246, 0.35);
-}
-.screen.connected .vpn-btn {
-  box-shadow: 0 0 0 10px rgba(77, 232, 163, 0.16), 0 16px 34px rgba(77, 232, 163, 0.3);
-}
-.vpn-status {
-  margin-top: 10px; font-weight: 700; font-size: 13.5px; color: #f3f1ea;
-}
-.vpn-meta {
-  margin-top: 3px; font: 500 11px var(--f-mono); color: #8a8d9e; text-align: center;
-}
-.screen.connected .vpn-meta { color: #4de8a3; }
+.vpn-status { margin-top: 14px; font-weight: 700; font-size: 15px; color: #f3f1ea; }
+.vpn-meta { margin-top: 4px; font: 500 12px var(--f-mono); color: #8a8d9e; text-align: center; }
+.hero-card.connected .vpn-meta { color: #4de8a3; }
 
-.split-chip {
-  margin: 0 auto 10px; padding: 5px 10px; border-radius: 999px;
-  font: 600 11px var(--f-mono);
-  background: rgba(77, 232, 163, 0.12); color: #4de8a3; border: 1px solid rgba(77, 232, 163, 0.28);
-  transition: opacity .2s, max-height .2s;
+.hero-card-facts { position: relative; display: grid; gap: 8px; }
+.hc-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 10px 13px; border-radius: 14px;
+  background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 13px;
 }
-.screen:not(.split-on) .split-chip { opacity: 0.25; text-decoration: line-through; }
+.hc-val { font: 600 11.5px var(--f-mono); color: #e8a33d; text-align: right; }
 
-.m-card {
-  position: relative; background: var(--phone-card); border: 1px solid #262a36;
-  border-radius: 18px; padding: 6px 12px; margin-top: auto;
+.mode-badge {
+  display: inline-block; font: 700 12px var(--f-mono); padding: 5px 12px;
+  border-radius: 999px; background: var(--card-alt); border: 1px solid var(--line); color: var(--muted);
 }
-.m-row {
-  display: flex; align-items: center; justify-content: space-between; gap: 8px;
-  padding: 8px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  font-size: 12.5px; color: #e5e7eb; cursor: pointer;
-}
-.m-row:last-child { border-bottom: 0; }
-.m-switch {
-  width: 36px; height: 20px; border-radius: 999px; background: var(--switch-off);
-  position: relative; flex-shrink: 0; transition: background .2s;
-}
-.m-switch::after {
-  content: ""; position: absolute; top: 3px; left: 3px; width: 14px; height: 14px;
-  border-radius: 50%; background: #ffffff; transition: transform .2s;
-}
-.m-row.on .m-switch { background: #e8a33d; }
-.m-row.on .m-switch::after { transform: translateX(16px); }
-.phone-hint {
-  margin-top: 12px; font: 500 12.5px var(--f-mono); color: var(--muted); text-align: center;
-}
+.mode-badge.accent { background: var(--accent-soft); border-color: var(--accent-line); color: var(--accent); }
+.panel-accent { border-color: var(--accent-line); }
 
 /* ---------- SECTIONS ---------- */
 section { padding: 72px 0; }

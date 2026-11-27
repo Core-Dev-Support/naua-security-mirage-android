@@ -143,7 +143,7 @@
   var i18n = {
     ru: {
       nav_highlights: "Возможности",
-      nav_styles: "Кастомизация",
+      nav_styles: "Режимы",
       nav_plans: "Подписка",
       nav_download: "Скачать",
       theme_sys: "Как в системе",
@@ -157,20 +157,20 @@
       fact_1: "Без рекламы и трекеров",
       fact_2: "Пробный день без карты",
       fact_3: "1 подписка на все устройства",
-      phone_hint: "Живой макет приложения. Нажми на кнопку или тумблеры.",
       vpn_off: "Отключено",
       vpn_conn: "Подключение...",
       vpn_on: "Подключено",
-      meta_off: "Нажми, чтобы включить защиту",
+      meta_off: "Нажми, чтобы проверить подключение",
       meta_conn: "Поиск наилучшего сервера...",
       meta_on_fmt: "Время сессии {time} • 18 ms",
-      split_chip: "⚡ .ru и выбранные сайты напрямую",
-      sec_pill: "🔒",
-      sw_tunnel: "Подключить VPN",
-      sw_style: "3D-стиль (Cyber Earth)",
-      sw_anim: "Анимации интерфейса",
-      sw_split: "Split-tunneling (.ru)",
-      sw_secure: "Снимки экрана запрещены",
+      hc_v1: "Маскировка под HTTPS",
+      hc_v2: ".ru сайты напрямую",
+      hc_v3: "Без рекламы",
+      k_modes: "Режимы работы",
+      h_modes: "Бесплатный пул или выделенные серверы",
+      s_modes: "Пользуйтесь бесплатно без регистрации или подключите подписку для максимальной скорости и всех устройств.",
+      free_h: "Старт в один тап",
+      paid_h: "Максимум возможностей",
       k_high: "Возможности",
       h_high: "Почему выбирают Mirage",
       s_high: "От маскировки трафика под обычный HTTPS до самозащиты APK и единой подписки.",
@@ -245,7 +245,7 @@
     },
     en: {
       nav_highlights: "Features",
-      nav_styles: "Customization",
+      nav_styles: "Modes",
       nav_plans: "Subscription",
       nav_download: "Download",
       theme_sys: "System",
@@ -259,20 +259,20 @@
       fact_1: "Zero ads & trackers",
       fact_2: "Free trial without card",
       fact_3: "1 subscription for all devices",
-      phone_hint: "Interactive app mockup. Tap the button or toggles.",
       vpn_off: "Disconnected",
       vpn_conn: "Connecting...",
       vpn_on: "Connected",
-      meta_off: "Tap to enable protection",
+      meta_off: "Tap to test connection",
       meta_conn: "Finding best server...",
       meta_on_fmt: "Session time {time} • 18 ms",
-      split_chip: "⚡ .ru & custom sites direct",
-      sec_pill: "🔒",
-      sw_tunnel: "Connect VPN",
-      sw_style: "3D style (Cyber Earth)",
-      sw_anim: "UI animations",
-      sw_split: "Split-tunneling (.ru)",
-      sw_secure: "Screenshots blocked",
+      hc_v1: "HTTPS masquerade",
+      hc_v2: ".ru sites direct",
+      hc_v3: "Zero ads",
+      k_modes: "Modes",
+      h_modes: "Free node pool or dedicated servers",
+      s_modes: "Use the app for free without sign-up, or subscribe for maximum speed and all devices.",
+      free_h: "1-Tap Start",
+      paid_h: "Full Power",
       k_high: "Highlights",
       h_high: "Why people choose Mirage",
       s_high: "From HTTPS-grade DPI masquerade to APK self-protection and cross-platform access.",
@@ -393,86 +393,55 @@
   };
 
   var renderCompare = function () {
-    var rows = compareData[activePlanTab][lang];
-    var box = document.getElementById("compareList");
-    box.innerHTML = rows.map(function (r) {
-      return "<div class=\"compare-row\"><span>" + r[0] + "</span><span class=\"val\">" + r[1] + "</span></div>";
-    }).join("");
+    var mapRows = function (rows) {
+      return rows.map(function (r) {
+        return "<div class=\"compare-row\"><span>" + r[0] + "</span><span class=\"val\">" + r[1] + "</span></div>";
+      }).join("");
+    };
+    document.getElementById("compareFree").innerHTML = mapRows(compareData.free[lang]);
+    document.getElementById("comparePaid").innerHTML = mapRows(compareData.paid[lang]);
   };
 
-  var renderStyles = function () {
-    var st = stylesData[activeStyleIdx];
-    document.getElementById("styleName").textContent = lang === "en" ? st.en : st.ru;
-    document.getElementById("styleDesc").textContent = lang === "en" ? st.descEn : st.descRu;
-    document.getElementById("styleGlow").style.setProperty("--glow", st.glow);
-    document.querySelectorAll(".style-pill").forEach(function (el, idx) {
-      el.classList.toggle("active", idx === activeStyleIdx);
-      el.textContent = lang === "en" ? stylesData[idx].en : stylesData[idx].ru;
-    });
-  };
-
-  // Phone mockup state
-  var phoneState = { connected: false, connecting: false, style3d: false, anim: true, split: true, secure: true, sec: 0 };
+  // Hero VPN button state
+  var heroState = { connected: false, connecting: false, sec: 0 };
   var sessionTimer = null;
   var fmtTime = function (s) {
     var m = Math.floor(s / 60), r = s % 60;
     return (m < 10 ? "0" : "") + m + ":" + (r < 10 ? "0" : "") + r;
   };
-  var updatePhoneUI = function () {
+  var updateHeroUI = function () {
     var dict = i18n[lang];
-    var scr = document.getElementById("phoneScreen");
-    var btn = document.getElementById("phoneVpnBtn");
-    scr.classList.toggle("connected", phoneState.connected);
-    scr.classList.toggle("aurora-on", phoneState.anim);
-    scr.classList.toggle("no-anim", !phoneState.anim);
-    scr.classList.toggle("split-on", phoneState.split);
-    scr.classList.toggle("secure-on", phoneState.secure);
-    var lb = document.getElementById("phoneLangBadge");
-    if (lb) lb.textContent = lang.toUpperCase();
-
-    btn.className = "vpn-btn" + (phoneState.style3d ? " style-cyber" : "");
-    document.getElementById("vpnStatus").textContent = phoneState.connecting ? dict.vpn_conn : (phoneState.connected ? dict.vpn_on : dict.vpn_off);
-    document.getElementById("vpnMeta").textContent = phoneState.connecting
+    var card = document.querySelector(".hero-card");
+    if (card) card.classList.toggle("connected", heroState.connected);
+    document.getElementById("vpnStatus").textContent = heroState.connecting ? dict.vpn_conn : (heroState.connected ? dict.vpn_on : dict.vpn_off);
+    document.getElementById("vpnMeta").textContent = heroState.connecting
       ? dict.meta_conn
-      : (phoneState.connected ? dict.meta_on_fmt.replace("{time}", fmtTime(phoneState.sec)) : dict.meta_off);
-
-    document.getElementById("rowTunnel").classList.toggle("on", phoneState.connected || phoneState.connecting);
-    document.getElementById("rowStyle").classList.toggle("on", phoneState.style3d);
-    document.getElementById("rowAnim").classList.toggle("on", phoneState.anim);
-    document.getElementById("rowSplit").classList.toggle("on", phoneState.split);
-    document.getElementById("rowSecure").classList.toggle("on", phoneState.secure);
+      : (heroState.connected ? dict.meta_on_fmt.replace("{time}", fmtTime(heroState.sec)) : dict.meta_off);
   };
 
-  var toggleVpn = function () {
-    if (phoneState.connecting) return;
-    if (phoneState.connected) {
+  document.getElementById("heroVpnBtn").addEventListener("click", function () {
+    if (heroState.connecting) return;
+    if (heroState.connected) {
       clearInterval(sessionTimer);
-      phoneState.connected = false;
-      phoneState.sec = 0;
-      updatePhoneUI();
+      heroState.connected = false;
+      heroState.sec = 0;
+      updateHeroUI();
     } else {
-      phoneState.connecting = true;
-      updatePhoneUI();
+      heroState.connecting = true;
+      updateHeroUI();
       setTimeout(function () {
-        phoneState.connecting = false;
-        phoneState.connected = true;
-        phoneState.sec = 1;
-        updatePhoneUI();
+        heroState.connecting = false;
+        heroState.connected = true;
+        heroState.sec = 1;
+        updateHeroUI();
         clearInterval(sessionTimer);
         sessionTimer = setInterval(function () {
-          phoneState.sec++;
-          if (phoneState.connected) updatePhoneUI();
+          heroState.sec++;
+          if (heroState.connected) updateHeroUI();
         }, 1000);
       }, 650);
     }
-  };
-
-  document.getElementById("phoneVpnBtn").addEventListener("click", toggleVpn);
-  document.getElementById("rowTunnel").addEventListener("click", toggleVpn);
-  document.getElementById("rowStyle").addEventListener("click", function () { phoneState.style3d = !phoneState.style3d; updatePhoneUI(); });
-  document.getElementById("rowAnim").addEventListener("click", function () { phoneState.anim = !phoneState.anim; updatePhoneUI(); });
-  document.getElementById("rowSplit").addEventListener("click", function () { phoneState.split = !phoneState.split; updatePhoneUI(); });
-  document.getElementById("rowSecure").addEventListener("click", function () { phoneState.secure = !phoneState.secure; updatePhoneUI(); });
+  });
 
   var applyLang = function (nextLang) {
     lang = nextLang === "en" ? "en" : "ru";
@@ -486,8 +455,7 @@
     document.querySelectorAll(".lang-pill button").forEach(function (b) {
       b.classList.toggle("active", b.dataset.lang === lang);
     });
-    updatePhoneUI();
-    renderStyles();
+    updateHeroUI();
     renderCompare();
   };
 
@@ -495,91 +463,5 @@
     b.addEventListener("click", function () { applyLang(b.dataset.lang); });
   });
 
-  document.querySelectorAll(".style-pill").forEach(function (b, idx) {
-    b.addEventListener("click", function () { activeStyleIdx = idx; renderStyles(); });
-  });
-
-  document.querySelectorAll(".plan-toggle button").forEach(function (b) {
-    b.addEventListener("click", function () {
-      activePlanTab = b.dataset.plan;
-      document.querySelectorAll(".plan-toggle button").forEach(function (x) { x.classList.toggle("active", x === b); });
-      renderCompare();
-    });
-  });
-
-  // Canvas animation for 5 app button styles
-  var canvas = document.getElementById("styleCanvas");
-  var ctx = canvas ? canvas.getContext("2d") : null;
-  var angle = 0;
-  var drawStyle = function () {
-    if (!ctx) return;
-    var w = canvas.width, h = canvas.height, cx = w / 2, cy = h / 2, r = 52;
-    ctx.clearRect(0, 0, w, h);
-    var st = stylesData[activeStyleIdx];
-    angle += 0.015;
-
-    if (st.id === "standard") {
-      var g = ctx.createRadialGradient(cx - 16, cy - 18, 6, cx, cy, r);
-      g.addColorStop(0, "#fde68a"); g.addColorStop(0.55, "#e8a33d"); g.addColorStop(1, "#8f4712");
-      ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fillStyle = g; ctx.fill();
-    } else if (st.id === "cyber") {
-      ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2);
-      ctx.fillStyle = "#08121e"; ctx.fill();
-      ctx.strokeStyle = "#00f0ff"; ctx.lineWidth = 2.2; ctx.stroke();
-      for (var i = -2; i <= 2; i++) {
-        ctx.beginPath();
-        ctx.ellipse(cx, cy, Math.abs(Math.cos(angle + i * 0.5)) * r, r, 0, 0, Math.PI * 2);
-        ctx.strokeStyle = "rgba(0, 240, 255, 0.45)"; ctx.lineWidth = 1.2; ctx.stroke();
-      }
-      for (var j = -1; j <= 1; j++) {
-        ctx.beginPath();
-        ctx.ellipse(cx, cy + j * 18, r * Math.cos(j * 0.35), 7, 0, 0, Math.PI * 2);
-        ctx.stroke();
-      }
-    } else if (st.id === "earth") {
-      var og = ctx.createRadialGradient(cx - 16, cy - 16, 8, cx, cy, r);
-      og.addColorStop(0, "#38bdf8"); og.addColorStop(0.55, "#1d4ed8"); og.addColorStop(1, "#0f172a");
-      ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fillStyle = og; ctx.fill();
-      ctx.strokeStyle = "rgba(56, 189, 248, 0.7)"; ctx.lineWidth = 2; ctx.stroke();
-      ctx.save(); ctx.beginPath(); ctx.arc(cx, cy, r - 1, 0, Math.PI * 2); ctx.clip();
-      var off = (angle * 22) % (r * 2);
-      ctx.fillStyle = "rgba(74, 222, 128, 0.55)";
-      ctx.beginPath(); ctx.ellipse(cx - r + off, cy - 12, 22, 14, 0.3, 0, Math.PI * 2); ctx.fill();
-      ctx.beginPath(); ctx.ellipse(cx - r + off + 48, cy + 16, 18, 11, -0.2, 0, Math.PI * 2); ctx.fill();
-      ctx.restore();
-    } else if (st.id === "quantum") {
-      ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2);
-      ctx.fillStyle = "rgba(5, 6, 12, 0.9)"; ctx.fill();
-      var rCols = ["#ff9100", "#00e6ff", "#b44bff"];
-      for (var k = 0; k < 3; k++) {
-        ctx.save(); ctx.translate(cx, cy); ctx.rotate(angle * (k % 2 ? -1 : 1) + k * Math.PI / 3);
-        ctx.beginPath(); ctx.ellipse(0, 0, r * 0.9, 19, 0, 0, Math.PI * 2);
-        ctx.strokeStyle = rCols[k]; ctx.lineWidth = 2; ctx.stroke();
-        ctx.restore();
-      }
-      var cg = ctx.createRadialGradient(cx, cy, 2, cx, cy, 22);
-      cg.addColorStop(0, "#ffffff"); cg.addColorStop(0.5, "#ffa014"); cg.addColorStop(1, "rgba(230,40,90,0)");
-      ctx.beginPath(); ctx.arc(cx, cy, 22, 0, Math.PI * 2); ctx.fillStyle = cg; ctx.fill();
-    } else if (st.id === "holo") {
-      ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2);
-      ctx.fillStyle = "rgba(4, 16, 24, 0.9)"; ctx.fill();
-      ctx.strokeStyle = "rgba(0, 229, 255, 0.65)"; ctx.lineWidth = 1.4; ctx.stroke();
-      for (var m = 0; m < 6; m++) {
-        var a1 = angle + m * Math.PI / 3, a2 = angle + (m + 1) * Math.PI / 3;
-        ctx.beginPath();
-        ctx.moveTo(cx, cy);
-        ctx.lineTo(cx + Math.cos(a1) * r * 0.92, cy + Math.sin(a1) * r * 0.92);
-        ctx.lineTo(cx + Math.cos(a2) * r * 0.92, cy + Math.sin(a2) * r * 0.92);
-        ctx.closePath();
-        ctx.strokeStyle = "rgba(0, 229, 255, 0.38)"; ctx.lineWidth = 1.1; ctx.stroke();
-      }
-      var scan = cy + Math.sin(angle * 2) * (r * 0.8);
-      ctx.beginPath(); ctx.moveTo(cx - r * 0.7, scan); ctx.lineTo(cx + r * 0.7, scan);
-      ctx.strokeStyle = "rgba(0, 240, 255, 0.85)"; ctx.lineWidth = 2; ctx.stroke();
-    }
-    requestAnimationFrame(drawStyle);
-  };
-
   applyLang(lang);
-  drawStyle();
 })();
