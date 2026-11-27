@@ -434,15 +434,30 @@ section { padding: 72px 0; }
 .btn-white {
   background: #ffffff; color: #3d1d05; padding: 12px 20px; border-radius: 14px;
   font-weight: 700; font-size: 14px; text-decoration: none;
+  transition: transform .2s ease, box-shadow .2s ease;
 }
+.btn-white:hover { transform: translateY(-2px); box-shadow: 0 10px 24px rgba(0, 0, 0, 0.22); }
 .btn-glass {
   background: rgba(255, 255, 255, 0.14); color: #ffffff; border: 1px solid rgba(255, 255, 255, 0.3);
   padding: 12px 20px; border-radius: 14px; font-weight: 600; font-size: 14px; text-decoration: none;
+  transition: transform .2s ease, background .2s ease, border-color .2s ease;
+}
+.btn-glass:hover {
+  transform: translateY(-2px);
+  background: rgba(255, 255, 255, 0.22);
+  border-color: rgba(255, 255, 255, 0.55);
 }
 .perks-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .perk {
   background: rgba(255, 255, 255, 0.11); border: 1px solid rgba(255, 255, 255, 0.16);
   border-radius: 18px; padding: 16px; backdrop-filter: blur(8px);
+  transition: transform .25s ease, border-color .25s ease, background .25s ease, box-shadow .25s ease;
+}
+.perk:hover {
+  transform: translateY(-4px);
+  background: rgba(255, 255, 255, 0.17);
+  border-color: rgba(253, 230, 138, 0.55);
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.22);
 }
 .perk.wide { grid-column: span 2; }
 .perk b { display: block; font-size: 15px; margin-bottom: 4px; }
