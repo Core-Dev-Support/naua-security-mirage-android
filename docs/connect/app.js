@@ -464,4 +464,19 @@
   });
 
   applyLang(lang);
+
+  // Scroll reveal animations
+  var revealEls = document.querySelectorAll(".b-card, .panel, .f-cell, .promo-banner, .route-card, .comm-card");
+  if ("IntersectionObserver" in window) {
+    revealEls.forEach(function (el) { el.classList.add("reveal"); });
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (ent) {
+        if (ent.isIntersecting) {
+          ent.target.classList.add("in");
+          io.unobserve(ent.target);
+        }
+      });
+    }, { threshold: 0.08 });
+    revealEls.forEach(function (el) { io.observe(el); });
+  }
 })();
