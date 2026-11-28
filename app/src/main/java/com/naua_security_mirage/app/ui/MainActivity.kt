@@ -224,6 +224,9 @@ class MainActivity : AppCompatActivity() {
         }
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        autoVpnBinding = com.naua_security_mirage.app.databinding.LayoutPerAppAutoVpnBinding.bind(
+            binding.viewPerAppProxy.findViewById(R.id.autoVpnSectionRoot)
+        )
 
         window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
 
@@ -6897,9 +6900,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupPerAppProxyUI() {
-        autoVpnBinding = com.naua_security_mirage.app.databinding.LayoutPerAppAutoVpnBinding.bind(
-            binding.viewPerAppProxy.findViewById(R.id.autoVpnSectionRoot)
-        )
         appProxyAdapter = AppProxyAdapter(this) { app, isEnabled ->
             if (isAutoVpnTabActive) {
                 settingsRepository.setAutoVpnApp(app.packageName, isEnabled)
