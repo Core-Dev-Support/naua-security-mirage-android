@@ -69,6 +69,10 @@ class SettingsRepository(context: Context) {
         get() = prefs.getBoolean(KEY_AUTO_VPN_ON_APP_ENABLED, false)
         set(value) = prefs.edit().putBoolean(KEY_AUTO_VPN_ON_APP_ENABLED, value).apply()
 
+    var autoVpnDisconnectDelaySec: Int
+        get() = prefs.getInt(KEY_AUTO_VPN_DISCONNECT_DELAY_SEC, DEFAULT_AUTO_VPN_DISCONNECT_DELAY_SEC)
+        set(value) = prefs.edit().putInt(KEY_AUTO_VPN_DISCONNECT_DELAY_SEC, value).apply()
+
     var autoVpnAppPackages: Set<String>
         get() {
             if (!prefs.getBoolean(KEY_AUTO_VPN_INITIALIZED, false)) {
@@ -391,6 +395,8 @@ class SettingsRepository(context: Context) {
         private const val KEY_LOG_LEVEL = "key_log_level"
         private const val KEY_BYPASSED_APP_PACKAGES = "key_bypassed_app_packages"
         private const val KEY_AUTO_VPN_ON_APP_ENABLED = "key_auto_vpn_on_app_enabled"
+        private const val KEY_AUTO_VPN_DISCONNECT_DELAY_SEC = "key_auto_vpn_disconnect_delay_sec"
+        const val DEFAULT_AUTO_VPN_DISCONNECT_DELAY_SEC = 5
         private const val KEY_AUTO_VPN_INITIALIZED = "key_auto_vpn_initialized"
         private const val KEY_AUTO_VPN_APP_PACKAGES = "key_auto_vpn_app_packages"
 

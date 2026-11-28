@@ -6963,9 +6963,14 @@ class MainActivity : AppCompatActivity() {
             updatePerAppSettingDescription()
         }
 
+        autoVpnBinding.cardAutoVpnDelay.setOnClickListener {
+            AnimationHelper.bounceClick(autoVpnBinding.cardAutoVpnDelay, minScale = 0.97f, durationMs = 150)
+            showAutoVpnDelayPicker()
+        }
+
         autoVpnBinding.bannerAutoVpnPermission.setOnClickListener {
             AnimationHelper.bounceClick(autoVpnBinding.bannerAutoVpnPermission, minScale = 0.97f, durationMs = 150)
-            openUsageAccessSettings()
+            showAutoVpnPermissionDialog()
         }
 
         binding.chipFilterAll.setOnClickListener {
@@ -7214,17 +7219,175 @@ class MainActivity : AppCompatActivity() {
     private fun updateAutoVpnControlsUI() {
         val enabled = settingsRepository.isAutoVpnOnAppEnabled
         autoVpnBinding.switchAutoVpnEnabled.setChecked(enabled, false)
+        autoVpnBinding.tvAutoVpnDelayValue.text = autoVpnDelayLabel(settingsRepository.autoVpnDisconnectDelaySec)
         val hasPerm = com.naua_security_mirage.app.vpn.AppAutoVpnMonitorService.hasUsageStatsPermission(this)
         autoVpnBinding.bannerAutoVpnPermission.visibility = if (isAutoVpnTabActive && enabled && !hasPerm) View.VISIBLE else View.GONE
     }
 
+    private fun autoVpnDelayLabel(delaySec: Int): String = when (delaySec) {
+        0 -> getString(R.string.auto_vpn_delay_0s)
+        5 -> getString(R.string.auto_vpn_delay_5s)
+        15 -> getString(R.string.auto_vpn_delay_15s)
+        30 -> getString(R.string.auto_vpn_delay_30s)
+        60 -> getString(R.string.auto_vpn_delay_60s)
+        -1 -> getString(R.string.auto_vpn_delay_never)
+        else -> getString(R.string.auto_vpn_delay_5s)
+    }
+
+    private fun showAutoVpnDelayPicker() {
+        val anchor = autoVpnBinding.cardAutoVpnDelay
+        val style = planPickerStyle()
+        val density = style.density
+        val list = planPickerList(style)
+        val popup = PopupWindow(
+            list,
+            LinearLayout.LayoutParams.WRAP_CONTENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT,
+            true
+        )
+        popup.elevation = 12f * density
+        val currentDelay = settingsRepository.autoVpnDisconnectDelaySec
+        val options = listOf(0, 5, 15, 30, 60, -1)
+        for (opt in options) {
+            val selected = opt == currentDelay
+            lateinit var row: LinearLayout
+            row = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                isClickable = true
+                isFocusable = true
+                setPadding(
+                    (14f * density).toInt(),
+                    (10f * density).toInt(),
+                    (16f * density).toInt(),
+                    (10f * density).toInt()
+                )
+                setOnClickListener {
+                    AnimationHelper.bounceClick(row, minScale = 0.97f, durationMs = 140)
+                    popup.dismiss()
+                    settingsRepository.autoVpnDisconnectDelaySec = opt
+                    updateAutoVpnControlsUI()
+                }
+            }
+            row.addView(TextView(this).apply {
+                text = autoVpnDelayLabel(opt)
+                setTextColor(if (selected) style.accent else style.titleColor)
+                textSize = 14f
+                setTypeface(typeface, android.graphics.Typeface.BOLD)
+                maxLines = 1
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                )
+            })
+            if (selected) {
+                row.addView(TextView(this).apply {
+                    text = "✓"
+                    setTextColor(style.accent)
+                    textSize = 15f
+                    setTypeface(typeface, android.graphics.Typeface.BOLD)
+                    layoutParams = LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.WRAP_CONTENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT
+                    ).apply {
+                        marginStart = (10f * density).toInt()
+                    }
+                })
+            }
+            list.addView(row)
+        }
+        popup.showAsDropDown(anchor, 0, (4f * density).toInt())
+        AnimationHelper.popIn(list, durationMs = 150)
+        AnimationHelper.attachPressAnimations(list)
+    }
+
     private fun showAutoVpnPermissionDialog() {
-        androidx.appcompat.app.AlertDialog.Builder(this)
-            .setTitle(R.string.auto_vpn_dialog_title)
-            .setMessage(R.string.auto_vpn_dialog_msg)
-            .setPositiveButton(R.string.auto_vpn_open_settings) { _, _ -> openUsageAccessSettings() }
-            .setNegativeButton(android.R.string.cancel, null)
-            .show()
+        val dialog = Dialog(this)
+        dialog.setContentView(R.layout.dialog_auto_vpn_permission)
+        dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+        dialog.window?.setLayout(
+            (resources.displayMetrics.widthPixels * 0.92f).toInt(),
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        )
+
+        val density = resources.displayMetrics.density
+        val hasWallpaper = !settingsRepository.customBgImagePath.isNullOrEmpty() &&
+            java.io.File(settingsRepository.customBgImagePath ?: "").exists()
+        val isLightContext = !hasWallpaper && (
+            settingsRepository.themePreset == SettingsRepository.THEME_LIGHT ||
+                (settingsRepository.customBgColor != 0 &&
+                    ColorUtils.calculateLuminance(settingsRepository.customBgColor) > 0.5)
+            )
+        val customText = settingsRepository.customTextColor
+        val cardBgColor = if (isLightContext) Color.WHITE else ContextCompat.getColor(this, R.color.card)
+        val strokeColor = if (isLightContext) Color.parseColor("#E2E8F0")
+        else ContextCompat.getColor(this, R.color.card_stroke)
+        val titleColor = if (customText != 0) customText
+        else if (isLightContext) Color.parseColor("#0F172A") else ContextCompat.getColor(this, R.color.ink)
+        val bodyColor = if (customText != 0) ColorUtils.setAlphaComponent(customText, 190)
+        else if (isLightContext) Color.parseColor("#475569")
+        else ContextCompat.getColor(this, R.color.ink_soft)
+        val accent = ContextCompat.getColor(this, R.color.amber)
+
+        dialog.findViewById<LinearLayout>(R.id.dialogAutoVpnRoot).background = GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            cornerRadius = 24f * density
+            setColor(cardBgColor)
+            setStroke((1.2f * density).toInt(), strokeColor)
+        }
+        dialog.findViewById<ImageView>(R.id.ivAutoVpnDialogIcon).imageTintList = ColorStateList.valueOf(accent)
+        dialog.findViewById<TextView>(R.id.tvAutoVpnDialogTitle).setTextColor(titleColor)
+        dialog.findViewById<TextView>(R.id.tvAutoVpnDialogBody).setTextColor(bodyColor)
+
+        val stepsCard = dialog.findViewById<TextView>(R.id.tvAutoVpnDialogSteps)
+        stepsCard.background = GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            cornerRadius = 16f * density
+            setColor(ColorUtils.setAlphaComponent(accent, 24))
+            setStroke((1f * density).toInt(), ColorUtils.setAlphaComponent(accent, 110))
+        }
+        stepsCard.setTextColor(accent)
+
+        val btnAppInfo = dialog.findViewById<TextView>(R.id.btnAutoVpnStepAppInfo)
+        btnAppInfo.background = getButtonChipDrawable(isLightContext, 14f)
+        btnAppInfo.setTextColor(titleColor)
+        btnAppInfo.setOnClickListener {
+            AnimationHelper.bounceClick(btnAppInfo, minScale = 0.96f, durationMs = 140)
+            openAppDetailsSettings()
+        }
+
+        val btnUsageAccess = dialog.findViewById<TextView>(R.id.btnAutoVpnStepUsageAccess)
+        btnUsageAccess.background = GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            cornerRadius = 14f * density
+            setColor(ColorUtils.setAlphaComponent(accent, 34))
+            setStroke((1.2f * density).toInt(), accent)
+        }
+        btnUsageAccess.setTextColor(accent)
+        btnUsageAccess.setOnClickListener {
+            AnimationHelper.bounceClick(btnUsageAccess, minScale = 0.96f, durationMs = 140)
+            openUsageAccessSettings()
+        }
+
+        val btnClose = dialog.findViewById<TextView>(R.id.btnAutoVpnDialogClose)
+        btnClose.setTextColor(bodyColor)
+        btnClose.setOnClickListener {
+            dialog.dismiss()
+        }
+
+        dialog.show()
+    }
+
+    private fun openAppDetailsSettings() {
+        runCatching {
+            startActivity(
+                Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                    data = android.net.Uri.fromParts("package", packageName, null)
+                }
+            )
+        }.onFailure {
+            Toast.makeText(this, R.string.auto_vpn_perm_required, Toast.LENGTH_SHORT).show()
+        }
     }
 
     private fun openUsageAccessSettings() {
@@ -9693,6 +9856,9 @@ class MainActivity : AppCompatActivity() {
         autoVpnBinding.cardAutoVpnToggle.background = getCardDrawable(isLightContext, 14f)
         autoVpnBinding.tvAutoVpnTitle.setTextColor(titleTextColor)
         autoVpnBinding.tvAutoVpnDesc.setTextColor(subtitleTextColor)
+        autoVpnBinding.cardAutoVpnDelay.background = getCardDrawable(isLightContext, 14f)
+        autoVpnBinding.tvAutoVpnDelayTitle.setTextColor(titleTextColor)
+        autoVpnBinding.tvAutoVpnDelayValue.setTextColor(ContextCompat.getColor(this, R.color.amber))
         autoVpnBinding.switchAutoVpnEnabled.setLightMode(isLightContext)
         if (customSwitch != 0) {
             autoVpnBinding.switchAutoVpnEnabled.setActiveColor(customSwitch)

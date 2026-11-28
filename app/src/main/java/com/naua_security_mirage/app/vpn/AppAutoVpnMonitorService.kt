@@ -141,17 +141,24 @@ class AppAutoVpnMonitorService : Service() {
                                 .onFailure { AppLogger.w(TAG, "Не удалось автоподключить VPN: ${it.message}") }
                         }
                     } else if (autoConnectedByWatch) {
-                        val elapsed = SystemClock.elapsedRealtime()
-                        if (leftAtElapsedMs == 0L) {
-                            leftAtElapsedMs = elapsed
-                        } else if (elapsed - leftAtElapsedMs >= DISCONNECT_DEBOUNCE_MS) {
-                            AppLogger.i(TAG, "Выход из ${activeWatchedPackage ?: "приложения"} ($currentPkg) — автоотключение VPN")
-                            autoConnectedByWatch = false
-                            activeWatchedPackage = null
+                        val delaySec = settingsRepository.autoVpnDisconnectDelaySec
+                        if (delaySec < 0) {
                             leftAtElapsedMs = 0L
-                            if (MirageVpnService.vpnState.value != VpnState.DISCONNECTED) {
-                                runCatching { MirageVpnService.stop(this@AppAutoVpnMonitorService) }
-                                    .onFailure { AppLogger.w(TAG, "Не удалось автоотключить VPN: ${it.message}") }
+                        } else {
+                            val elapsed = SystemClock.elapsedRealtime()
+                            val debounceMs = delaySec * 1_000L
+                            if (leftAtElapsedMs == 0L) {
+                                leftAtElapsedMs = elapsed
+                            }
+                            if (elapsed - leftAtElapsedMs >= debounceMs) {
+                                AppLogger.i(TAG, "Выход из ${activeWatchedPackage ?: "приложения"} ($currentPkg) — автоотключение VPN")
+                                autoConnectedByWatch = false
+                                activeWatchedPackage = null
+                                leftAtElapsedMs = 0L
+                                if (MirageVpnService.vpnState.value != VpnState.DISCONNECTED) {
+                                    runCatching { MirageVpnService.stop(this@AppAutoVpnMonitorService) }
+                                        .onFailure { AppLogger.w(TAG, "Не удалось автоотключить VPN: ${it.message}") }
+                                }
                             }
                         }
                     }

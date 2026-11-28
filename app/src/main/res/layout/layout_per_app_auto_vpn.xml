@@ -120,6 +120,42 @@
         </LinearLayout>
 
         <LinearLayout
+            android:id="@+id/cardAutoVpnDelay"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:background="?attr/mirageCardBg"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="14dp"
+            android:paddingTop="11dp"
+            android:paddingEnd="14dp"
+            android:paddingBottom="11dp">
+
+            <TextView
+                android:id="@+id/tvAutoVpnDelayTitle"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginEnd="10dp"
+                android:text="@string/auto_vpn_delay_title"
+                android:textColor="@color/ink"
+                android:textSize="13.5sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/tvAutoVpnDelayValue"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/auto_vpn_delay_5s"
+                android:textColor="@color/amber"
+                android:textSize="13sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <LinearLayout
             android:id="@+id/bannerAutoVpnPermission"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
