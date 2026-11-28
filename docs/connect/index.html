@@ -201,79 +201,77 @@
     <div class="wrap">
       <div class="sec-head">
         <div>
-          <span class="kicker" data-i18n="k_all">Всё остальное</span>
-          <h2 data-i18n="h_all">Полный контроль без лишнего шума</h2>
+          <span class="kicker" data-i18n="k_all">Под капотом</span>
+          <h2 data-i18n="h_all">Что именно работает в приложении</h2>
         </div>
-        <div>
-          <p class="sec-sub" data-i18n="s_all">Всё необходимое для стабильного соединения, диагностики и настройки интерфейса под себя.</p>
-          <div class="f-tabs" id="featureTabs">
-            <button class="active" data-fcat="all" type="button" data-i18n="ft_all">Все разделы</button>
-            <button data-fcat="net" type="button" data-i18n="ft_net">Сеть и ядро</button>
-            <button data-fcat="sec" type="button" data-i18n="ft_sec">Безопасность</button>
-            <button data-fcat="app" type="button" data-i18n="ft_app">Интерфейс и сервис</button>
-          </div>
-        </div>
+        <p class="sec-sub" data-i18n="s_all">Нажмите на любой блок, чтобы посмотреть технические детали реализации.</p>
       </div>
-      <div class="features-matrix">
-        <div class="f-cell" data-fcat="net">
-          <div class="f-icon">⚡</div>
+      <div class="features-matrix" id="featuresMatrix">
+        <div class="f-cell" tabindex="0">
+          <div class="f-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg></div>
           <h3 data-i18n="f1_t">Ядро и сеть</h3>
-          <p class="sub" data-i18n="f1_s">Нативный VpnService + libXray</p>
+          <p class="sub" data-i18n="f1_s">VpnService + libXray (libgojni.so)</p>
           <ul>
-            <li data-i18n="f1_l1">Автовыбор лучшего узла по <span class="opt">пинг</span> <span class="opt">потери</span> <span class="opt">джиттер</span></li>
-            <li data-i18n="f1_l2">Проверка реального прохода трафика, а не просто старта ядра</li>
-            <li data-i18n="f1_l3"><span class="opt">2 Quick Settings</span> плитки и автозапуск при старте системы</li>
+            <li data-i18n="f1_l1">Автовыбор узла по <span class="opt">пинг</span> <span class="opt">потери</span> <span class="opt">джиттер</span></li>
+            <li data-i18n="f1_l2">Проверка реального трафика после старта ядра</li>
+            <li data-i18n="f1_l3"><span class="opt">2 Quick Settings</span> плитки и автозапуск при загрузке</li>
           </ul>
+          <div class="f-detail" data-i18n="f1_det">Если выбранный сервер перестал пропускать пакеты, контроллер перебирает следующий узел автоматически.</div>
         </div>
-        <div class="f-cell" data-fcat="net">
-          <div class="f-icon">🌐</div>
+        <div class="f-cell" tabindex="0">
+          <div class="f-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></div>
           <h3 data-i18n="f2_t">Протоколы и маршруты</h3>
-          <p class="sub" data-i18n="f2_s">Гибкий обход блокировок</p>
+          <p class="sub" data-i18n="f2_s">Маскировка и обход .ru</p>
           <ul>
-            <li data-i18n="f2_l1"><span class="opt">VLESS + Reality</span> (в бете — <span class="opt">Hysteria 2</span> и <span class="opt">XHTTP</span>)</li>
-            <li data-i18n="f2_l2">Обновляемый <span class="opt">geosite.dat</span> для прямых .ru-доменов</li>
-            <li data-i18n="f2_l3">Per-App Proxy без разрешения <span class="opt">QUERY_ALL_PACKAGES</span></li>
+            <li data-i18n="f2_l1"><span class="opt">VLESS + Reality</span> (в тесте — <span class="opt">Hysteria 2</span> и <span class="opt">XHTTP</span>)</li>
+            <li data-i18n="f2_l2">Обновляемый <span class="opt">geosite.dat</span> пускает .ru мимо VPN</li>
+            <li data-i18n="f2_l3">Per-App Proxy без <span class="opt">QUERY_ALL_PACKAGES</span></li>
           </ul>
+          <div class="f-detail" data-i18n="f2_det">Список приложений запрашивается точечно через &lt;queries&gt; в манифесте, а пользовательские домены настраиваются отдельно.</div>
         </div>
-        <div class="f-cell" data-fcat="sec">
-          <div class="f-icon">🛡</div>
+        <div class="f-cell" tabindex="0">
+          <div class="f-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div>
           <h3 data-i18n="f3_t">Безопасность и приватность</h3>
-          <p class="sub" data-i18n="f3_s">Zero logs и защита контура</p>
+          <p class="sub" data-i18n="f3_s">Без логов трафика и рекламы</p>
           <ul>
-            <li data-i18n="f3_l1"><span class="opt">AD_ID</span> вырезан из манифеста; диагностика Firebase отключается</li>
-            <li data-i18n="f3_l2">Токены в <span class="opt">EncryptedSharedPreferences</span>, <span class="opt">Kill Switch</span> Android</li>
-            <li data-i18n="f3_l3">Самообновление из GitHub Releases с проверкой подписи <span class="opt">v2/v3</span></li>
+            <li data-i18n="f3_l1"><span class="opt">AD_ID</span> вырезан; телеметрия Firebase отключается</li>
+            <li data-i18n="f3_l2">Токены в <span class="opt">EncryptedSharedPreferences</span>, <span class="opt">Kill Switch</span></li>
+            <li data-i18n="f3_l3">Обновления с проверкой подписи <span class="opt">v2/v3</span></li>
           </ul>
+          <div class="f-detail" data-i18n="f3_det">На старте сверяется SHA-256 подписи APK, блокируются отладчик, Frida, root и эмулятор.</div>
         </div>
-        <div class="f-cell" data-fcat="app">
-          <div class="f-icon">🎨</div>
+        <div class="f-cell" tabindex="0">
+          <div class="f-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="M9 3v18M3 9h18"/></svg></div>
           <h3 data-i18n="f4_t">Внешний вид</h3>
-          <p class="sub" data-i18n="f4_s">Настройка главного экрана</p>
+          <p class="sub" data-i18n="f4_s">Своё оформление экрана</p>
           <ul>
             <li data-i18n="f4_l1">5 стилей кнопки: <span class="opt">Стандарт</span> <span class="opt">Cyber Earth</span> <span class="opt">Quantum Core</span> <span class="opt">Holo-Shield</span> <span class="opt">Realistic Earth</span></li>
-            <li data-i18n="f4_l2">Свои цвета для «Стандарт», своё фото из галереи на фон и анимации</li>
-            <li data-i18n="f4_l3">Скрытие разделов, резервные копии, <span class="opt">RU / EN</span> (618 строк)</li>
+            <li data-i18n="f4_l2">Цвета для «Стандарт», фото из галереи и анимации</li>
+            <li data-i18n="f4_l3">Скрытие разделов, бэкап, <span class="opt">RU / EN</span> (618 строк)</li>
           </ul>
+          <div class="f-detail" data-i18n="f4_det">Настройки интерфейса можно сохранить в резервную копию и перенести, а язык переключается без перезапуска.</div>
         </div>
-        <div class="f-cell" data-fcat="app">
-          <div class="f-icon">📊</div>
+        <div class="f-cell" tabindex="0">
+          <div class="f-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10M12 20V4M6 20v-6"/></svg></div>
           <h3 data-i18n="f5_t">Диагностика и журнал</h3>
-          <p class="sub" data-i18n="f5_s">Прозрачность каждого соединения</p>
+          <p class="sub" data-i18n="f5_s">Что происходит в туннеле</p>
           <ul>
-            <li data-i18n="f5_l1">Live-скорость, пинг и время сессии на экране и в шторке</li>
+            <li data-i18n="f5_l1">Скорость, пинг и время сессии на экране и в шторке</li>
             <li data-i18n="f5_l2">Карточка узлов (<span class="opt">отвечают N из M</span>) и история сбоев</li>
-            <li data-i18n="f5_l3">Журнал событий с фильтрами, экспортом и очисткой токенов</li>
+            <li data-i18n="f5_l3">Журнал событий с фильтрами и экспортом</li>
           </ul>
+          <div class="f-detail" data-i18n="f5_det">При выгрузке журнала токены сессии и ключи автоматически вырезаются, чтобы их нельзя было случайно слить.</div>
         </div>
-        <div class="f-cell" data-fcat="sec">
-          <div class="f-icon">🤖</div>
+        <div class="f-cell" tabindex="0">
+          <div class="f-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
           <h3 data-i18n="f6_t">Аккаунт, бот и оплата</h3>
-          <p class="sub" data-i18n="f6_s">Единая база Supabase</p>
+          <p class="sub" data-i18n="f6_s">Общая подписка с Telegram</p>
           <ul>
-            <li data-i18n="f6_l1">Вход через <span class="opt">Google</span> (внутри приложения) или email</li>
-            <li data-i18n="f6_l2">Telegram-бот для привязки, ключей, поддержки и рефералки</li>
+            <li data-i18n="f6_l1">Вход через <span class="opt">Google</span> внутри приложения или email</li>
+            <li data-i18n="f6_l2">Telegram-бот для ключей, поддержки и рефералки</li>
             <li data-i18n="f6_l3">Разовая оплата через <span class="opt">Cashera</span> без автосписаний</li>
           </ul>
+          <div class="f-detail" data-i18n="f6_det">Аккаунт единый для Android-клиента и Telegram-бота: оплата в одном месте сразу открывает доступ в другом.</div>
         </div>
       </div>
     </div>
