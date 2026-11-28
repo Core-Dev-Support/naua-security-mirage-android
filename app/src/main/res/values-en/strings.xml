@@ -354,11 +354,11 @@
     <string name="per_app_tab_auto_vpn">Auto-VPN</string>
     <string name="auto_vpn_title">Auto-VPN on app open</string>
     <string name="auto_vpn_desc">Connects VPN when a selected app opens and disconnects when you leave</string>
-    <string name="auto_vpn_service_label">Mirage App Auto-VPN</string>
+    <string name="auto_vpn_service_label">NAUA Security Mirage Auto-VPN</string>
     <string name="auto_vpn_accessibility_desc">Detects when selected apps are opened or closed to automatically connect and disconnect VPN. Screen content is never read.</string>
     <string name="auto_vpn_perm_required">Accessibility permission required — tap to enable</string>
     <string name="auto_vpn_dialog_title">Permission for Auto-VPN</string>
-    <string name="auto_vpn_dialog_msg">To let Mirage automatically connect VPN when you open selected apps and disconnect when you leave them, enable "Mirage App Auto-VPN" in Accessibility settings.\n\nMirage does not read screen text or content.</string>
+    <string name="auto_vpn_dialog_msg">To let Mirage automatically connect VPN when you open selected apps and disconnect when you leave them, enable "NAUA Security Mirage Auto-VPN" in Accessibility settings.\n\nMirage does not read screen text or content.</string>
     <string name="auto_vpn_open_settings">Open settings</string>
     <string name="auto_vpn_stats_fmt">Total: %1$d • Auto-VPN: %2$d</string>
     <string name="auto_vpn_filter_selected_fmt">Selected (%1$d)</string>
