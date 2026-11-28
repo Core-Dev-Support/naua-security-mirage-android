@@ -6920,9 +6920,9 @@ class MainActivity : AppCompatActivity() {
             closePerAppProxy()
         }
 
-        binding.tabPerAppTunnel.setOnClickListener {
+        binding.autoVpnSection.tabPerAppTunnel.setOnClickListener {
             if (!isAutoVpnTabActive) return@setOnClickListener
-            AnimationHelper.bounceClick(binding.tabPerAppTunnel, minScale = 0.94f, durationMs = 150)
+            AnimationHelper.bounceClick(binding.autoVpnSection.tabPerAppTunnel, minScale = 0.94f, durationMs = 150)
             isAutoVpnTabActive = false
             perAppFilterMode = FILTER_ALL
             updatePerAppModeTabs()
@@ -6932,9 +6932,9 @@ class MainActivity : AppCompatActivity() {
             filterAndDisplayApps(forceNotify = true)
         }
 
-        binding.tabPerAppAutoVpn.setOnClickListener {
+        binding.autoVpnSection.tabPerAppAutoVpn.setOnClickListener {
             if (isAutoVpnTabActive) return@setOnClickListener
-            AnimationHelper.bounceClick(binding.tabPerAppAutoVpn, minScale = 0.94f, durationMs = 150)
+            AnimationHelper.bounceClick(binding.autoVpnSection.tabPerAppAutoVpn, minScale = 0.94f, durationMs = 150)
             isAutoVpnTabActive = true
             perAppFilterMode = FILTER_ALL
             updatePerAppModeTabs()
@@ -6944,11 +6944,11 @@ class MainActivity : AppCompatActivity() {
             filterAndDisplayApps(forceNotify = true)
         }
 
-        binding.cardAutoVpnToggle.setOnClickListener {
-            binding.switchAutoVpnEnabled.toggle()
+        binding.autoVpnSection.cardAutoVpnToggle.setOnClickListener {
+            binding.autoVpnSection.switchAutoVpnEnabled.toggle()
         }
 
-        binding.switchAutoVpnEnabled.setOnCheckedChangeListener { _, isChecked ->
+        binding.autoVpnSection.switchAutoVpnEnabled.setOnCheckedChangeListener { _, isChecked ->
             settingsRepository.isAutoVpnOnAppEnabled = isChecked
             if (isChecked && !com.naua_security_mirage.app.vpn.AppAutoVpnAccessibilityService.isServiceEnabled(this)) {
                 showAutoVpnPermissionDialog()
@@ -6957,8 +6957,8 @@ class MainActivity : AppCompatActivity() {
             updatePerAppSettingDescription()
         }
 
-        binding.bannerAutoVpnPermission.setOnClickListener {
-            AnimationHelper.bounceClick(binding.bannerAutoVpnPermission, minScale = 0.97f, durationMs = 150)
+        binding.autoVpnSection.bannerAutoVpnPermission.setOnClickListener {
+            AnimationHelper.bounceClick(binding.autoVpnSection.bannerAutoVpnPermission, minScale = 0.97f, durationMs = 150)
             openAccessibilitySettings()
         }
 
@@ -7164,7 +7164,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun updatePerAppModeTabs() {
-        binding.panelAutoVpnControls.visibility = if (isAutoVpnTabActive) View.VISIBLE else View.GONE
+        binding.autoVpnSection.panelAutoVpnControls.visibility = if (isAutoVpnTabActive) View.VISIBLE else View.GONE
         val isLight = settingsRepository.themePreset == SettingsRepository.THEME_LIGHT
         val hasWallpaper = !settingsRepository.customBgImagePath.isNullOrEmpty() && File(settingsRepository.customBgImagePath ?: "").exists()
         val isLightContext = !hasWallpaper && (isLight || (settingsRepository.customBgColor != 0 && ColorUtils.calculateLuminance(settingsRepository.customBgColor) > 0.5))
@@ -7176,8 +7176,8 @@ class MainActivity : AppCompatActivity() {
         val chipBaseColor = if (isLightContext) Color.WHITE else ContextCompat.getColor(this, R.color.card)
 
         val tabs = listOf(
-            Triple(binding.tabPerAppTunnel, binding.tvTabPerAppTunnel, !isAutoVpnTabActive),
-            Triple(binding.tabPerAppAutoVpn, binding.tvTabPerAppAutoVpn, isAutoVpnTabActive)
+            Triple(binding.autoVpnSection.tabPerAppTunnel, binding.autoVpnSection.tvTabPerAppTunnel, !isAutoVpnTabActive),
+            Triple(binding.autoVpnSection.tabPerAppAutoVpn, binding.autoVpnSection.tvTabPerAppAutoVpn, isAutoVpnTabActive)
         )
         for ((tab, text, isActive) in tabs) {
             tab.background = GradientDrawable().apply {
@@ -7207,9 +7207,9 @@ class MainActivity : AppCompatActivity() {
 
     private fun updateAutoVpnControlsUI() {
         val enabled = settingsRepository.isAutoVpnOnAppEnabled
-        binding.switchAutoVpnEnabled.setChecked(enabled, false)
+        binding.autoVpnSection.switchAutoVpnEnabled.setChecked(enabled, false)
         val hasPerm = com.naua_security_mirage.app.vpn.AppAutoVpnAccessibilityService.isServiceEnabled(this)
-        binding.bannerAutoVpnPermission.visibility = if (isAutoVpnTabActive && enabled && !hasPerm) View.VISIBLE else View.GONE
+        binding.autoVpnSection.bannerAutoVpnPermission.visibility = if (isAutoVpnTabActive && enabled && !hasPerm) View.VISIBLE else View.GONE
     }
 
     private fun showAutoVpnPermissionDialog() {
@@ -9679,16 +9679,16 @@ class MainActivity : AppCompatActivity() {
 
         binding.bannerVpnActiveNotice.background = getCardDrawable(isLightContext, 14f)
         updateVpnActiveNoticeBanner(animated = false)
-        binding.cardAutoVpnToggle.background = getCardDrawable(isLightContext, 14f)
-        binding.tvAutoVpnTitle.setTextColor(titleTextColor)
-        binding.tvAutoVpnDesc.setTextColor(subtitleTextColor)
-        binding.switchAutoVpnEnabled.setLightMode(isLightContext)
+        binding.autoVpnSection.cardAutoVpnToggle.background = getCardDrawable(isLightContext, 14f)
+        binding.autoVpnSection.tvAutoVpnTitle.setTextColor(titleTextColor)
+        binding.autoVpnSection.tvAutoVpnDesc.setTextColor(subtitleTextColor)
+        binding.autoVpnSection.switchAutoVpnEnabled.setLightMode(isLightContext)
         if (customSwitch != 0) {
-            binding.switchAutoVpnEnabled.setActiveColor(customSwitch)
+            binding.autoVpnSection.switchAutoVpnEnabled.setActiveColor(customSwitch)
         } else {
-            binding.switchAutoVpnEnabled.resetColors()
+            binding.autoVpnSection.switchAutoVpnEnabled.resetColors()
         }
-        binding.bannerAutoVpnPermission.background = getCardDrawable(isLightContext, 14f)
+        binding.autoVpnSection.bannerAutoVpnPermission.background = getCardDrawable(isLightContext, 14f)
         updatePerAppModeTabs()
 
         appProxyAdapter?.isLightContext = isLightContext
