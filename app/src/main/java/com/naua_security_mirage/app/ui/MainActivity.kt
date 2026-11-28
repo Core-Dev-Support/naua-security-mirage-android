@@ -134,6 +134,7 @@ class MainActivity : AppCompatActivity() {
 
     private var allInstalledApps: List<AppInfo> = emptyList()
     private var appProxyAdapter: AppProxyAdapter? = null
+    private var isAutoVpnTabActive = false
     private var perAppFilterMode = FILTER_ALL
     private var perAppSearchQuery = ""
     private var isAppsLoading = false
@@ -481,6 +482,8 @@ class MainActivity : AppCompatActivity() {
         refreshNodeStatus()
         refreshKillSwitchRow()
         syncSettingsSwitches()
+        updateAutoVpnControlsUI()
+        updatePerAppSettingDescription()
         ensureCardRows()
         maybeShowPrivateDnsDialog()
         applyScreenshotBlocking()
@@ -6078,6 +6081,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun openPerAppProxy() {
         loadInstalledAppsIfNeeded()
+        updatePerAppModeTabs()
         updatePerAppFilterChips()
         splitTunnelDirty = false
         updateVpnActiveNoticeBanner(animated = false)
@@ -6877,22 +6881,36 @@ class MainActivity : AppCompatActivity() {
 
     private fun updatePerAppSettingDescription() {
         val bypassedCount = settingsRepository.bypassedAppPackages.size
-        binding.tvPerAppSettingDesc.text = if (bypassedCount == 0) {
+        val base = if (bypassedCount == 0) {
             getString(R.string.per_app_all_enabled)
         } else {
             getString(R.string.per_app_excluded_fmt, bypassedCount)
         }
+        binding.tvPerAppSettingDesc.text = if (settingsRepository.isAutoVpnOnAppEnabled) {
+            val count = settingsRepository.autoVpnAppPackages.size
+            "$base · ${getString(R.string.auto_vpn_short_enabled_fmt, count)}"
+        } else {
+            base
+        }
+        auroraPerAppDesc?.text = binding.tvPerAppSettingDesc.text
     }
 
     private fun setupPerAppProxyUI() {
-        appProxyAdapter = AppProxyAdapter(this) { app, isProxied ->
-            settingsRepository.setAppProxied(app.packageName, isProxied)
-            allInstalledApps = allInstalledApps.map {
-                if (it.packageName == app.packageName) it.copy(isProxied = isProxied) else it
+        appProxyAdapter = AppProxyAdapter(this) { app, isEnabled ->
+            if (isAutoVpnTabActive) {
+                settingsRepository.setAutoVpnApp(app.packageName, isEnabled)
+                updatePerAppStats()
+                updateToggleAllButtonState()
+                updatePerAppSettingDescription()
+            } else {
+                settingsRepository.setAppProxied(app.packageName, isEnabled)
+                allInstalledApps = allInstalledApps.map {
+                    if (it.packageName == app.packageName) it.copy(isProxied = isEnabled) else it
+                }
+                updatePerAppStats()
+                updateToggleAllButtonState()
+                notifySplitTunnelChanged()
             }
-            updatePerAppStats()
-            updateToggleAllButtonState()
-            notifySplitTunnelChanged()
         }
         binding.rvAppList.layoutManager = LinearLayoutManager(this)
         binding.rvAppList.adapter = appProxyAdapter
@@ -6900,6 +6918,48 @@ class MainActivity : AppCompatActivity() {
         binding.btnBackFromPerApp.setOnClickListener {
             AnimationHelper.bounceClick(binding.btnBackFromPerApp, minScale = 0.88f, durationMs = 180)
             closePerAppProxy()
+        }
+
+        binding.tabPerAppTunnel.setOnClickListener {
+            if (!isAutoVpnTabActive) return@setOnClickListener
+            AnimationHelper.bounceClick(binding.tabPerAppTunnel, minScale = 0.94f, durationMs = 150)
+            isAutoVpnTabActive = false
+            perAppFilterMode = FILTER_ALL
+            updatePerAppModeTabs()
+            updatePerAppFilterChips()
+            updatePerAppStats()
+            updateToggleAllButtonState()
+            filterAndDisplayApps(forceNotify = true)
+        }
+
+        binding.tabPerAppAutoVpn.setOnClickListener {
+            if (isAutoVpnTabActive) return@setOnClickListener
+            AnimationHelper.bounceClick(binding.tabPerAppAutoVpn, minScale = 0.94f, durationMs = 150)
+            isAutoVpnTabActive = true
+            perAppFilterMode = FILTER_ALL
+            updatePerAppModeTabs()
+            updatePerAppFilterChips()
+            updatePerAppStats()
+            updateToggleAllButtonState()
+            filterAndDisplayApps(forceNotify = true)
+        }
+
+        binding.cardAutoVpnToggle.setOnClickListener {
+            binding.switchAutoVpnEnabled.toggle()
+        }
+
+        binding.switchAutoVpnEnabled.setOnCheckedChangeListener { _, isChecked ->
+            settingsRepository.isAutoVpnOnAppEnabled = isChecked
+            if (isChecked && !com.naua_security_mirage.app.vpn.AppAutoVpnAccessibilityService.isServiceEnabled(this)) {
+                showAutoVpnPermissionDialog()
+            }
+            updateAutoVpnControlsUI()
+            updatePerAppSettingDescription()
+        }
+
+        binding.bannerAutoVpnPermission.setOnClickListener {
+            AnimationHelper.bounceClick(binding.bannerAutoVpnPermission, minScale = 0.97f, durationMs = 150)
+            openAccessibilitySettings()
         }
 
         binding.chipFilterAll.setOnClickListener {
@@ -6925,15 +6985,23 @@ class MainActivity : AppCompatActivity() {
 
         binding.btnToggleAllApps.setOnClickListener {
             AnimationHelper.bounceClick(binding.btnToggleAllApps, minScale = 0.92f, durationMs = 150)
-            val allProxied = allInstalledApps.isNotEmpty() && allInstalledApps.all { it.isProxied }
-            val newProxied = !allProxied
-            val allPkgs = allInstalledApps.map { it.packageName }
-            settingsRepository.setAllAppsProxied(newProxied, allPkgs)
-            allInstalledApps = allInstalledApps.map { it.copy(isProxied = newProxied) }
-            filterAndDisplayApps(forceNotify = true)
-            updatePerAppStats()
-            updateToggleAllButtonState()
-            notifySplitTunnelChanged()
+            if (isAutoVpnTabActive) {
+                settingsRepository.resetAutoVpnAppsToDefault()
+                filterAndDisplayApps(forceNotify = true)
+                updatePerAppStats()
+                updatePerAppSettingDescription()
+                Toast.makeText(this, R.string.auto_vpn_defaults_applied, Toast.LENGTH_SHORT).show()
+            } else {
+                val allProxied = allInstalledApps.isNotEmpty() && allInstalledApps.all { it.isProxied }
+                val newProxied = !allProxied
+                val allPkgs = allInstalledApps.map { it.packageName }
+                settingsRepository.setAllAppsProxied(newProxied, allPkgs)
+                allInstalledApps = allInstalledApps.map { it.copy(isProxied = newProxied) }
+                filterAndDisplayApps(forceNotify = true)
+                updatePerAppStats()
+                updateToggleAllButtonState()
+                notifySplitTunnelChanged()
+            }
         }
 
         binding.etSearchApps.addTextChangedListener(object : TextWatcher {
@@ -7010,7 +7078,13 @@ class MainActivity : AppCompatActivity() {
 
     private fun filterAndDisplayApps(forceNotify: Boolean = false) {
         val query = perAppSearchQuery.lowercase(Locale.getDefault())
-        val filtered = allInstalledApps.filter { app ->
+        val mapped = if (isAutoVpnTabActive) {
+            val autoApps = settingsRepository.autoVpnAppPackages
+            allInstalledApps.map { it.copy(isProxied = autoApps.contains(it.packageName)) }
+        } else {
+            allInstalledApps
+        }
+        val filtered = mapped.filter { app ->
             val matchesSearch = query.isEmpty() ||
                 app.name.lowercase(Locale.getDefault()).contains(query) ||
                 app.packageName.lowercase(Locale.getDefault()).contains(query)
@@ -7022,6 +7096,8 @@ class MainActivity : AppCompatActivity() {
             }
 
             matchesSearch && matchesFilter
+        }.let { list ->
+            if (isAutoVpnTabActive) list.sortedByDescending { it.isProxied } else list
         }
         appProxyAdapter?.submitList(filtered, forceNotify)
         binding.tvEmptyAppsSearch.visibility = if (filtered.isEmpty() && !isAppsLoading) View.VISIBLE else View.GONE
@@ -7059,18 +7135,99 @@ class MainActivity : AppCompatActivity() {
 
     private fun updatePerAppStats() {
         val total = allInstalledApps.size
-        val proxied = allInstalledApps.count { it.isProxied }
-        val bypassed = total - proxied
-        binding.tvPerAppStats.text = getString(R.string.per_app_stats_fmt, total, proxied, bypassed)
-        binding.tvFilterAll.text = getString(R.string.filter_all_fmt, total)
-        binding.tvFilterProxied.text = getString(R.string.filter_proxied_fmt, proxied)
-        binding.tvFilterBypassed.text = getString(R.string.filter_bypassed_fmt, bypassed)
+        if (isAutoVpnTabActive) {
+            val autoApps = settingsRepository.autoVpnAppPackages
+            val selected = allInstalledApps.count { autoApps.contains(it.packageName) }
+            val other = total - selected
+            binding.tvPerAppStats.text = getString(R.string.auto_vpn_stats_fmt, total, selected)
+            binding.tvFilterAll.text = getString(R.string.filter_all_fmt, total)
+            binding.tvFilterProxied.text = getString(R.string.auto_vpn_filter_selected_fmt, selected)
+            binding.tvFilterBypassed.text = getString(R.string.auto_vpn_filter_unselected_fmt, other)
+        } else {
+            val proxied = allInstalledApps.count { it.isProxied }
+            val bypassed = total - proxied
+            binding.tvPerAppStats.text = getString(R.string.per_app_stats_fmt, total, proxied, bypassed)
+            binding.tvFilterAll.text = getString(R.string.filter_all_fmt, total)
+            binding.tvFilterProxied.text = getString(R.string.filter_proxied_fmt, proxied)
+            binding.tvFilterBypassed.text = getString(R.string.filter_bypassed_fmt, bypassed)
+        }
         updatePerAppSettingDescription()
     }
 
     private fun updateToggleAllButtonState() {
-        val allProxied = allInstalledApps.isNotEmpty() && allInstalledApps.all { it.isProxied }
-        binding.tvToggleAllApps.text = if (allProxied) getString(R.string.action_exclude_all) else getString(R.string.action_select_all)
+        if (isAutoVpnTabActive) {
+            binding.tvToggleAllApps.text = getString(R.string.auto_vpn_reset_defaults)
+        } else {
+            val allProxied = allInstalledApps.isNotEmpty() && allInstalledApps.all { it.isProxied }
+            binding.tvToggleAllApps.text = if (allProxied) getString(R.string.action_exclude_all) else getString(R.string.action_select_all)
+        }
+    }
+
+    private fun updatePerAppModeTabs() {
+        binding.panelAutoVpnControls.visibility = if (isAutoVpnTabActive) View.VISIBLE else View.GONE
+        val isLight = settingsRepository.themePreset == SettingsRepository.THEME_LIGHT
+        val hasWallpaper = !settingsRepository.customBgImagePath.isNullOrEmpty() && File(settingsRepository.customBgImagePath ?: "").exists()
+        val isLightContext = !hasWallpaper && (isLight || (settingsRepository.customBgColor != 0 && ColorUtils.calculateLuminance(settingsRepository.customBgColor) > 0.5))
+        val density = resources.displayMetrics.density
+
+        val customAccent = settingsRepository.customConnectBtnColor
+        val activeStrokeColor = if (customAccent != 0) customAccent else Color.parseColor("#E8A33D")
+        val inactiveStrokeColor = if (isLightContext) Color.parseColor("#CBD5E1") else ContextCompat.getColor(this, R.color.card_stroke)
+        val chipBaseColor = if (isLightContext) Color.WHITE else ContextCompat.getColor(this, R.color.card)
+
+        val tabs = listOf(
+            Triple(binding.tabPerAppTunnel, binding.tvTabPerAppTunnel, !isAutoVpnTabActive),
+            Triple(binding.tabPerAppAutoVpn, binding.tvTabPerAppAutoVpn, isAutoVpnTabActive)
+        )
+        for ((tab, text, isActive) in tabs) {
+            tab.background = GradientDrawable().apply {
+                cornerRadius = 12f * density
+                setColor(chipBaseColor)
+                if (isActive) {
+                    setStroke((2f * density).toInt(), activeStrokeColor)
+                } else {
+                    setStroke((1f * density).toInt(), inactiveStrokeColor)
+                }
+            }
+            if (isActive) {
+                text.setTextColor(activeStrokeColor)
+            } else {
+                val inactiveTextColor = if (settingsRepository.customTextColor != 0) {
+                    ColorUtils.setAlphaComponent(settingsRepository.customTextColor, 210)
+                } else if (isLightContext) {
+                    Color.parseColor("#475569")
+                } else {
+                    ContextCompat.getColor(this, R.color.ink)
+                }
+                text.setTextColor(inactiveTextColor)
+            }
+        }
+        updateAutoVpnControlsUI()
+    }
+
+    private fun updateAutoVpnControlsUI() {
+        val enabled = settingsRepository.isAutoVpnOnAppEnabled
+        binding.switchAutoVpnEnabled.setChecked(enabled, false)
+        val hasPerm = com.naua_security_mirage.app.vpn.AppAutoVpnAccessibilityService.isServiceEnabled(this)
+        binding.bannerAutoVpnPermission.visibility = if (isAutoVpnTabActive && enabled && !hasPerm) View.VISIBLE else View.GONE
+    }
+
+    private fun showAutoVpnPermissionDialog() {
+        showStyledDialog(
+            title = getString(R.string.auto_vpn_dialog_title),
+            message = getString(R.string.auto_vpn_dialog_msg),
+            positiveText = getString(R.string.auto_vpn_open_settings),
+            onPositive = { openAccessibilitySettings() },
+            negativeText = getString(android.R.string.cancel)
+        )
+    }
+
+    private fun openAccessibilitySettings() {
+        runCatching {
+            startActivity(Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS))
+        }.onFailure {
+            Toast.makeText(this, R.string.auto_vpn_perm_required, Toast.LENGTH_SHORT).show()
+        }
     }
 
     private fun updatePerAppFilterChips() {
@@ -9523,6 +9680,17 @@ class MainActivity : AppCompatActivity() {
 
         binding.bannerVpnActiveNotice.background = getCardDrawable(isLightContext, 14f)
         updateVpnActiveNoticeBanner(animated = false)
+        binding.cardAutoVpnToggle.background = getCardDrawable(isLightContext, 14f)
+        binding.tvAutoVpnTitle.setTextColor(titleTextColor)
+        binding.tvAutoVpnDesc.setTextColor(subtitleTextColor)
+        binding.switchAutoVpnEnabled.setLightMode(isLightContext)
+        if (customSwitch != 0) {
+            binding.switchAutoVpnEnabled.setActiveColor(customSwitch)
+        } else {
+            binding.switchAutoVpnEnabled.resetColors()
+        }
+        binding.bannerAutoVpnPermission.background = getCardDrawable(isLightContext, 14f)
+        updatePerAppModeTabs()
 
         appProxyAdapter?.isLightContext = isLightContext
         appProxyAdapter?.customTextColor = customText

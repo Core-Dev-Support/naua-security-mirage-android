@@ -65,6 +65,24 @@ class SettingsRepository(context: Context) {
         get() = prefs.getStringSet(KEY_BYPASSED_APP_PACKAGES, emptySet()) ?: emptySet()
         set(value) = prefs.edit().putStringSet(KEY_BYPASSED_APP_PACKAGES, value).apply()
 
+    var isAutoVpnOnAppEnabled: Boolean
+        get() = prefs.getBoolean(KEY_AUTO_VPN_ON_APP_ENABLED, false)
+        set(value) = prefs.edit().putBoolean(KEY_AUTO_VPN_ON_APP_ENABLED, value).apply()
+
+    var autoVpnAppPackages: Set<String>
+        get() {
+            if (!prefs.getBoolean(KEY_AUTO_VPN_INITIALIZED, false)) {
+                return DEFAULT_AUTO_VPN_PACKAGES
+            }
+            return prefs.getStringSet(KEY_AUTO_VPN_APP_PACKAGES, emptySet())?.toSet() ?: emptySet()
+        }
+        set(value) {
+            prefs.edit()
+                .putBoolean(KEY_AUTO_VPN_INITIALIZED, true)
+                .putStringSet(KEY_AUTO_VPN_APP_PACKAGES, value.toSet())
+                .apply()
+        }
+
     var speedIntervalSeconds: Int
         get() = prefs.getInt(KEY_SPEED_INTERVAL, DEFAULT_SPEED_INTERVAL)
         set(value) = prefs.edit().putInt(KEY_SPEED_INTERVAL, value).apply()
@@ -199,6 +217,24 @@ class SettingsRepository(context: Context) {
             current.addAll(packageNames)
         }
         bypassedAppPackages = current
+    }
+
+    fun isAutoVpnApp(packageName: String): Boolean {
+        return autoVpnAppPackages.contains(packageName)
+    }
+
+    fun setAutoVpnApp(packageName: String, enabled: Boolean) {
+        val current = autoVpnAppPackages.toMutableSet()
+        if (enabled) {
+            current.add(packageName)
+        } else {
+            current.remove(packageName)
+        }
+        autoVpnAppPackages = current
+    }
+
+    fun resetAutoVpnAppsToDefault() {
+        autoVpnAppPackages = DEFAULT_AUTO_VPN_PACKAGES
     }
 
     fun getCustomWebsites(): List<CustomWebsite> {
@@ -354,6 +390,32 @@ class SettingsRepository(context: Context) {
         private const val KEY_CUSTOM_SWITCH_COLOR = "key_custom_switch_color"
         private const val KEY_LOG_LEVEL = "key_log_level"
         private const val KEY_BYPASSED_APP_PACKAGES = "key_bypassed_app_packages"
+        private const val KEY_AUTO_VPN_ON_APP_ENABLED = "key_auto_vpn_on_app_enabled"
+        private const val KEY_AUTO_VPN_INITIALIZED = "key_auto_vpn_initialized"
+        private const val KEY_AUTO_VPN_APP_PACKAGES = "key_auto_vpn_app_packages"
+
+        val DEFAULT_AUTO_VPN_PACKAGES: Set<String> = setOf(
+            "com.google.android.youtube",           // YouTube
+            "com.google.android.apps.youtube.music",// YouTube Music
+            "com.instagram.android",                // Instagram
+            "com.discord",                          // Discord
+            "com.zhiliaoapp.musically",             // TikTok
+            "com.ss.android.ugc.trill",             // TikTok (region)
+            "com.twitter.android",                  // X (Twitter)
+            "com.facebook.katana",                  // Facebook
+            "com.facebook.orca",                    // Messenger
+            "com.instagram.barcelona",              // Threads
+            "com.spotify.music",                    // Spotify
+            "com.soundcloud.android",               // SoundCloud
+            "com.linkedin.android",                 // LinkedIn
+            "com.patreon.android",                  // Patreon
+            "com.openai.chatgpt",                   // ChatGPT
+            "com.google.android.apps.bard",         // Gemini
+            "org.thoughtcrime.securesms",           // Signal
+            "com.viber.voip",                       // Viber
+            "com.chess",                            // Chess.com
+            "com.supercell.brawlstars"              // Brawl Stars
+        )
         private const val KEY_SPEED_INTERVAL = "key_speed_interval"
         private const val KEY_AUTO_PING_INTERVAL = "key_auto_ping_interval"
         private const val KEY_FLOW_STRIPPED_HOSTS = "key_flow_stripped_hosts"
