@@ -58,7 +58,7 @@
             <path d="M12,1L3,5v6c0,5.55 3.84,10.74 9,12c5.16,-1.26 9,-6.45 9,-12V5L12,1zM12,11.99h7c-0.53,4.12 -3.28,7.79 -7,8.94V12H5V6.3l7,-3.11v8.8z" fill="#e8a33d"/>
           </g>
         </svg>
-        <span>NAUA Mirage</span>
+        <span>NAUA Security Mirage</span>
       </a>
       <nav class="nav-links">
         <a href="#highlights" data-i18n="nav_highlights">Возможности</a>
@@ -123,7 +123,7 @@
       <div class="sec-head">
         <div>
           <span class="kicker" data-i18n="k_high">Возможности</span>
-          <h2 data-i18n="h_high">Почему выбирают Mirage</h2>
+          <h2 data-i18n="h_high">Почему выбирают нас</h2>
         </div>
         <p class="sec-sub" data-i18n="s_high">От маскировки трафика под обычный HTTPS до самозащиты APK и единой подписки.</p>
       </div>
@@ -204,67 +204,75 @@
           <span class="kicker" data-i18n="k_all">Всё остальное</span>
           <h2 data-i18n="h_all">Полный контроль без лишнего шума</h2>
         </div>
-        <p class="sec-sub" data-i18n="s_all">Всё необходимое для стабильного соединения, диагностики и настройки интерфейса под себя.</p>
+        <div>
+          <p class="sec-sub" data-i18n="s_all">Всё необходимое для стабильного соединения, диагностики и настройки интерфейса под себя.</p>
+          <div class="f-tabs" id="featureTabs">
+            <button class="active" data-fcat="all" type="button" data-i18n="ft_all">Все разделы</button>
+            <button data-fcat="net" type="button" data-i18n="ft_net">Сеть и ядро</button>
+            <button data-fcat="sec" type="button" data-i18n="ft_sec">Безопасность</button>
+            <button data-fcat="app" type="button" data-i18n="ft_app">Интерфейс и сервис</button>
+          </div>
+        </div>
       </div>
       <div class="features-matrix">
-        <div class="f-cell">
+        <div class="f-cell" data-fcat="net">
           <div class="f-icon">⚡</div>
           <h3 data-i18n="f1_t">Ядро и сеть</h3>
           <p class="sub" data-i18n="f1_s">Нативный VpnService + libXray</p>
           <ul>
-            <li data-i18n="f1_l1">Автовыбор лучшего узла по пингу, потерям и джиттеру</li>
+            <li data-i18n="f1_l1">Автовыбор лучшего узла по <span class="opt">пинг</span> <span class="opt">потери</span> <span class="opt">джиттер</span></li>
             <li data-i18n="f1_l2">Проверка реального прохода трафика, а не просто старта ядра</li>
-            <li data-i18n="f1_l3">2 плитки Quick Settings и автозапуск при старте системы</li>
+            <li data-i18n="f1_l3"><span class="opt">2 Quick Settings</span> плитки и автозапуск при старте системы</li>
           </ul>
         </div>
-        <div class="f-cell">
+        <div class="f-cell" data-fcat="net">
           <div class="f-icon">🌐</div>
           <h3 data-i18n="f2_t">Протоколы и маршруты</h3>
           <p class="sub" data-i18n="f2_s">Гибкий обход блокировок</p>
           <ul>
-            <li data-i18n="f2_l1">VLESS + Reality (в бете — Hysteria 2 и XHTTP)</li>
-            <li data-i18n="f2_l2">Обновляемый geosite.dat для .ru-доменов</li>
-            <li data-i18n="f2_l3">Per-App Proxy без разрешения QUERY_ALL_PACKAGES</li>
+            <li data-i18n="f2_l1"><span class="opt">VLESS + Reality</span> (в бете — <span class="opt">Hysteria 2</span> и <span class="opt">XHTTP</span>)</li>
+            <li data-i18n="f2_l2">Обновляемый <span class="opt">geosite.dat</span> для прямых .ru-доменов</li>
+            <li data-i18n="f2_l3">Per-App Proxy без разрешения <span class="opt">QUERY_ALL_PACKAGES</span></li>
           </ul>
         </div>
-        <div class="f-cell">
+        <div class="f-cell" data-fcat="sec">
           <div class="f-icon">🛡</div>
           <h3 data-i18n="f3_t">Безопасность и приватность</h3>
           <p class="sub" data-i18n="f3_s">Zero logs и защита контура</p>
           <ul>
-            <li data-i18n="f3_l1">AD_ID и рекламные сервисы вырезаны из манифеста (проверка в CI)</li>
-            <li data-i18n="f3_l2">Токены в EncryptedSharedPreferences, allowBackup=false</li>
-            <li data-i18n="f3_l3">Самообновление из GitHub Releases с проверкой подписи v2/v3</li>
+            <li data-i18n="f3_l1"><span class="opt">AD_ID</span> вырезан из манифеста; диагностика Firebase отключается</li>
+            <li data-i18n="f3_l2">Токены в <span class="opt">EncryptedSharedPreferences</span>, <span class="opt">Kill Switch</span> Android</li>
+            <li data-i18n="f3_l3">Самообновление из GitHub Releases с проверкой подписи <span class="opt">v2/v3</span></li>
           </ul>
         </div>
-        <div class="f-cell">
+        <div class="f-cell" data-fcat="app">
           <div class="f-icon">🎨</div>
           <h3 data-i18n="f4_t">Внешний вид</h3>
           <p class="sub" data-i18n="f4_s">Настройка главного экрана</p>
           <ul>
-            <li data-i18n="f4_l1">5 стилей кнопки: Стандарт, Cyber Earth, Quantum Core, Holo-Shield, Realistic Earth</li>
-            <li data-i18n="f4_l2">Свои цвета кнопки, текста, переключателей и фон</li>
-            <li data-i18n="f4_l3">Скрытие и перестановка разделов, RU / EN (618 строк)</li>
+            <li data-i18n="f4_l1">5 стилей кнопки: <span class="opt">Стандарт</span> <span class="opt">Cyber Earth</span> <span class="opt">Quantum Core</span> <span class="opt">Holo-Shield</span> <span class="opt">Realistic Earth</span></li>
+            <li data-i18n="f4_l2">Свои цвета для «Стандарт», своё фото из галереи на фон и анимации</li>
+            <li data-i18n="f4_l3">Скрытие разделов, резервные копии, <span class="opt">RU / EN</span> (618 строк)</li>
           </ul>
         </div>
-        <div class="f-cell">
+        <div class="f-cell" data-fcat="app">
           <div class="f-icon">📊</div>
           <h3 data-i18n="f5_t">Диагностика и журнал</h3>
           <p class="sub" data-i18n="f5_s">Прозрачность каждого соединения</p>
           <ul>
             <li data-i18n="f5_l1">Live-скорость, пинг и время сессии на экране и в шторке</li>
-            <li data-i18n="f5_l2">Карточка узлов («отвечают N из M») и история сбоев</li>
+            <li data-i18n="f5_l2">Карточка узлов (<span class="opt">отвечают N из M</span>) и история сбоев</li>
             <li data-i18n="f5_l3">Журнал событий с фильтрами, экспортом и очисткой токенов</li>
           </ul>
         </div>
-        <div class="f-cell">
+        <div class="f-cell" data-fcat="sec">
           <div class="f-icon">🤖</div>
           <h3 data-i18n="f6_t">Аккаунт, бот и оплата</h3>
           <p class="sub" data-i18n="f6_s">Единая база Supabase</p>
           <ul>
-            <li data-i18n="f6_l1">Вход через Google (внутри приложения) или email</li>
+            <li data-i18n="f6_l1">Вход через <span class="opt">Google</span> (внутри приложения) или email</li>
             <li data-i18n="f6_l2">Telegram-бот для привязки, ключей, поддержки и рефералки</li>
-            <li data-i18n="f6_l3">Оплата через Cashera без автосписаний</li>
+            <li data-i18n="f6_l3">Разовая оплата через <span class="opt">Cashera</span> без автосписаний</li>
           </ul>
         </div>
       </div>
