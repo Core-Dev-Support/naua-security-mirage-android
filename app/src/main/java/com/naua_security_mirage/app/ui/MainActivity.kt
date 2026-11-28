@@ -7370,8 +7370,10 @@ class MainActivity : AppCompatActivity() {
         }
 
         val btnClose = dialog.findViewById<TextView>(R.id.btnAutoVpnDialogClose)
-        btnClose.setTextColor(bodyColor)
+        btnClose.background = getButtonChipDrawable(isLightContext, 14f)
+        btnClose.setTextColor(titleColor)
         btnClose.setOnClickListener {
+            AnimationHelper.bounceClick(btnClose, minScale = 0.96f, durationMs = 140)
             dialog.dismiss()
         }
 
@@ -9927,6 +9929,10 @@ class MainActivity : AppCompatActivity() {
         binding.btnBackFromCustomWebsites.background = getButtonChipDrawable(isLightContext, 12f)
         (binding.btnAddWebsite.getChildAt(0) as? TextView)?.setTextColor(titleTextColor)
         binding.cardAccount.tvAccountCacheAge.setTextColor(subtitleTextColor)
+        binding.cardAccount.ivExportKeysIcon.imageTintList = ColorStateList.valueOf(titleTextColor)
+        binding.cardAccount.tvExportKeysTitle.setTextColor(titleTextColor)
+        binding.cardAccount.tvExportKeysDesc.setTextColor(subtitleTextColor)
+        binding.cardAccount.ivExportKeysChevron.imageTintList = ColorStateList.valueOf(subtitleTextColor)
 
         updateServerPlanSelectorUI()
         styleRuntimeCards(isLightContext, titleTextColor, subtitleTextColor, finalActionColor, baseConnectColor)
@@ -9937,8 +9943,18 @@ class MainActivity : AppCompatActivity() {
         updatePerAppFilterChips()
         updateWebsiteFilterChips()
 
+        val anySubScreenVisible =
+            binding.viewSettings.visibility == View.VISIBLE ||
+            binding.viewAppearance.visibility == View.VISIBLE ||
+            binding.viewLogs.visibility == View.VISIBLE ||
+            binding.viewPerAppProxy.visibility == View.VISIBLE ||
+            binding.viewCustomWebsites.visibility == View.VISIBLE
         binding.auroraShell.root.visibility = if (isGlass) View.VISIBLE else View.GONE
-        binding.viewMain.visibility = if (isGlass) View.INVISIBLE else View.VISIBLE
+        binding.viewMain.visibility = when {
+            isGlass -> View.INVISIBLE
+            anySubScreenVisible -> View.GONE
+            else -> View.VISIBLE
+        }
         if (isGlass) {
             selectGlassTab(currentGlassTab, animate = false)
             syncGlassShell()
