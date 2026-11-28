@@ -1,11 +1,13 @@
 package com.naua_security_mirage.app.vpn
 
 import android.accessibilityservice.AccessibilityService
+import android.accessibilityservice.AccessibilityServiceInfo
 import android.content.ComponentName
 import android.content.Context
 import android.net.VpnService
 import android.provider.Settings
 import android.view.accessibility.AccessibilityEvent
+import android.view.accessibility.AccessibilityManager
 import android.view.inputmethod.InputMethodManager
 import com.naua_security_mirage.app.data.model.VpnState
 import com.naua_security_mirage.app.data.repository.SettingsRepository
@@ -105,11 +107,19 @@ class AppAutoVpnAccessibilityService : AccessibilityService() {
         private const val DISCONNECT_DEBOUNCE_MS = 2500L
 
         fun isServiceEnabled(context: Context): Boolean {
+            val target = ComponentName(context, AppAutoVpnAccessibilityService::class.java)
+            val am = context.getSystemService(Context.ACCESSIBILITY_SERVICE) as? AccessibilityManager
+            if (am != null) {
+                val active = am.getEnabledAccessibilityServiceList(AccessibilityServiceInfo.FEEDBACK_ALL_MASK)
+                return active.any { info ->
+                    val si = info.resolveInfo?.serviceInfo ?: return@any false
+                    ComponentName(si.packageName, si.name) == target
+                }
+            }
             val enabledServices = Settings.Secure.getString(
                 context.contentResolver,
                 Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
             ) ?: return false
-            val target = ComponentName(context, AppAutoVpnAccessibilityService::class.java)
             return enabledServices.split(':').any { entry ->
                 ComponentName.unflattenFromString(entry) == target
             }
