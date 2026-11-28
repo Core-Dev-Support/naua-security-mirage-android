@@ -395,6 +395,9 @@ class SettingsRepository(context: Context) {
         private const val KEY_AUTO_VPN_APP_PACKAGES = "key_auto_vpn_app_packages"
 
         val DEFAULT_AUTO_VPN_PACKAGES: Set<String> = setOf(
+            "org.telegram.messenger",               // Telegram
+            "org.telegram.messenger.web",           // Telegram (Direct/Web)
+            "org.thunderdog.challegram",            // Telegram X
             "com.google.android.youtube",           // YouTube
             "com.google.android.apps.youtube.music",// YouTube Music
             "com.instagram.android",                // Instagram
