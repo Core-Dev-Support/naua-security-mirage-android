@@ -25,6 +25,9 @@ class BootReceiver : BroadcastReceiver() {
         if (action !in validActions) return
 
         val settingsRepository = SettingsRepository(context)
+        if (settingsRepository.isAutoVpnOnAppEnabled) {
+            com.naua_security_mirage.app.vpn.AppAutoVpnMonitorService.syncState(context)
+        }
         if (!settingsRepository.isAutoStartOnBootEnabled) {
             AppLogger.i(TAG, "Автозапуск при старте отключен в настройках.")
             return

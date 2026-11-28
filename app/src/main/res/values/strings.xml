@@ -355,10 +355,10 @@
     <string name="auto_vpn_title">Авто-VPN при открытии</string>
     <string name="auto_vpn_desc">Включает VPN при открытии выбранного приложения и выключает при выходе</string>
     <string name="auto_vpn_service_label">NAUA Security Mirage Авто-VPN</string>
-    <string name="auto_vpn_accessibility_desc">Определяет открытие и закрытие выбранных приложений для автоматического включения и отключения VPN. Содержимое экрана не считывается.</string>
-    <string name="auto_vpn_perm_required">Требуется разрешение «Спец. возможности» — нажмите для настройки</string>
+    <string name="auto_vpn_monitor_notif_text">Отслеживание запуска выбранных приложений</string>
+    <string name="auto_vpn_perm_required">Требуется доступ к истории использования — нажмите для настройки</string>
     <string name="auto_vpn_dialog_title">Разрешение для авто-VPN</string>
-    <string name="auto_vpn_dialog_msg">Чтобы Mirage автоматически включал VPN при открытии выбранных приложений и выключал при выходе, включите службу «NAUA Security Mirage Авто-VPN» в разделе «Специальные возможности».\n\nПриложение не считывает текст и содержимое экрана.</string>
+    <string name="auto_vpn_dialog_msg">Чтобы Mirage автоматически включал VPN при открытии выбранных приложений и выключал при выходе, разрешите «Доступ к истории использования» для NAUA Security Mirage.\n\nЭто разрешение не требует «опасных настроек».</string>
     <string name="auto_vpn_open_settings">Открыть настройки</string>
     <string name="auto_vpn_stats_fmt">Всего: %1$d • Для авто-VPN: %2$d</string>
     <string name="auto_vpn_filter_selected_fmt">Выбраны (%1$d)</string>

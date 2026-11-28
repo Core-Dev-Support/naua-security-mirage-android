@@ -486,6 +486,7 @@ class MainActivity : AppCompatActivity() {
         refreshNodeStatus()
         refreshKillSwitchRow()
         syncSettingsSwitches()
+        com.naua_security_mirage.app.vpn.AppAutoVpnMonitorService.syncState(this)
         updateAutoVpnControlsUI()
         updatePerAppSettingDescription()
         ensureCardRows()
@@ -6954,16 +6955,17 @@ class MainActivity : AppCompatActivity() {
 
         autoVpnBinding.switchAutoVpnEnabled.setOnCheckedChangeListener { _, isChecked ->
             settingsRepository.isAutoVpnOnAppEnabled = isChecked
-            if (isChecked && !com.naua_security_mirage.app.vpn.AppAutoVpnAccessibilityService.isServiceEnabled(this)) {
+            if (isChecked && !com.naua_security_mirage.app.vpn.AppAutoVpnMonitorService.hasUsageStatsPermission(this)) {
                 showAutoVpnPermissionDialog()
             }
+            com.naua_security_mirage.app.vpn.AppAutoVpnMonitorService.syncState(this)
             updateAutoVpnControlsUI()
             updatePerAppSettingDescription()
         }
 
         autoVpnBinding.bannerAutoVpnPermission.setOnClickListener {
             AnimationHelper.bounceClick(autoVpnBinding.bannerAutoVpnPermission, minScale = 0.97f, durationMs = 150)
-            openAccessibilitySettings()
+            openUsageAccessSettings()
         }
 
         binding.chipFilterAll.setOnClickListener {
@@ -7212,7 +7214,7 @@ class MainActivity : AppCompatActivity() {
     private fun updateAutoVpnControlsUI() {
         val enabled = settingsRepository.isAutoVpnOnAppEnabled
         autoVpnBinding.switchAutoVpnEnabled.setChecked(enabled, false)
-        val hasPerm = com.naua_security_mirage.app.vpn.AppAutoVpnAccessibilityService.isServiceEnabled(this)
+        val hasPerm = com.naua_security_mirage.app.vpn.AppAutoVpnMonitorService.hasUsageStatsPermission(this)
         autoVpnBinding.bannerAutoVpnPermission.visibility = if (isAutoVpnTabActive && enabled && !hasPerm) View.VISIBLE else View.GONE
     }
 
@@ -7220,17 +7222,22 @@ class MainActivity : AppCompatActivity() {
         androidx.appcompat.app.AlertDialog.Builder(this)
             .setTitle(R.string.auto_vpn_dialog_title)
             .setMessage(R.string.auto_vpn_dialog_msg)
-            .setPositiveButton(R.string.auto_vpn_open_settings) { _, _ -> openAccessibilitySettings() }
+            .setPositiveButton(R.string.auto_vpn_open_settings) { _, _ -> openUsageAccessSettings() }
             .setNegativeButton(android.R.string.cancel, null)
             .show()
     }
 
-    private fun openAccessibilitySettings() {
-        runCatching {
-            startActivity(Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS))
-        }.onFailure {
-            Toast.makeText(this, R.string.auto_vpn_perm_required, Toast.LENGTH_SHORT).show()
+    private fun openUsageAccessSettings() {
+        val pkgIntent = Intent(android.provider.Settings.ACTION_USAGE_ACCESS_SETTINGS).apply {
+            data = android.net.Uri.fromParts("package", packageName, null)
         }
+        runCatching { startActivity(pkgIntent) }
+            .onFailure {
+                runCatching { startActivity(Intent(android.provider.Settings.ACTION_USAGE_ACCESS_SETTINGS)) }
+                    .onFailure {
+                        Toast.makeText(this, R.string.auto_vpn_perm_required, Toast.LENGTH_SHORT).show()
+                    }
+            }
     }
 
     private fun updatePerAppFilterChips() {
