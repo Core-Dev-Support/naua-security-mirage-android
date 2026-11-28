@@ -2838,9 +2838,7 @@
                 android:textStyle="bold" />
         </LinearLayout>
 
-        <include
-            android:id="@+id/autoVpnSection"
-            layout="@layout/layout_per_app_auto_vpn" />
+        <include layout="@layout/layout_per_app_auto_vpn" />
 
         <!-- Search Container -->
         <LinearLayout
