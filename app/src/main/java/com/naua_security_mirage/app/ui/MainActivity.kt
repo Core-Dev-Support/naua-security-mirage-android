@@ -7213,13 +7213,12 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showAutoVpnPermissionDialog() {
-        showStyledDialog(
-            title = getString(R.string.auto_vpn_dialog_title),
-            message = getString(R.string.auto_vpn_dialog_msg),
-            positiveText = getString(R.string.auto_vpn_open_settings),
-            onPositive = { openAccessibilitySettings() },
-            negativeText = getString(android.R.string.cancel)
-        )
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle(R.string.auto_vpn_dialog_title)
+            .setMessage(R.string.auto_vpn_dialog_msg)
+            .setPositiveButton(R.string.auto_vpn_open_settings) { _, _ -> openAccessibilitySettings() }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
     }
 
     private fun openAccessibilitySettings() {
